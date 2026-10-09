@@ -299,6 +299,8 @@ textarea.in{min-height:88px;resize:vertical;line-height:1.5}
 .arow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px}.arow .in{flex:1 1 120px;min-width:0}.arow .in.wide{flex:2 1 200px}
 
 .ghead{font:500 11px var(--f-mono);color:var(--fg-3);text-transform:uppercase;letter-spacing:.06em;padding:14px 12px 4px}
+.hl.moved{opacity:.55}.hl.moved .t{text-decoration:line-through}.hl.moved small{margin-left:8px}
+.warnbox{border:1px solid #c47f17;border-radius:10px;padding:10px 14px;margin:12px 0}.warnbox ul{margin:6px 0 8px;padding-left:18px}
 .rtab[aria-pressed="true"]{background:var(--accent-soft);color:var(--fg);font-weight:600;border-color:var(--accent)}
 .fpick{display:grid;gap:2px;max-height:48vh;overflow:auto;margin:8px 0}
 .fpick .btn{justify-content:flex-start;text-align:left}
@@ -324,6 +326,7 @@ textarea.in{min-height:88px;resize:vertical;line-height:1.5}
 <input type="file" id="fileImport" accept=".docx" multiple hidden>
 <input type="file" id="fileFolder" webkitdirectory hidden>
 <input type="file" id="fileRefresh" accept=".docx" hidden>
+<input type="file" id="fileExtract" accept=".docx" hidden>
 <input type="file" id="fileBackup" accept=".json,application/json" multiple hidden>
 
 <script src="vendor/jszip.min.js"></script>
@@ -471,7 +474,10 @@ function chapLvl(d){
   return Math.min.apply(null,hs.map(function(x){return x.level}));
 }
 function ensureHeads(d){(d.headings||[]).forEach(function(x){if(!x.id)x.id='h'+uid()})}
-function chapters(d){var l=chapLvl(d);ensureHeads(d);return (d.headings||[]).filter(function(x){return x.level===l})}
+function chapters(d){var l=chapLvl(d);ensureHeads(d);return (d.headings||[]).filter(function(x){return x.level===l&&!x.moved})}
+function normTag(s){return (s||'').trim().replace(/^#+/,'').toLowerCase().replace(/\s+/g,'-')}
+function docTags(d){var m={},o=[];(d.tags||[]).concat([].concat.apply([],chapters(d).map(function(x){return x.tags||[]}))).forEach(function(t){if(!m[t]){m[t]=1;o.push(t)}});return o}
+function hasMoved(d){return (d.headings||[]).some(function(x){return x.moved})}
 function uniq(a){var s={};return a.filter(function(x){if(!x||s[x])return false;s[x]=1;return true})}
 function docChars(d){var a=(d.characterIds||[]).slice();chapters(d).forEach(function(x){(x.characterIds||[]).forEach(function(i){a.push(i)});if(x.pov)a.push(x.pov)});return uniq(a)}
 function docLocs(d){var a=(d.locationIds||[]).slice();chapters(d).forEach(function(x){(x.locationIds||[]).forEach(function(i){a.push(i)})});return uniq(a)}
@@ -701,14 +707,14 @@ function docRow(d,o){
   var locs=docLocs(d).map(function(id){return nameOf('locations',id)}).filter(Boolean);
   var meta=[docSpan(d),pov&&('POV '+pov),locs[0]&&(locs[0]+(locs.length>1?' +'+(locs.length-1):''))].filter(Boolean).join(' · ');
   var open=(d.notes||[]).filter(function(n){return n.state!=='done'}).length;
-  var tags=(d.tags||[]).slice(0,3).map(function(t){return '<span class="tg">#'+esc(t)+'</span>'}).join('');
+  var tags=docTags(d).slice(0,3).map(function(t){return '<span class="tg">#'+esc(t)+'</span>'}).join('');
   var st=d.status||'Idea';
   var kind=(kindOf(d)!=='draft')?'<span class="ktag">'+esc(kindLabel(d.kind))+'</span>':'';
   var vr=(d.variant&&d.variant!=='canon'&&d.variant!=='trashed')?'<span class="vtag '+d.variant+'">'+esc(variantLabel(d.variant))+'</span>':'';
   var rid=routeOf(d), rc=byId('routes',rid);
   var rt=(rid!==rootId()&&rc)?'<span class="rtag" style="--rc:var(--r-'+(rc.color||'a')+')"><i></i>'+esc(rc.name)+'</span>':'';
   var chg=(d.file&&d.file.stale)?'<span class="chg">changed</span>':'';
-  var extra=chg+kind+vr+rt+tags+(open?'<span class="nb">'+open+' open</span>':'');
+  var extra=chg+kind+vr+rt+tags+(hasMoved(d)?'<span class="nb">needs update</span>':'')+(open?'<span class="nb">'+open+' open</span>':'');
   return '<div class="row'+(o.sortable?'':' nohandle')+(S.sel===d.id?' sel':'')+(isTrashed(d)?' trashed':'')+'" role="listitem" tabindex="0" data-act="select" data-id="'+d.id+'">'+
     (o.sortable?'<button class="handle" data-handle aria-label="Reorder '+esc(d.title)+'. Use arrow keys or drag.">'+ic('grip',16)+'</button>':'')+
     '<div class="folio"><b>'+pad(o.n)+'</b>'+(o.sub||'')+'</div>'+
@@ -723,12 +729,12 @@ documents:function(){
   var trashed=sortBy(P('documents').filter(isTrashed),'order'), trashView=S.vis==='trash';
   var f=S.filter, q=f.q.trim().toLowerCase();
   var base=trashView?trashed:docs.filter(visOk);
-  var vis=base.filter(function(d){return (!f.status||d.status===f.status)&&(!f.arc||docArcs(d).indexOf(f.arc)>-1)&&(!f.tag||(d.tags||[]).indexOf(f.tag)>-1)&&(!f.kind||kindOf(d)===f.kind)&&(!q||hay(d).indexOf(q)>-1)});
+  var vis=base.filter(function(d){return (!f.status||d.status===f.status)&&(!f.arc||docArcs(d).indexOf(f.arc)>-1)&&(!f.tag||docTags(d).indexOf(f.tag)>-1)&&(!f.kind||kindOf(d)===f.kind)&&(!q||hay(d).indexOf(q)>-1)});
   var filtered=!!(f.status||f.arc||f.tag||f.kind||q||S.vis!=='all');
   var arcs=sortBy(eff('arcs'),'order'), anyArc=docs.some(function(d){return d.arcId&&byId('arcs',d.arcId)});
   var cnt={};STATUSES.forEach(function(s){cnt[s]=0});docs.forEach(function(d){cnt[d.status||'Idea']++});
   var words=docs.reduce(function(s,d){return s+((d.file&&d.file.words)||0)},0);
-  var tagSet={};docs.forEach(function(d){(d.tags||[]).forEach(function(t){tagSet[t]=1})});
+  var tagSet={};docs.forEach(function(d){docTags(d).forEach(function(t){tagSet[t]=1})});
   var tags=Object.keys(tagSet).sort();
   var p=proj(), folder=safeUrl(p&&p.folderUrl);
   var head='<div class="lhead"><div class="ltitle"><h1>Documents</h1><span class="cnt">'+docs.length+(words?' · '+fmtN(words)+' words':'')+(trashed.length?' · '+trashed.length+' in trash':'')+'</span></div>'+
@@ -877,7 +883,7 @@ function chipsFor(d,hd,field,coll){
 function chapterRow(d,hd,oc){
   var pv=nameOf('characters',hd.pov), n=(hd.characterIds||[]).length, k=d.id+':'+hd.id+':';
   var cw=chapWords(d,hd), ak=nameOf('arcs',chapArc(d,hd));
-  var sum=[hd.storyDate,pv&&('POV '+pv),n&&(n+' character'+(n>1?'s':'')),ak&&hd.arcId&&('Arc '+ak),cw!=null&&(fmtN(cw)+' words')].filter(Boolean).join(' · ');
+  var sum=[hd.storyDate,pv&&('POV '+pv),n&&(n+' character'+(n>1?'s':'')),ak&&hd.arcId&&('Arc '+ak),(hd.tags||[]).length&&(hd.tags||[]).map(function(t){return '#'+t}).join(' '),cw!=null&&(fmtN(cw)+' words')].filter(Boolean).join(' · ');
   var unread=dateMode()==='auto'&&(hd.storyDate||'').trim()&&autoKey(hd.storyDate)==null;
   function add(field,coll,noun){return '<button class="btn sm" data-act="chap-pick" data-id="'+d.id+'" data-hid="'+hd.id+'" data-field="'+field+'" data-coll="'+coll+'" data-noun="'+noun+'">'+ic('plus',14)+'Add</button>'}
   return '<details class="chap" data-hid="'+hd.id+'"'+(S.chapOpen&&S.chapOpen[hd.id]?' open':'')+'><summary><span class="hlab">'+esc(label(hd.level)||('H'+hd.level))+'</span><span class="t">'+esc(hd.title)+'</span>'+(oc?'<span class="nb">'+oc+' open</span>':'')+(sum?'<small>'+esc(sum)+'</small>':'')+'</summary><div class="chapbody">'+
@@ -887,8 +893,10 @@ function chapterRow(d,hd,oc){
     '<div><label class="lab" for="chp-'+hd.id+'">POV</label><select class="in" id="chp-'+hd.id+'" data-chap="'+k+'pov">'+optList('characters',hd.pov,'None')+'</select></div>'+
     '<div><label class="lab" for="cha-'+hd.id+'">Arc</label><select class="in" id="cha-'+hd.id+'" data-chap="'+k+'arcId">'+optList('arcs',hd.arcId,'Same as the file','order')+'</select></div>'+
     '<div class="span2"><label class="lab" for="chs-'+hd.id+'">What happens</label><textarea class="in" id="chs-'+hd.id+'" data-chap="'+k+'summary" placeholder="A line or two in your own words">'+esc(hd.summary||'')+'</textarea></div></div>'+
+    '<div class="chapsec"><span class="lab">Tags</span><div class="chips">'+(hd.tags||[]).map(function(t){return '<span class="chip mut">#'+esc(t)+'<button class="x" data-act="ctag-del" data-id="'+d.id+'" data-hid="'+hd.id+'" data-v="'+esc(t)+'" aria-label="Remove tag '+esc(t)+'">'+ic('x',12)+'</button></span>'}).join('')+'</div><div class="addrow"><input class="in" id="ct-'+hd.id+'" data-enter="ctag-add" data-id="'+d.id+'" data-hid="'+hd.id+'" placeholder="Add tags, separated by commas" aria-label="New tags for this chapter"><button class="btn" data-act="ctag-add" data-id="'+d.id+'" data-hid="'+hd.id+'">Add</button></div></div>'+
     '<div class="chapsec"><span class="lab">Characters</span><div class="chips">'+chipsFor(d,hd,'characterIds','characters')+add('characterIds','characters','character')+'</div></div>'+
     '<div class="chapsec"><span class="lab">Locations</span><div class="chips">'+chipsFor(d,hd,'locationIds','locations')+add('locationIds','locations','location')+'</div></div>'+
+    '<div class="chapsec"><button class="btn sm" data-act="ext-open" data-id="'+d.id+'" data-hid="'+hd.id+'">Extract this chapter to a new file</button></div>'+
     '</div></details>';
 }
 function fileSummary(d){
@@ -923,6 +931,7 @@ function docCard(d){
     '<div><label class="lab" for="pv-'+d.id+'">POV</label><select class="in" id="pv-'+d.id+'" data-bind="documents:'+d.id+':pov">'+optList('characters',d.pov,'None')+'</select></div>'+
     '<div><label class="lab" for="ar-'+d.id+'">Arc</label><select class="in" id="ar-'+d.id+'" data-bind="documents:'+d.id+':arcId">'+optList('arcs',d.arcId,'No arc','order')+'</select></div>'+
   '</div>';
+  h+=extractWarn(d);
   h+=fileSummary(d);
   h+='<details class="wholefile"'+(chs.length?'':' open')+'><summary><h3>Whole file'+(chs.length?' (extras beyond the chapters)':'')+'</h3></summary>'+
     relSec('Characters in the scene','documents',d.id,'characterIds','characters',d.characterIds||[],'character')+
@@ -948,11 +957,12 @@ function docCard(d){
   h+='</div>';
   h+='<div class="sec"><h3>Chapters and structure</h3>'+(heads.length?'<p class="hint" style="margin:0 0 6px">Open a chapter to set its date, POV, characters and locations. Chapters are the headings at level '+cl+'; change that in Settings.</p><div class="ht">'+heads.map(function(hd){
     var oc=openByHead[hd.title];
+    if(hd.moved)return '<div class="hl moved" style="--lv:'+hd.level+'"><span class="hlab">'+esc(label(hd.level)||('H'+hd.level))+'</span><span class="t">'+esc(hd.title)+'</span><small>Moved to '+esc(hd.moved.name||'a new file')+'</small></div>';
     if(hd.level===cl)return chapterRow(d,hd,oc);
     return '<div class="hl" style="--lv:'+hd.level+'"><span class="hlab">'+esc(label(hd.level)||('H'+hd.level))+'</span><span class="t">'+esc(hd.title)+'</span>'+(oc?'<span class="nb">'+oc+' open</span>':'')+'</div>';
   }).join('')+'</div>':'<p class="hint">No headings read yet. Use Heading 1, 2 and 3 styles in Word, then read this file below.</p>')+'</div>';
   h+='<div class="sec"><h3>Word file</h3><dl class="meta"><dt>File</dt><dd>'+esc(f.name||'None attached')+'</dd><dt>Headings read</dt><dd>'+fmtDate(f.analysed)+'</dd><dt>Saved in Word</dt><dd>'+fmtDate(f.modified)+'</dd><dt>Length</dt><dd>'+(f.words!=null?fmtN(f.words)+' words':'not counted')+'</dd></dl>'+
-    '<button class="btn" data-act="'+(f.od&&OD.acct?'od-refresh':'refresh')+'" data-id="'+d.id+'">'+ic('refresh')+(f.od&&OD.acct?'Refresh from OneDrive':(f.analysed?'Refresh headings':'Read headings from a .docx'))+'</button>'+
+    '<button class="btn" data-act="'+(f.od&&OD.acct?'od-refresh':'refresh')+'" data-id="'+d.id+'">'+ic('refresh')+(f.od&&OD.acct?'Refresh from OneDrive':(f.analysed?'Refresh headings':'Read headings from a .docx'))+'</button>'+(chs.length?'<button class="btn" style="margin-left:8px" data-act="ext-open" data-id="'+d.id+'">Extract chapters</button>':'')+
     '<p class="hint" style="margin-top:8px">Pick the file again after you edit it. Only heading text and a word count are saved.</p></div>';
   return h;
 }
@@ -1099,6 +1109,7 @@ function renderModal(){
   else if(m.type==='odpick')inner=odPickModal();
   else if(m.type==='clear')inner=clearModal();
   else if(m.type==='hollow')inner=hollowModal();
+  else if(m.type==='extract')inner=extractModal();
   else if(m.type==='routedel')inner=routeDelModal();
   else if(m.type==='path')inner=pathModal();
   else if(m.type==='import')inner=importModal();
@@ -1147,11 +1158,11 @@ function searchResults(q){
   P('documents').forEach(function(d){
     var hs=(d.headings||[]).filter(function(x){return x.title.toLowerCase().indexOf(q)>-1});
     var ns=(d.notes||[]).filter(function(x){return (x.text||'').toLowerCase().indexOf(q)>-1});
-    if((d.title||'').toLowerCase().indexOf(q)>-1||(d.storyDate||'').toLowerCase().indexOf(q)>-1||kindLabel(d.kind).toLowerCase().indexOf(q)>-1||variantLabel(d.variant).toLowerCase().indexOf(q)>-1||(nameOf('routes',routeOf(d))||'').toLowerCase().indexOf(q)>-1||(d.tags||[]).some(function(t){return t.indexOf(q)>-1})||hs.length||ns.length)
+    if((d.title||'').toLowerCase().indexOf(q)>-1||(d.storyDate||'').toLowerCase().indexOf(q)>-1||kindLabel(d.kind).toLowerCase().indexOf(q)>-1||variantLabel(d.variant).toLowerCase().indexOf(q)>-1||(nameOf('routes',routeOf(d))||'').toLowerCase().indexOf(q)>-1||docTags(d).some(function(t){return t.indexOf(q)>-1})||hs.length||ns.length)
       out.push({t:'Document',v:'documents',s:'',id:d.id,title:d.title,sub:hs[0]?'Heading: '+hs[0].title:ns[0]?'Note: '+ns[0].text:''});
   });
   P('documents').forEach(function(d){chapters(d).forEach(function(x){
-    if(((x.title||'')+' '+(x.summary||'')+' '+(x.storyDate||'')).toLowerCase().indexOf(q)>-1)out.push({t:'Chapter',v:'documents',s:'',a:'chap-go',hid:x.id,id:d.id,title:x.title,sub:[d.title,x.storyDate].filter(Boolean).join(' · ')});
+    if(((x.title||'')+' '+(x.summary||'')+' '+(x.storyDate||'')+' '+(x.tags||[]).join(' ')).toLowerCase().indexOf(q)>-1)out.push({t:'Chapter',v:'documents',s:'',a:'chap-go',hid:x.id,id:d.id,title:x.title,sub:[d.title,x.storyDate].filter(Boolean).join(' · ')});
   })});
   P('characters').forEach(function(c){if(charHay(c).indexOf(q)>-1)out.push({t:'Character',v:'characters',s:'',id:c.id,title:c.name,sub:c.role})});
   P('locations').forEach(function(c){if((c.name||'').toLowerCase().indexOf(q)>-1)out.push({t:'Location',v:'locations',s:'',id:c.id,title:c.name,sub:c.type})});
@@ -1231,6 +1242,132 @@ async function parseDocx(file){
   if(cf){var cx=await cf.async('string');var mm=/<dcterms:modified[^>]*>([^<]+)</.exec(cx);if(mm)modified=mm[1]}
   if(!modified&&file.lastModified)modified=new Date(file.lastModified).toISOString();
   return {headings:heads,words:words,modified:modified};
+}
+var DOCX_MIME='application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+function ptext(p){var o='',els=p.getElementsByTagNameNS(W,'*');for(var i=0;i<els.length;i++){var n=els[i].localName;if(n==='t')o+=els[i].textContent;else if(n==='tab'&&els[i].parentNode.localName!=='tabs')o+='\t';else if(n==='br'||n==='cr')o+='\n'}return o}
+async function readParas(file){
+  if(typeof JSZip==='undefined')throw new Error('zip');
+  var zip=await JSZip.loadAsync(await file.arrayBuffer());
+  var docF=zip.file('word/document.xml');if(!docF)throw new Error('nodoc');
+  var parse=function(s){return new DOMParser().parseFromString(s,'application/xml')};
+  var styles={}, sf=zip.file('word/styles.xml');
+  if(sf){
+    var sd=parse(await sf.async('string')), sl=sd.getElementsByTagNameNS(W,'style');
+    for(var i=0;i<sl.length;i++){
+      var st=sl[i], id=st.getAttributeNS(W,'styleId');
+      var ne=st.getElementsByTagNameNS(W,'name')[0], be=st.getElementsByTagNameNS(W,'basedOn')[0], oe=st.getElementsByTagNameNS(W,'outlineLvl')[0];
+      styles[id]={name:ne?ne.getAttributeNS(W,'val'):'',based:be?be.getAttributeNS(W,'val'):'',outline:oe?parseInt(oe.getAttributeNS(W,'val'),10):null};
+    }
+  }
+  var doc=parse(await docF.async('string')), ps=doc.getElementsByTagNameNS(W,'p'), out=[];
+  for(var j=0;j<ps.length;j++){
+    var p=ps[j], ts=p.getElementsByTagNameNS(W,'t'), plain='';
+    for(var k=0;k<ts.length;k++)plain+=ts[k].textContent;
+    plain=plain.trim();
+    var pPr=p.getElementsByTagNameNS(W,'pPr')[0], lv=0;
+    if(plain&&pPr){
+      var ol=pPr.getElementsByTagNameNS(W,'outlineLvl')[0], ps2=pPr.getElementsByTagNameNS(W,'pStyle')[0];
+      if(ol){var v=parseInt(ol.getAttributeNS(W,'val'),10);lv=v<9?v+1:0}
+      else if(ps2)lv=lvlOfStyle(ps2.getAttributeNS(W,'val'),styles);
+    }
+    out.push({lv:lv,plain:plain.slice(0,200),text:lv>0?plain:ptext(p)});
+  }
+  return out;
+}
+async function extractDocx(file,wants){
+  var paras=await readParas(file), heads=[];
+  paras.forEach(function(x,i){if(x.lv>0)heads.push(i)});
+  var out=[], missing=[];
+  wants.forEach(function(w){
+    var n=0, start=-1;
+    for(var k=0;k<heads.length;k++){var x=paras[heads[k]];if(x.lv===w.level&&x.plain.toLowerCase()===(w.title||'').toLowerCase()){if(n===w.nth){start=heads[k];break}n++}}
+    if(start<0){missing.push(w.title);return}
+    var end=paras.length;
+    for(var q=0;q<heads.length;q++){if(heads[q]>start&&paras[heads[q]].lv<=w.level){end=heads[q];break}}
+    var seg=paras.slice(start,end);
+    while(seg.length>1&&!seg[seg.length-1].text.trim())seg.pop();
+    seg.forEach(function(x){out.push({lv:x.lv,text:x.text})});
+  });
+  return {paras:out,missing:missing};
+}
+function xesc(s){return String(s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function xruns(t){return String(t).split(/(\t|\n)/).map(function(s){return s==='\t'?'<w:r><w:tab/></w:r>':s==='\n'?'<w:r><w:br/></w:r>':s?'<w:r><w:t xml:space="preserve">'+xesc(s)+'</w:t></w:r>':''}).join('')}
+async function buildDocx(paras){
+  var NS='xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"', hd='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
+  var body=paras.map(function(x){
+    var lv=Math.min(x.lv||0,6);
+    return '<w:p>'+(lv?'<w:pPr><w:pStyle w:val="Heading'+lv+'"/></w:pPr>':'')+xruns(x.text)+'</w:p>';
+  }).join('');
+  var sty=hd+'<w:styles '+NS+'><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:sz w:val="24"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="160" w:line="276" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style>';
+  for(var i=1;i<=6;i++)sty+='<w:style w:type="paragraph" w:styleId="Heading'+i+'"><w:name w:val="heading '+i+'"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/><w:pPr><w:keepNext/><w:spacing w:before="'+(i<3?360:240)+'" w:after="120"/><w:outlineLvl w:val="'+(i-1)+'"/></w:pPr><w:rPr><w:b/><w:sz w:val="'+Math.max(24,36-i*4)+'"/></w:rPr></w:style>';
+  sty+='</w:styles>';
+  var zip=new JSZip();
+  zip.file('[Content_Types].xml',hd+'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>');
+  zip.file('_rels/.rels',hd+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
+  zip.file('word/_rels/document.xml.rels',hd+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>');
+  zip.file('word/styles.xml',sty);
+  zip.file('word/document.xml',hd+'<w:document '+NS+'><w:body>'+body+'</w:body></w:document>');
+  return zip.generateAsync({type:'uint8array',compression:'DEFLATE'});
+}
+async function downloadBlob(name,blob){
+  var dl=null;try{dl=await window.claude.use('downloads')}catch(e){}
+  if(dl){try{await dl.save({filename:name,data:blob});return}catch(err){if(err&&err.code==='declined')throw err}}
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();
+}
+var EXT={
+  auto:function(d){return false},
+  fetch:async function(d){return null},
+  save:async function(name,blob,d){await downloadBlob(name,blob);return {where:'in your downloads. Move it next to the other files'}}
+};
+function cleanName(n){n=(n||'').replace(/[\\\/:*?"<>|\u0000-\u001F]/g,' ').replace(/\s+/g,' ').trim().replace(/\.docx$/i,'').trim();return (n||'Extract')+'.docx'}
+function extSug(d,sel){var hs=chapters(d).filter(function(x){return sel[x.id]});if(hs.length===1)return hs[0].title;if(hs.length>1)return (d.title||'Extract').replace(/\.docx$/i,'')+' – extract';return ''}
+function extractModal(){
+  var m=S.modal, d=byId('documents',m.id);if(!d)return '';
+  var n=Object.keys(m.sel).filter(function(k){return m.sel[k]}).length, auto=EXT.auto(d);
+  var rows=chapters(d).map(function(x){var w=chapWords(d,x);return '<label class="chk"><input type="checkbox" data-change="ext-row" data-hid="'+x.id+'"'+(m.sel[x.id]?' checked':'')+'><span><b>'+esc(x.title)+'</b>'+(w!=null?'<small>'+fmtN(w)+' words</small>':'')+'</span></label>'}).join('');
+  return '<h2>Extract chapters</h2><p class="hint">Copies the heading and text of each ticked chapter (and anything under it) into a new Word file. Formatting is not kept. The original file is not changed.</p>'+
+    '<div data-hl style="max-height:34vh;overflow:auto;border-top:1px solid var(--line)">'+rows+'</div>'+
+    '<label class="lab" for="extName" style="margin-top:10px">New file name</label><input class="in" id="extName" value="'+esc(m.name||'')+'" placeholder="Name of the new file">'+
+    '<p class="hint">'+(auto?'The text is read from OneDrive and the new file is saved in the same folder as this one.':'You will be asked to pick this Word file. The new file goes to your downloads, so move it next to the others.')+' This file is then marked as needing an update.</p>'+
+    '<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn primary" data-act="ext-go"'+(n?'':' disabled')+'>Extract '+n+'</button></div>';
+}
+async function runExtract(d,file,sel,name){
+  S.modal={type:'busy',msg:'Extracting.'};renderModal();
+  try{
+    var hs=d.headings||[], wants=[];
+    hs.forEach(function(x,i){
+      if(!sel[x.id]||x.moved)return;
+      var n=0;for(var k=0;k<i;k++){var y=hs[k];if(y.level===x.level&&(y.title||'').toLowerCase()===(x.title||'').toLowerCase())n++}
+      var e=i+1;while(e<hs.length&&hs[e].level>x.level)e++;
+      wants.push({i:i,e:e,title:x.title,level:x.level,nth:n});
+    });
+    if(!wants.length){closeModal();toast('Nothing ticked.');return}
+    var res=await extractDocx(file,wants);
+    if(res.missing.length){closeModal();toast('I could not find “'+res.missing[0]+'” in that file. Pick the right file, or read its headings again first.');return}
+    var blob=new Blob([await buildDocx(res.paras)],{type:DOCX_MIME});
+    var saved=(await EXT.save(name,blob,d))||{}, fname=saved.name||name, ts=new Date().toISOString(), words=0, nd;
+    res.paras.forEach(function(x){if(x.text.trim())words+=x.text.trim().split(/\s+/).length});
+    withBulk(function(){
+      var heads=[];
+      wants.forEach(function(w){for(var j=w.i;j<w.e;j++){var c=JSON.parse(JSON.stringify(hs[j]));delete c.moved;c.id='h'+uid();heads.push(c)}});
+      nd=mk('documents',newDoc({title:fname.replace(/\.docx$/i,''),file:Object.assign({name:fname,url:saved.url||'',words:words,modified:ts,analysed:ts,size:blob.size},saved.od?{od:saved.od}:{}),headings:heads,kind:d.kind||'draft',variant:d.variant||'canon',routeId:routeOf(d),arcId:d.arcId||'',status:d.status||'Idea',tags:(d.tags||[]).slice(),order:(d.order||0)+0.5,chron:(d.chron||0)+0.5}));
+      wants.forEach(function(w){for(var j=w.i;j<w.e;j++)hs[j].moved={to:nd.id,name:fname,at:ts}});
+      save('documents',d,true);
+    });
+    closeModal();S.sel=d.id;render();
+    toast(wants.length+' chapter'+(wants.length>1?'s':'')+' extracted to “'+fname+'”'+(saved.where?', saved '+saved.where:'')+'. The original is marked for update.');
+  }catch(err){
+    closeModal();
+    if(err&&err.code==='declined')toast('Nothing was extracted.');
+    else toast('Extraction failed'+(err&&err.message?': '+err.message:'')+'. Check that it is the right .docx.');
+  }
+}
+function extractWarn(d){
+  if(!hasMoved(d))return '';
+  var lv=chapLvl(d), mv=(d.headings||[]).filter(function(x){return x.moved}), top=mv.filter(function(x){return x.level===lv});if(!top.length)top=mv;
+  var by={};top.forEach(function(x){var k=x.moved.to||x.moved.name;(by[k]=by[k]||{name:x.moved.name,to:x.moved.to,t:[]}).t.push(x.title)});
+  var li=Object.keys(by).map(function(k){var b=by[k];return '<li>'+esc(b.t.join(', '))+' → '+(b.to&&byId('documents',b.to)?'<button class="lk" data-act="goto" data-view="documents" data-id="'+b.to+'">'+esc(b.name)+'</button>':esc(b.name))+'</li>'}).join('');
+  return '<div class="sec warnbox" role="note"><h3>Text was extracted from this file</h3><ul>'+li+'</ul><p class="hint" style="margin:0 0 8px">The text is still in this Word file. Delete it there, then read the headings again so this list matches. The chapters no longer count here.</p><div class="actions" style="justify-content:flex-start"><button class="btn" data-act="refresh" data-id="'+d.id+'">'+ic('refresh')+'Read headings again</button><button class="btn" data-act="ext-dismiss" data-id="'+d.id+'">Already removed it</button></div></div>';
 }
 async function handleFiles(fileList){
   var arr=Array.prototype.slice.call(fileList).filter(function(f){return /\.docx$/i.test(f.name)&&f.name.indexOf('~$')!==0});
@@ -1711,6 +1848,31 @@ clear:function(el){
   S.modal={type:'clear',coll:coll,n:n,word:CLEAR_WORD[coll]};renderModal();
   var i=$('#clearIn');if(i)i.focus();
 },
+'ext-open':function(el){var d=byId('documents',el.dataset.id);if(!d)return;var sel={};if(el.dataset.hid)sel[el.dataset.hid]=true;var s=extSug(d,sel);S.modal={type:'extract',id:d.id,sel:sel,name:s,sug:s};renderModal()},
+'ext-go':function(){
+  var m=S.modal;if(!m||m.type!=='extract')return;
+  var n=$('#extName');if(n)m.name=n.value;
+  var sel={};Object.keys(m.sel).forEach(function(k){if(m.sel[k])sel[k]=true});
+  if(!Object.keys(sel).length)return;
+  var d=byId('documents',m.id), name=cleanName(m.name||m.sug);
+  if(EXT.auto(d)){
+    S.modal={type:'busy',msg:'Reading the file from OneDrive.'};renderModal();
+    EXT.fetch(d).then(function(f){return runExtract(d,f,sel,name)}).catch(function(e){closeModal();toast('Could not read the file from OneDrive'+(e&&e.message?' ('+e.message+')':'')+'.')});
+  }else{S.exr={id:d.id,sel:sel,name:name};$('#fileExtract').click()}
+},
+'ext-dismiss':function(el){var d=byId('documents',el.dataset.id);if(!d)return;d.headings=(d.headings||[]).filter(function(x){return !x.moved});save('documents',d);render()},
+'ctag-add':function(el){
+  var d=byId('documents',el.dataset.id), hd=d&&(d.headings||[]).find(function(x){return x.id===el.dataset.hid}), inp=document.getElementById('ct-'+el.dataset.hid);
+  if(!hd||!inp)return;
+  var add=inp.value.split(',').map(normTag).filter(Boolean);if(!add.length)return;
+  hd.tags=hd.tags||[];add.forEach(function(t){if(hd.tags.indexOf(t)<0)hd.tags.push(t)});
+  S.chapOpen=S.chapOpen||{};S.chapOpen[hd.id]=true;
+  save('documents',d);render();var n=document.getElementById('ct-'+hd.id);if(n)n.focus();
+},
+'ctag-del':function(el){
+  var d=byId('documents',el.dataset.id), hd=d&&(d.headings||[]).find(function(x){return x.id===el.dataset.hid});if(!hd)return;
+  hd.tags=(hd.tags||[]).filter(function(t){return t!==el.dataset.v});S.chapOpen=S.chapOpen||{};S.chapOpen[hd.id]=true;save('documents',d);render();
+},
 'hol-all':function(el){S.modal.rows.forEach(function(r){r.on=el.dataset.v==='1'});holKeep()},
 'hol-go':function(){if(S.modal&&S.modal.type==='hollow')holGo()},
 'clear-go':function(){var m=S.modal;if(!m||m.type!=='clear')return;var i=$('#clearIn');if(!i||i.value.trim().toLowerCase()!==m.word)return;clearSection(m.coll)},
@@ -1898,6 +2060,7 @@ function selectLink(d){
 
 var CH={
 'hol-ow':function(t){S.modal.overwrite=t.checked;S.modal.rows.forEach(function(r){if(r.ex)r.on=t.checked});renderModal()},
+'ext-row':function(t){var m=S.modal,d=byId('documents',m.id),n=$('#extName'),cur=n?n.value:m.name;if(!cur||cur===m.sug)cur=null;m.sel[t.dataset.hid]=t.checked;var s=extSug(d,m.sel);m.name=cur==null?s:cur;m.sug=s;holKeep()},
 'hol-row':function(t){S.modal.rows[+t.dataset.i].on=t.checked;holKeep()},
 'hol-pt':function(t){S.modal.portraits=t.checked},
 'magic-add':function(t){var c=byId('characters',t.dataset.id);if(!c||!t.value)return;S.magicMore=S.magicMore||{};(S.magicMore[c.id]=S.magicMore[c.id]||[]).push(t.value);renderDetail()},
@@ -2048,6 +2211,11 @@ $('#fileBackup').addEventListener('change',function(){
     if(!all.length){toast('No characters found in those files.');return}
     importHollow(all);
   });
+});
+$('#fileExtract').addEventListener('change',function(){
+  var file=this.files&&this.files[0];this.value='';var x=S.exr;S.exr=null;
+  if(!file||!x)return;var d=byId('documents',x.id);if(!d)return;
+  runExtract(d,file,x.sel,x.name);
 });
 
 /* ---------- OneDrive (Microsoft sign-in + Graph) ---------- */
@@ -2408,6 +2576,25 @@ Object.assign(A,{
 document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')odPoll()});
 window.addEventListener('online',function(){if(S.mode==='od'&&OD.state==='error')odSchedule()});
 
+
+/* extract chapters: read the original from OneDrive, save the new file beside it */
+EXT.auto=function(d){return S.mode==='od'&&!!(d&&d.file&&d.file.od&&d.file.od.id)};
+EXT.fetch=async function(d){
+  var r=await gfetch('/me/drive/items/'+d.file.od.id+'/content');
+  if(!r.ok)throw new Error(r.status);
+  var b=await r.blob();
+  return new File([b],d.file.name||'file.docx');
+};
+EXT.save=async function(name,blob,d){
+  var r=await gfetch('/me/drive/items/'+d.file.od.id+'?$select=id,parentReference');
+  if(!r.ok)throw new Error('folder '+r.status);
+  var it=await r.json(), pid=it.parentReference&&it.parentReference.id;
+  if(!pid)throw new Error('no folder');
+  var u=await gfetch('/me/drive/items/'+pid+':/'+encodeURIComponent(name)+':/content?@microsoft.graph.conflictBehavior=rename',{method:'PUT',headers:{'Content-Type':DOCX_MIME},body:blob});
+  if(!u.ok)throw new Error('upload '+u.status);
+  var o=await u.json();
+  return {name:o.name||name,url:o.webUrl||'',od:{id:o.id,etag:o.eTag||'',mtime:o.lastModifiedDateTime||''},where:'in the same OneDrive folder'};
+};
 /* ---------- start ---------- */
 (async function init(){
   applyTheme(curTheme());
