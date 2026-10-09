@@ -324,7 +324,7 @@ textarea.in{min-height:88px;resize:vertical;line-height:1.5}
 <input type="file" id="fileImport" accept=".docx" multiple hidden>
 <input type="file" id="fileFolder" webkitdirectory hidden>
 <input type="file" id="fileRefresh" accept=".docx" hidden>
-<input type="file" id="fileBackup" accept=".json,application/json" hidden>
+<input type="file" id="fileBackup" accept=".json,application/json" multiple hidden>
 
 <script src="vendor/jszip.min.js"></script>
 <script src="vendor/msal-browser.min.js"></script>
@@ -1576,36 +1576,51 @@ function mapHollow(c){
   o._extra=ex;o.rels=[];
   return normChar(o);
 }
-function importHollow(o){
+function holChars(o){
+  if(Array.isArray(o)){var l=o.filter(function(c){return c&&typeof c==='object'&&(c.firstName||c.lastName||c.nickname)});return l.length?l:null}
+  if(!o||typeof o!=='object')return null;
+  if(o.data&&Array.isArray(o.data.characters))return o.data.characters;
+  if(Array.isArray(o.characters))return o.characters;
+  if(o.format==='hollow-blades')return [];
+  if(typeof o.firstName==='string'||typeof o.lastName==='string')return [o];
+  return null;
+}
+function importHollow(list){
   if(!proj()){toast('Create or open a project first.');return}
-  var list=((o.data&&o.data.characters)||[]).filter(function(c){return c&&hollowName(c)});
+  list=(list||[]).filter(function(c){return c&&hollowName(c)});
   if(!list.length){toast('No characters found in that file.');return}
-  var have=P('characters'), seen={}, fresh=[], same=[], dup=0;
+  var have=P('characters'), seen={}, rows=[], dup=0;
   list.forEach(function(c){
     var low=hollowName(c).toLowerCase();
     if(seen[low]||(c.id&&seen[c.id])){dup++;return}
     seen[low]=1;if(c.id)seen[c.id]=1;
-    var ex=have.find(function(x){return (c.id&&x.extId===c.id)||(x.name||'').toLowerCase()===low});
-    if(ex)same.push({c:c,ex:ex});else fresh.push(c);
+    var ex=have.find(function(x){return (c.id&&x.extId===c.id)||(x.name||'').toLowerCase()===low})||null;
+    rows.push({c:c,ex:ex,on:!ex});
   });
   var hasPic=list.some(function(c){return c.portrait||c.portraitUrl||c.image});
-  S.modal={type:'hollow',fresh:fresh,same:same,dup:dup,overwrite:false,portraits:true,hasPic:hasPic};renderModal();
+  S.modal={type:'hollow',rows:rows,dup:dup,overwrite:false,portraits:true,hasPic:hasPic};renderModal();
 }
+function holKeep(){var s=$('[data-hl]'),t=s?s.scrollTop:0;renderModal();s=$('[data-hl]');if(s)s.scrollTop=t}
 function hollowModal(){
-  var m=S.modal, names=m.fresh.slice(0,10).map(hollowName).join(', ')+(m.fresh.length>10?' and '+(m.fresh.length-10)+' more':'');
-  return '<h2>Import characters</h2><p><b>'+m.fresh.length+'</b> new · <b>'+m.same.length+'</b> already here'+(m.overwrite?' (will be updated)':'')+(m.dup?' · '+m.dup+' duplicate'+(m.dup>1?'s':'')+' in the file skipped':'')+'</p>'+
-    (m.fresh.length?'<p class="hint">New: '+esc(names)+'</p>':'')+
-    '<p class="hint">Characters are only added to the character list. Nothing is placed in a scene. Teams, classes and careers are not imported.</p>'+
-    '<label class="ck"><input type="checkbox" data-change="hol-ow"'+(m.overwrite?' checked':'')+'>Overwrite existing characters that match by id or name</label>'+
+  var m=S.modal, nNew=m.rows.filter(function(r){return !r.ex}).length, nSame=m.rows.length-nNew, nOn=m.rows.filter(function(r){return r.on}).length;
+  var list=m.rows.map(function(r,i){
+    return '<label class="chk"><input type="checkbox" data-change="hol-row" data-i="'+i+'"'+(r.on?' checked':'')+'><span><b>'+esc(hollowName(r.c))+'</b>'+(r.ex?'<small>Already here. Ticked means it is updated.</small>':'')+'</span></label>';
+  }).join('');
+  return '<h2>Import characters</h2><p><b>'+nNew+'</b> new · <b>'+nSame+'</b> already here'+(m.dup?' · '+m.dup+' duplicate'+(m.dup>1?'s':'')+' in the file skipped':'')+'</p>'+
+    '<p class="hint">Tick the ones you want. Characters only go into the character list. Nothing is placed in a scene. Teams, classes and careers are not imported.</p>'+
+    '<div class="actions" style="justify-content:flex-start;margin:0 0 6px"><button class="btn" data-act="hol-all" data-v="1">All</button><button class="btn" data-act="hol-all" data-v="0">None</button></div>'+
+    '<div data-hl style="max-height:38vh;overflow:auto;border-top:1px solid var(--line)">'+list+'</div>'+
+    (nSame?'<label class="ck"><input type="checkbox" data-change="hol-ow"'+(m.overwrite?' checked':'')+'>Tick every existing match (overwrite by id or name)</label>':'')+
     (m.hasPic?'<label class="ck"><input type="checkbox" data-change="hol-pt"'+(m.portraits?' checked':'')+'>Also import portrait links</label>':'')+
-    '<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn primary" data-act="hol-go"'+((m.fresh.length||(m.overwrite&&m.same.length))?'':' disabled')+'>Import</button></div>';
+    '<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn primary" data-act="hol-go"'+(nOn?'':' disabled')+'>Import '+nOn+'</button></div>';
 }
 function holGo(){
   var m=S.modal, u=snap(), added=0, updated=0;
   withBulk(function(){
-    m.fresh.forEach(function(c){var o=mapHollow(c);if(!m.portraits)o.portrait='';mk('characters',o);added++});
-    if(m.overwrite)m.same.forEach(function(p){
-      var ex=p.ex, o=mapHollow(p.c);
+    m.rows.forEach(function(r){
+      if(!r.on)return;
+      var o=mapHollow(r.c), ex=r.ex;
+      if(!ex){if(!m.portraits)o.portrait='';mk('characters',o);added++;return}
       if(!m.portraits||!o.portrait)o.portrait=ex.portrait||'';
       if(!o.role)o.role=ex.role||'';
       var keep={id:ex.id,pid:ex.pid,rels:ex.rels||[]};
@@ -1637,7 +1652,7 @@ function exportHollow(){
 }
 function restoreBackup(text){
   var o;try{o=JSON.parse(text)}catch(e){toast('That file is not valid JSON.');return}
-  if(o&&o.format==='hollow-blades'){importHollow(o);return}
+  var hl=holChars(o);if(hl){importHollow(hl);return}
   if(!o||o.app!=='story-organiser'||!Array.isArray(o.projects)){toast('That file is not a Story Organiser backup.');return}
   var n=0;COLLS.forEach(function(c){n+=(o[c]||[]).length});
   S.modal={type:'confirm',title:'Restore backup',msg:'This adds '+o.projects.length+' project'+(o.projects.length===1?'':'s')+' and '+n+' items. Anything with the same id is replaced.',label:'Restore',fn:function(){
@@ -1696,6 +1711,7 @@ clear:function(el){
   S.modal={type:'clear',coll:coll,n:n,word:CLEAR_WORD[coll]};renderModal();
   var i=$('#clearIn');if(i)i.focus();
 },
+'hol-all':function(el){S.modal.rows.forEach(function(r){r.on=el.dataset.v==='1'});holKeep()},
 'hol-go':function(){if(S.modal&&S.modal.type==='hollow')holGo()},
 'clear-go':function(){var m=S.modal;if(!m||m.type!=='clear')return;var i=$('#clearIn');if(!i||i.value.trim().toLowerCase()!==m.word)return;clearSection(m.coll)},
 'restore-clear':function(){
@@ -1881,7 +1897,8 @@ function selectLink(d){
 }
 
 var CH={
-'hol-ow':function(t){S.modal.overwrite=t.checked;renderModal()},
+'hol-ow':function(t){S.modal.overwrite=t.checked;S.modal.rows.forEach(function(r){if(r.ex)r.on=t.checked});renderModal()},
+'hol-row':function(t){S.modal.rows[+t.dataset.i].on=t.checked;holKeep()},
 'hol-pt':function(t){S.modal.portraits=t.checked},
 'magic-add':function(t){var c=byId('characters',t.dataset.id);if(!c||!t.value)return;S.magicMore=S.magicMore||{};(S.magicMore[c.id]=S.magicMore[c.id]||[]).push(t.value);renderDetail()},
 pos:function(t){
@@ -2024,8 +2041,13 @@ $('#fileRefresh').addEventListener('change',async function(){
   applyRefresh(d,file);
 });
 $('#fileBackup').addEventListener('change',function(){
-  var file=this.files&&this.files[0];this.value='';if(!file)return;
-  var r=new FileReader();r.onload=function(){restoreBackup(String(r.result))};r.readAsText(file);
+  var files=[].slice.call(this.files||[]);this.value='';if(!files.length)return;
+  Promise.all(files.map(function(f){return new Promise(function(ok){var r=new FileReader();r.onload=function(){ok(String(r.result))};r.onerror=function(){ok('')};r.readAsText(f)})})).then(function(ts){
+    if(ts.length===1){restoreBackup(ts[0]);return}
+    var all=[];ts.forEach(function(t){try{var l=holChars(JSON.parse(t));if(l)all=all.concat(l)}catch(e){}});
+    if(!all.length){toast('No characters found in those files.');return}
+    importHollow(all);
+  });
 });
 
 /* ---------- OneDrive (Microsoft sign-in + Graph) ---------- */
