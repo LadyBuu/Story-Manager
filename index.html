@@ -1604,18 +1604,29 @@ function odCfg(){
   }catch(e){}
   return c;
 }
+function storeOk(n){try{var st=window[n],k='so-probe';st.setItem(k,'1');st.removeItem(k);return true}catch(e){return false}}
 function redirectUri(){return location.origin+location.pathname}
 async function odInit(){
   var c=odCfg();
   if(!c.clientId||!window.msal)return false;
+  var where=storeOk('localStorage')?'localStorage':(storeOk('sessionStorage')?'sessionStorage':'');
+  if(!where){
+    S.banner='Your browser is blocking or has filled the storage this site needs to sign in. In Firefox, allow cookies and site data for this site (padlock icon in the address bar), or clear its data below.';
+    S.bannerAct=[{label:'Clear this site\'s data',act:'od-clear'}];
+    return false;
+  }
   OD.app=new msal.PublicClientApplication({
     auth:{clientId:c.clientId,authority:'https://login.microsoftonline.com/'+c.tenant,redirectUri:redirectUri(),navigateToLoginRequestUrl:false},
-    cache:{cacheLocation:'localStorage'}
+    cache:{cacheLocation:where}
   });
   await OD.app.initialize();
   var r=null;
   try{r=await OD.app.handleRedirectPromise()}
-  catch(e){S.banner='Sign-in failed: '+((e&&(e.errorMessage||e.message))||'unknown error').split('\n')[0].slice(0,220)}
+  catch(e){
+    var msg=((e&&(e.errorMessage||e.message))||'unknown error').split('\n')[0].slice(0,220);
+    S.banner='Sign-in failed: '+msg.replace(/\.$/,'')+(/quota/i.test(msg)?'. Your browser is refusing to store sign-in data for this site. In Firefox, allow cookies and site data for it, or clear its data.':'');
+    S.bannerAct=[{label:'Clear this site\'s data',act:'od-clear'},{label:'Try again',act:'od-signin'}];
+  }
   OD.acct=(r&&r.account)||OD.app.getAllAccounts()[0]||null;
   if(OD.acct)OD.app.setActiveAccount(OD.acct);
   return true;
@@ -1848,7 +1859,16 @@ function odSettings(){
   return h+'</div>';
 }
 Object.assign(A,{
-  'od-signin':function(){if(OD.app)OD.app.loginRedirect({scopes:OD.scopes});else{S.modal={type:'settings'};renderModal()}},
+  'od-signin':async function(){
+    if(!OD.app){S.modal={type:'settings'};renderModal();return}
+    try{await OD.app.loginRedirect({scopes:OD.scopes})}
+    catch(e){S.banner='Sign-in could not start: '+String((e&&(e.errorMessage||e.message))||e).split('\n')[0].slice(0,200);S.bannerAct=[{label:'Clear this site\'s data',act:'od-clear'}];renderBanner()}
+  },
+  'od-clear':function(){
+    try{localStorage.clear()}catch(e){}
+    try{sessionStorage.clear()}catch(e){}
+    location.href=redirectUri();
+  },
   'od-signout':function(){
     try{localStorage.removeItem('story-organiser-v1');localStorage.removeItem('so-prelink-backup')}catch(e){}
     OD.app.logoutRedirect({account:OD.acct,postLogoutRedirectUri:redirectUri()});
