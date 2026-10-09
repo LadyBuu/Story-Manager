@@ -1596,9 +1596,9 @@ var OD={app:null,acct:null,etag:null,timer:null,saving:false,dirty:false,conflic
   scopes:['User.Read','Files.ReadWrite'],scan:{}};
 var GRAPH='https://graph.microsoft.com/v1.0', DATA_PATH='/me/drive/root:/Story%20Organiser/data.json';
 function odCfg(){
-  var c={clientId:'',tenant:'consumers'};
+  var c={clientId:'',tenant:'common'};
   try{
-    var b=window.SO_CONFIG||{};c.clientId=b.clientId||'';c.tenant=b.tenant||'consumers';
+    var b=window.SO_CONFIG||{};c.clientId=b.clientId||'';c.tenant=b.tenant||'common';
     var l=JSON.parse(localStorage.getItem('so-od-cfg')||'null');
     if(l){c.clientId=l.clientId||c.clientId;c.tenant=l.tenant||c.tenant}
   }catch(e){}
@@ -1624,7 +1624,8 @@ async function odInit(){
   try{r=await OD.app.handleRedirectPromise()}
   catch(e){
     var msg=((e&&(e.errorMessage||e.message))||'unknown error').split('\n')[0].slice(0,220);
-    if(/userAudience|\/common\//i.test(msg)){try{var lc=JSON.parse(localStorage.getItem('so-od-cfg')||'null');if(lc&&lc.tenant!=='consumers'){lc.tenant='consumers';localStorage.setItem('so-od-cfg',JSON.stringify(lc))}}catch(e2){}msg='This app is registered for personal Microsoft accounts only. Switched to the personal-account endpoint; press Try again'}
+    if(/not enabled for consumers|unauthorized_client/i.test(msg)){msg='Your Azure app registration does not allow personal Microsoft accounts. In Azure: App registrations > this app > Authentication > Supported account types, choose "Accounts in any organizational directory and personal Microsoft accounts", save, then press Try again';var lc2=null;try{lc2=JSON.parse(localStorage.getItem('so-od-cfg')||'null');if(lc2&&lc2.tenant!=='common'){lc2.tenant='common';localStorage.setItem('so-od-cfg',JSON.stringify(lc2))}}catch(e3){}}
+    else if(/userAudience|\/common\//i.test(msg)){try{var lc=JSON.parse(localStorage.getItem('so-od-cfg')||'null');if(lc&&lc.tenant!=='consumers'){lc.tenant='consumers';localStorage.setItem('so-od-cfg',JSON.stringify(lc))}}catch(e2){}msg='This app is registered for personal Microsoft accounts only. Switched to the personal-account endpoint; press Try again'}
     S.banner='Sign-in failed: '+msg.replace(/\.$/,'')+(/quota/i.test(msg)?'. Your browser is refusing to store sign-in data for this site. In Firefox, allow cookies and site data for it, or clear its data.':'');
     S.bannerAct=[{label:'Clear this site\'s data',act:'od-clear'},{label:'Try again',act:'od-signin'}];
   }
@@ -1854,7 +1855,7 @@ function odSettings(){
   }else{
     h+='<p class="hint">Sign in with Microsoft to read your manuscript folder and keep your library in sync across devices. Register a free Azure app (single-page app) and paste its Application (client) ID here. Redirect URI to register: <code>'+esc(redirectUri())+'</code></p>'+
       '<label class="lab" for="od-cid" style="margin-top:8px">Client ID</label><input class="in" id="od-cid" value="'+esc(c.clientId)+'" autocomplete="off" spellcheck="false">'+
-      '<label class="lab" for="od-ten" style="margin-top:8px">Account type</label><select class="in" id="od-ten"><option value="common"'+(c.tenant==='common'?' selected':'')+'>Work, school or personal (common)</option><option value="consumers"'+(c.tenant==='consumers'?' selected':'')+'>Personal Microsoft account only</option><option value="organizations"'+(c.tenant==='organizations'?' selected':'')+'>Work or school only</option></select>'+
+      '<label class="lab" for="od-ten" style="margin-top:8px">Account type</label><select class="in" id="od-ten"><option value="common"'+(c.tenant==='common'?' selected':'')+'>Personal + work/school (recommended)</option><option value="consumers"'+(c.tenant==='consumers'?' selected':'')+'>Personal Microsoft account only</option><option value="organizations"'+(c.tenant==='organizations'?' selected':'')+'>Work or school only</option></select>'+
       '<div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn" data-act="od-cfg-save">Save</button>'+(c.clientId&&window.msal?'<button class="btn primary" data-act="od-signin">Sign in</button>':'')+'</div>';
   }
   return h+'</div>';
