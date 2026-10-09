@@ -270,6 +270,19 @@ textarea.in{min-height:88px;resize:vertical;line-height:1.5}
   .row{padding-right:12px}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+.chap{border:1px solid var(--line);border-radius:8px;margin:6px 0;background:var(--surface)}
+.chap>summary{cursor:pointer;padding:8px 10px;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;list-style:none}
+.chap>summary::-webkit-details-marker{display:none}
+.chap>summary::before{content:'\25B8';color:var(--fg-3)}
+.chap[open]>summary::before{content:'\25BE'}
+.chap>summary .t{font-weight:500}
+.chap>summary small{flex-basis:100%;color:var(--fg-3);padding-left:18px}
+.chapbody{padding:2px 10px 12px}
+.chapsec{margin-top:10px}
+.chip em{font:500 11px var(--f-mono);color:var(--fg-3);margin-left:6px;font-style:normal}
+.wholefile>summary{cursor:pointer;margin:14px 0 6px}
+.wholefile>summary h3{display:inline;margin:0}
 .fpick{display:grid;gap:2px;max-height:48vh;overflow:auto;margin:8px 0}
 .fpick .btn{justify-content:flex-start;text-align:left}
 .chg{font:500 11px var(--f-mono);color:var(--st-draft)}
@@ -308,7 +321,7 @@ var STATUSES=['Idea','Outlined','Draft','Revised','Final'];
 var NOTE_KINDS=['Revision','Continuity','Ideas'];
 var NOTE_STATES=['open','doing','done'];
 var NOTE_LABEL={open:'Open',doing:'In progress',done:'Done'};
-var KINDS=[['chapter','Chapter'],['scene','Scene'],['outline','Outline'],['notes','Notes'],['research','Research'],['front-matter','Front matter'],['back-matter','Back matter']];
+var KINDS=[['draft','Draft'],['outline','Outline'],['notes','Notes'],['research','Research'],['front-matter','Front matter'],['back-matter','Back matter']];
 var VARIANTS=[['canon','Canon'],['au','AU'],['alternate','Alternate']];
 var AUX_KINDS=['outline','notes','research'];
 var ROUTE_COLORS=[['a','Rose'],['b','Blue'],['c','Green'],['d','Amber'],['e','Violet'],['f','Clay']];
@@ -354,7 +367,37 @@ function eff(c){
 }
 function visOk(o){var v=o.variant||'canon',s=S.vis;if(s==='trash')return v==='trashed';if(s==='all')return v!=='trashed';return v===s}
 var posMap=function(c,k){var m={};sortBy(eff(c),k).forEach(function(x,i){m[x.id]=i+1});return m};
-function kindLabel(k){var x=KINDS.find(function(y){return y[0]===(k||'chapter')});return x?x[1]:'Chapter'}
+function kindOf(d){var k=d&&d.kind;return (!k||k==='chapter'||k==='scene')?'draft':k}
+function kindLabel(k){k=(!k||k==='chapter'||k==='scene')?'draft':k;var x=KINDS.find(function(y){return y[0]===k});return x?x[1]:'Draft'}
+
+/* chapters live inside a file: the headings at the chapter level carry the story data */
+function chapLvl(d){
+  var p=proj(),want=parseInt(p&&p.chapterLevel,10)||2,hs=(d&&d.headings)||[];
+  if(!hs.length)return 0;
+  if(hs.some(function(x){return x.level===want}))return want;
+  return Math.min.apply(null,hs.map(function(x){return x.level}));
+}
+function ensureHeads(d){(d.headings||[]).forEach(function(x){if(!x.id)x.id='h'+uid()})}
+function chapters(d){var l=chapLvl(d);ensureHeads(d);return (d.headings||[]).filter(function(x){return x.level===l})}
+function uniq(a){var s={};return a.filter(function(x){if(!x||s[x])return false;s[x]=1;return true})}
+function docChars(d){var a=(d.characterIds||[]).slice();chapters(d).forEach(function(x){(x.characterIds||[]).forEach(function(i){a.push(i)});if(x.pov)a.push(x.pov)});return uniq(a)}
+function docLocs(d){var a=(d.locationIds||[]).slice();chapters(d).forEach(function(x){(x.locationIds||[]).forEach(function(i){a.push(i)})});return uniq(a)}
+function docPovs(d){var a=[];if(d.pov)a.push(d.pov);chapters(d).forEach(function(x){if(x.pov)a.push(x.pov)});return uniq(a)}
+function docSpan(d){
+  var ds=chapters(d).map(function(x){return (x.storyDate||'').trim()}).filter(Boolean);
+  if(!ds.length)return (d.storyDate||'').trim();
+  return ds[0]===ds[ds.length-1]?ds[0]:ds[0]+' to '+ds[ds.length-1];
+}
+function mergeHeads(old,nu){
+  old=old||[];var used={};
+  return nu.map(function(x,i){
+    var j=-1;
+    for(var k=0;k<old.length;k++){if(!used[k]&&old[k].level===x.level&&(old[k].title||'').toLowerCase()===(x.title||'').toLowerCase()){j=k;break}}
+    if(j<0&&old.length===nu.length&&!used[i]&&old[i].level===x.level)j=i;
+    if(j<0)return x;
+    used[j]=1;return Object.assign({},old[j],{level:x.level,title:x.title});
+  });
+}
 function variantLabel(v){v=v||'canon';if(v==='trashed')return 'Trashed';var x=VARIANTS.find(function(y){return y[0]===v});return x?x[1]:'Canon'}
 function stable(v){return JSON.stringify(v,function(k,x){if(x&&typeof x==='object'&&!Array.isArray(x)){var o={};Object.keys(x).sort().forEach(function(y){o[y]=x[y]});return o}return x})}
 function snap(){var o={};COLLS.forEach(function(c){if(c==='projects')return;o[c]=S[c].filter(function(x){return x.pid===S.pid}).map(function(x){return stable(x)})});return {pid:S.pid,d:o}}
@@ -559,13 +602,13 @@ function routeBar(){
   }).join('')+'</div>';
 }
 function docRow(d,o){
-  var pov=nameOf('characters',d.pov);
-  var locs=(d.locationIds||[]).map(function(id){return nameOf('locations',id)}).filter(Boolean);
-  var meta=[d.storyDate,pov&&('POV '+pov),locs[0]&&(locs[0]+(locs.length>1?' +'+(locs.length-1):''))].filter(Boolean).join(' · ');
+  var pvs=docPovs(d), pov=nameOf('characters',pvs[0])+(pvs.length>1?' +'+(pvs.length-1):'');
+  var locs=docLocs(d).map(function(id){return nameOf('locations',id)}).filter(Boolean);
+  var meta=[docSpan(d),pov&&('POV '+pov),locs[0]&&(locs[0]+(locs.length>1?' +'+(locs.length-1):''))].filter(Boolean).join(' · ');
   var open=(d.notes||[]).filter(function(n){return n.state!=='done'}).length;
   var tags=(d.tags||[]).slice(0,3).map(function(t){return '<span class="tg">#'+esc(t)+'</span>'}).join('');
   var st=d.status||'Idea';
-  var kind=(d.kind&&d.kind!=='chapter')?'<span class="ktag">'+esc(kindLabel(d.kind))+'</span>':'';
+  var kind=(kindOf(d)!=='draft')?'<span class="ktag">'+esc(kindLabel(d.kind))+'</span>':'';
   var vr=(d.variant&&d.variant!=='canon'&&d.variant!=='trashed')?'<span class="vtag '+d.variant+'">'+esc(variantLabel(d.variant))+'</span>':'';
   var rid=routeOf(d), rc=byId('routes',rid);
   var rt=(rid!==rootId()&&rc)?'<span class="rtag" style="--rc:var(--r-'+(rc.color||'a')+')"><i></i>'+esc(rc.name)+'</span>':'';
@@ -585,7 +628,7 @@ documents:function(){
   var trashed=sortBy(P('documents').filter(isTrashed),'order'), trashView=S.vis==='trash';
   var f=S.filter, q=f.q.trim().toLowerCase();
   var base=trashView?trashed:docs.filter(visOk);
-  var vis=base.filter(function(d){return (!f.status||d.status===f.status)&&(!f.arc||d.arcId===f.arc)&&(!f.tag||(d.tags||[]).indexOf(f.tag)>-1)&&(!f.kind||(d.kind||'chapter')===f.kind)&&(!q||hay(d).indexOf(q)>-1)});
+  var vis=base.filter(function(d){return (!f.status||d.status===f.status)&&(!f.arc||d.arcId===f.arc)&&(!f.tag||(d.tags||[]).indexOf(f.tag)>-1)&&(!f.kind||kindOf(d)===f.kind)&&(!q||hay(d).indexOf(q)>-1)});
   var filtered=!!(f.status||f.arc||f.tag||f.kind||q||S.vis!=='all');
   var arcs=sortBy(eff('arcs'),'order'), anyArc=docs.some(function(d){return d.arcId&&byId('arcs',d.arcId)});
   var cnt={};STATUSES.forEach(function(s){cnt[s]=0});docs.forEach(function(d){cnt[d.status||'Idea']++});
@@ -629,10 +672,10 @@ documents:function(){
 characters:function(){
   var q=S.filter.q.trim().toLowerCase(), docs=P('documents');
   var list=P('characters').slice().sort(function(a,b){return (a.name||'').localeCompare(b.name||'')}).filter(function(c){return !q||(c.name||'').toLowerCase().indexOf(q)>-1||(c.role||'').toLowerCase().indexOf(q)>-1});
-  var head='<div class="lhead"><div class="ltitle"><h1>Characters</h1><span class="cnt">'+P('characters').length+'</span></div><div class="lact"><button class="btn primary" data-act="new-char">'+ic('plus')+'New character</button></div></div>'+
+  var head='<div class="lhead"><div class="ltitle"><h1>Characters</h1><span class="cnt">'+P('characters').length+'</span></div><div class="lact"><button class="btn primary" data-act="new-char">'+ic('plus')+'New character</button><button class="btn" data-act="import-backup">'+ic('upload')+'Import characters</button></div></div>'+
     '<div class="filters"><input class="in" type="search" data-filter="q" placeholder="Filter characters" value="'+esc(S.filter.q)+'" aria-label="Filter characters"></div>';
   var rows=list.length?list.map(function(c){
-    var a=docs.filter(function(d){return (d.characterIds||[]).indexOf(c.id)>-1}).length;
+    var a=docs.filter(function(d){return docChars(d).indexOf(c.id)>-1}).length;
     return '<div class="row plain'+(S.sel===c.id?' sel':'')+'" role="listitem" tabindex="0" data-act="select" data-id="'+c.id+'"><div class="rb"><div class="rt">'+(esc(c.name)||'Unnamed')+'</div>'+(c.role?'<div class="rm">'+esc(c.role)+'</div>':'')+'</div><span class="num">'+a+' doc'+(a===1?'':'s')+'</span></div>';
   }).join(''):'<div class="empty"><h1>No characters</h1><p>Add the people in your story. Link them to documents to see where each one appears.</p></div>';
   return {head:head,rows:rows};
@@ -643,7 +686,7 @@ locations:function(){
   var head='<div class="lhead"><div class="ltitle"><h1>Locations</h1><span class="cnt">'+P('locations').length+'</span></div><div class="lact"><button class="btn primary" data-act="new-loc">'+ic('plus')+'New location</button></div></div>'+
     '<div class="filters"><input class="in" type="search" data-filter="q" placeholder="Filter locations" value="'+esc(S.filter.q)+'" aria-label="Filter locations"></div>';
   var rows=list.length?list.map(function(c){
-    var a=docs.filter(function(d){return (d.locationIds||[]).indexOf(c.id)>-1}).length;
+    var a=docs.filter(function(d){return docLocs(d).indexOf(c.id)>-1}).length;
     return '<div class="row plain'+(S.sel===c.id?' sel':'')+'" role="listitem" tabindex="0" data-act="select" data-id="'+c.id+'"><div class="rb"><div class="rt">'+(esc(c.name)||'Unnamed')+'</div>'+(c.type?'<div class="rm">'+esc(c.type)+'</div>':'')+'</div><span class="num">'+a+' doc'+(a===1?'':'s')+'</span></div>';
   }).join(''):'<div class="empty"><h1>No locations</h1><p>Add cities, buildings and rooms. Link them to documents and events.</p></div>';
   return {head:head,rows:rows};
@@ -719,11 +762,42 @@ function linkRow(view,seg,id,n,title,sub){
   return '<button class="lk" data-act="goto" data-view="'+view+'" data-seg="'+(seg||'')+'" data-id="'+id+'"><span class="n">'+(n==null?'':n)+'</span><span><span class="lkt">'+(esc(title)||'Untitled')+'</span>'+(sub?'<small>'+esc(sub)+'</small>':'')+'</span></button>';
 }
 
+function chipsFor(d,hd,field,coll){
+  return (hd[field]||[]).map(function(id){
+    var nm=nameOf(coll,id);if(!nm)return '';
+    return '<span class="chip"><button data-act="goto" data-view="'+coll+'" data-id="'+id+'">'+esc(nm)+'</button><button class="x" data-act="chap-unlink" data-id="'+d.id+'" data-hid="'+hd.id+'" data-field="'+field+'" data-v="'+id+'" aria-label="Remove '+esc(nm)+'">'+ic('x',12)+'</button></span>';
+  }).join('');
+}
+function chapterRow(d,hd,oc){
+  var pv=nameOf('characters',hd.pov), n=(hd.characterIds||[]).length, k=d.id+':'+hd.id+':';
+  var sum=[hd.storyDate,pv&&('POV '+pv),n&&(n+' character'+(n>1?'s':''))].filter(Boolean).join(' · ');
+  function add(field,coll,noun){return '<button class="btn sm" data-act="chap-pick" data-id="'+d.id+'" data-hid="'+hd.id+'" data-field="'+field+'" data-coll="'+coll+'" data-noun="'+noun+'">'+ic('plus',14)+'Add</button>'}
+  return '<details class="chap" data-hid="'+hd.id+'"'+(S.chapOpen&&S.chapOpen[hd.id]?' open':'')+'><summary><span class="hlab">'+esc(label(hd.level)||('H'+hd.level))+'</span><span class="t">'+esc(hd.title)+'</span>'+(oc?'<span class="nb">'+oc+' open</span>':'')+(sum?'<small>'+esc(sum)+'</small>':'')+'</summary><div class="chapbody">'+
+    '<div class="fgrid"><div><label class="lab" for="chd-'+hd.id+'">Story date</label><input class="in" id="chd-'+hd.id+'" data-chap="'+k+'storyDate" value="'+esc(hd.storyDate||'')+'" placeholder="For example 12 Frost, 1248"></div>'+
+    '<div><label class="lab" for="chp-'+hd.id+'">POV</label><select class="in" id="chp-'+hd.id+'" data-chap="'+k+'pov">'+optList('characters',hd.pov,'None')+'</select></div>'+
+    '<div class="span2"><label class="lab" for="chs-'+hd.id+'">What happens</label><textarea class="in" id="chs-'+hd.id+'" data-chap="'+k+'summary" placeholder="A line or two in your own words">'+esc(hd.summary||'')+'</textarea></div></div>'+
+    '<div class="chapsec"><span class="lab">Characters</span><div class="chips">'+chipsFor(d,hd,'characterIds','characters')+add('characterIds','characters','character')+'</div></div>'+
+    '<div class="chapsec"><span class="lab">Locations</span><div class="chips">'+chipsFor(d,hd,'locationIds','locations')+add('locationIds','locations','location')+'</div></div>'+
+    '</div></details>';
+}
+function fileSummary(d){
+  if(!(d.headings||[]).length)return '';
+  var chs=chapters(d), cnt={}, lc={}, pc={};
+  chs.forEach(function(x){(x.characterIds||[]).forEach(function(i){cnt[i]=(cnt[i]||0)+1});(x.locationIds||[]).forEach(function(i){lc[i]=(lc[i]||0)+1});if(x.pov)pc[x.pov]=(pc[x.pov]||0)+1});
+  (d.characterIds||[]).forEach(function(i){cnt[i]=cnt[i]||1});(d.locationIds||[]).forEach(function(i){lc[i]=lc[i]||1});if(d.pov)pc[d.pov]=pc[d.pov]||1;
+  function chips(map,coll){
+    var ids=Object.keys(map).filter(function(i){return nameOf(coll,i)}).sort(function(a,b){return map[b]-map[a]||nameOf(coll,a).localeCompare(nameOf(coll,b))});
+    return ids.length?ids.map(function(i){return '<span class="chip"><button data-act="goto" data-view="'+coll+'" data-id="'+i+'">'+esc(nameOf(coll,i))+'</button><em>'+map[i]+'</em></span>'}).join(''):'<span class="hint">None yet</span>';
+  }
+  var span=docSpan(d), dated=chs.filter(function(x){return x.storyDate}).length;
+  return '<div class="sec summ"><h3>What is in this file</h3><dl class="meta"><dt>Chapters</dt><dd>'+chs.length+(dated?' ('+dated+' dated)':'')+'</dd>'+(span?'<dt>Story time</dt><dd>'+esc(span)+'</dd>':'')+'</dl>'+
+    '<div class="lab">POV</div><div class="chips">'+chips(pc,'characters')+'</div><div class="lab">Characters</div><div class="chips">'+chips(cnt,'characters')+'</div><div class="lab">Locations</div><div class="chips">'+chips(lc,'locations')+'</div></div>';
+}
 function docCard(d){
   var f=d.file||{}, rp=posMap('documents','order'), cp=posMap('documents','chron'), n=eff('documents').length;
   var url=safeUrl(f.url), heads=d.headings||[], notes=d.notes||[];
   var openByHead={};notes.forEach(function(x){if(x.h&&x.state!=='done')openByHead[x.h]=(openByHead[x.h]||0)+1});
-  var h='';
+  var h='', cl=chapLvl(d), chs=chapters(d);
   h+=dbar('Document','documents',d.id);
   h+='<input class="title-in" data-bind="documents:'+d.id+':title" value="'+esc(d.title)+'" aria-label="Document title" placeholder="Untitled">';
   h+='<div class="seg" role="group" aria-label="Status">'+STATUSES.map(function(s){return '<button data-act="status" data-id="'+d.id+'" data-v="'+s+'" aria-pressed="'+((d.status||'Idea')===s)+'">'+s+'</button>'}).join('')+'</div>';
@@ -737,11 +811,13 @@ function docCard(d){
     '<div><label class="lab" for="pv-'+d.id+'">POV</label><select class="in" id="pv-'+d.id+'" data-bind="documents:'+d.id+':pov">'+optList('characters',d.pov,'None')+'</select></div>'+
     '<div><label class="lab" for="ar-'+d.id+'">Arc</label><select class="in" id="ar-'+d.id+'" data-bind="documents:'+d.id+':arcId">'+optList('arcs',d.arcId,'No arc','order')+'</select></div>'+
   '</div>';
-  h+=relSec('Characters in the scene','documents',d.id,'characterIds','characters',d.characterIds||[],'character');
-  h+=relSec('Mentioned only','documents',d.id,'mentionIds','characters',d.mentionIds||[],'character');
-  h+=relSec('Locations','documents',d.id,'locationIds','locations',d.locationIds||[],'location');
-  h+=relSec('Events shown','documents',d.id,'eventIds','events',d.eventIds||[],'event');
-  h+=relSec('Events referenced','documents',d.id,'refEventIds','events',d.refEventIds||[],'event');
+  h+=fileSummary(d);
+  h+='<details class="wholefile"'+(chs.length?'':' open')+'><summary><h3>Whole file'+(chs.length?' (extras beyond the chapters)':'')+'</h3></summary>'+
+    relSec('Characters in the scene','documents',d.id,'characterIds','characters',d.characterIds||[],'character')+
+    relSec('Mentioned only','documents',d.id,'mentionIds','characters',d.mentionIds||[],'character')+
+    relSec('Locations','documents',d.id,'locationIds','locations',d.locationIds||[],'location')+
+    relSec('Events shown','documents',d.id,'eventIds','events',d.eventIds||[],'event')+
+    relSec('Events referenced','documents',d.id,'refEventIds','events',d.refEventIds||[],'event')+'</details>';
   h+='<div class="sec"><h3>Tags</h3><div class="chips">'+(d.tags||[]).map(function(t){return '<span class="chip mut">#'+esc(t)+'<button class="x" data-act="tag-del" data-id="'+d.id+'" data-v="'+esc(t)+'" aria-label="Remove tag '+esc(t)+'">'+ic('x',12)+'</button></span>'}).join('')+'</div>'+
     '<div class="addrow"><input class="in" id="tagIn" data-enter="tag-add" data-id="'+d.id+'" placeholder="Add a tag, like foreshadowing" aria-label="New tag"><button class="btn" data-act="tag-add" data-id="'+d.id+'">Add</button></div></div>';
   h+='<div class="sec"><h3>Notes</h3>';
@@ -758,8 +834,9 @@ function docCard(d){
     h+='<div class="addrow"><input class="in" id="noteIn-'+kind+'" data-enter="note-add" data-id="'+d.id+'" data-kind="'+kind+'" placeholder="Add a '+kind.toLowerCase()+' note" aria-label="New '+kind.toLowerCase()+' note"><button class="btn" data-act="note-add" data-id="'+d.id+'" data-kind="'+kind+'">Add</button></div>';
   });
   h+='</div>';
-  h+='<div class="sec"><h3>Structure in Word</h3>'+(heads.length?'<div class="ht">'+heads.map(function(hd){
+  h+='<div class="sec"><h3>Chapters and structure</h3>'+(heads.length?'<p class="hint" style="margin:0 0 6px">Open a chapter to set its date, POV, characters and locations. Chapters are the headings at level '+cl+'; change that in Settings.</p><div class="ht">'+heads.map(function(hd){
     var oc=openByHead[hd.title];
+    if(hd.level===cl)return chapterRow(d,hd,oc);
     return '<div class="hl" style="--lv:'+hd.level+'"><span class="hlab">'+esc(label(hd.level)||('H'+hd.level))+'</span><span class="t">'+esc(hd.title)+'</span>'+(oc?'<span class="nb">'+oc+' open</span>':'')+'</div>';
   }).join('')+'</div>':'<p class="hint">No headings read yet. Use Heading 1, 2 and 3 styles in Word, then read this file below.</p>')+'</div>';
   h+='<div class="sec"><h3>Word file</h3><dl class="meta"><dt>File</dt><dd>'+esc(f.name||'None attached')+'</dd><dt>Headings read</dt><dd>'+fmtDate(f.analysed)+'</dd><dt>Saved in Word</dt><dd>'+fmtDate(f.modified)+'</dd><dt>Length</dt><dd>'+(f.words!=null?fmtN(f.words)+' words':'not counted')+'</dd></dl>'+
@@ -770,9 +847,9 @@ function docCard(d){
 
 function charCard(c){
   var docs=sortBy(P('documents').filter(function(d){return !isTrashed(d)}),'order'), rp=posMap('documents','order');
-  var app=docs.filter(function(d){return (d.characterIds||[]).indexOf(c.id)>-1});
+  var app=docs.filter(function(d){return docChars(d).indexOf(c.id)>-1});
   var men=docs.filter(function(d){return (d.mentionIds||[]).indexOf(c.id)>-1});
-  var pov=docs.filter(function(d){return d.pov===c.id});
+  var pov=docs.filter(function(d){return docPovs(d).indexOf(c.id)>-1});
   var evs=sortBy(P('events'),'order').filter(function(e){return (e.characterIds||[]).indexOf(c.id)>-1});
   var arcs=sortBy(P('arcs'),'order');
   var bars=arcs.map(function(a){return {a:a.name,n:app.filter(function(d){return d.arcId===a.id}).length}}).filter(function(x){return x.n});
@@ -800,10 +877,10 @@ function charCard(c){
 
 function locCard(l){
   var docs=sortBy(P('documents').filter(function(d){return !isTrashed(d)}),'order'), rp=posMap('documents','order');
-  var here=docs.filter(function(d){return (d.locationIds||[]).indexOf(l.id)>-1});
+  var here=docs.filter(function(d){return docLocs(d).indexOf(l.id)>-1});
   var evs=sortBy(P('events'),'order').filter(function(e){return e.locationId===l.id});
   var seen={},chars=[];
-  here.forEach(function(d){(d.characterIds||[]).forEach(function(id){if(!seen[id]&&byId('characters',id)){seen[id]=1;chars.push(id)}})});
+  here.forEach(function(d){docChars(d).forEach(function(id){if(!seen[id]&&byId('characters',id)){seen[id]=1;chars.push(id)}})});
   var h=dbar('Location','locations',l.id);
   h+='<input class="title-in" data-bind="locations:'+l.id+':name" value="'+esc(l.name)+'" aria-label="Name" placeholder="Name">';
   h+='<div class="fgrid"><div class="span2"><label class="lab" for="lt-'+l.id+'">Type</label><input class="in" id="lt-'+l.id+'" data-bind="locations:'+l.id+':type" value="'+esc(l.type||'')+'" placeholder="City, building, room"></div>'+
@@ -885,11 +962,12 @@ function settingsModal(){
   if(p){
     h+='<div class="sec"><h3>This project</h3><label class="lab" for="sp-n">Name</label><input class="in" id="sp-n" data-bind="projects:'+p.id+':name" value="'+esc(p.name)+'">'+
       '<label class="lab" for="sp-f" style="margin-top:12px">OneDrive folder link</label><input class="in" id="sp-f" data-bind="projects:'+p.id+':folderUrl" value="'+esc(p.folderUrl||'')+'" placeholder="Optional. Adds an OneDrive button to Documents" inputmode="url">'+
+      '<label class="lab" for="sp-cl" style="margin-top:12px">Chapter heading level</label><select class="in" id="sp-cl" data-bind="projects:'+p.id+':chapterLevel">'+[1,2,3,4].map(function(l){return '<option value="'+l+'"'+((parseInt(p.chapterLevel,10)||2)===l?' selected':'')+'>Heading '+l+(label(l)?' ('+esc(label(l))+')':'')+'</option>'}).join('')+'</select><p class="hint" style="margin-top:4px">Headings at this level are the chapters inside each file. They carry the date, POV, characters and locations.</p>'+
       '<label class="lab" style="margin-top:12px">Word heading levels</label><p class="hint" style="margin-bottom:8px">Names shown beside each heading level in a document structure.</p><div class="fgrid" style="margin-top:0">'+
       [1,2,3,4].map(function(l){return '<div><label class="lab" for="sp-l'+l+'">Heading '+l+'</label><input class="in" id="sp-l'+l+'" data-bind="projects:'+p.id+':labels.'+l+'" value="'+esc(label(l))+'"></div>'}).join('')+'</div></div>';
   }
   h+='<div class="sec"><h3>Backup</h3><p class="hint">Your structure and notes can be exported as a JSON file at any time. Restoring a backup replaces items that share an id and adds the rest.</p><div class="actions" style="justify-content:flex-start;margin-top:8px">'+
-    (p?'<button class="btn" data-act="export" data-all="0">Export this project</button>':'')+'<button class="btn" data-act="export" data-all="1">Export everything</button><button class="btn" data-act="import-backup">Restore a backup</button></div></div>';
+    (p?'<button class="btn" data-act="export" data-all="0">Export this project</button>':'')+'<button class="btn" data-act="export" data-all="1">Export everything</button><button class="btn" data-act="import-backup">Restore a backup or import characters</button></div></div>';
   h+=odSettings();
   if(p)h+='<div class="sec"><button class="btn danger" data-act="del" data-coll="projects" data-id="'+p.id+'">'+ic('trash')+'Delete this project</button></div>';
   return h+'<div class="actions"><button class="btn primary" data-act="close">Done</button></div>';
@@ -1000,7 +1078,7 @@ async function handleFiles(fileList){
   renderModal();
 }
 function newDoc(extra){
-  return Object.assign({title:'',file:{name:'',url:''},headings:[],kind:'chapter',variant:'canon',routeId:(curRoute()||{}).id||rootId(),divergesFrom:'',order:maxOf(P('documents'),'order')+1,chron:maxOf(P('documents'),'chron')+1,storyDate:'',pov:'',status:'Idea',arcId:'',characterIds:[],mentionIds:[],locationIds:[],eventIds:[],refEventIds:[],tags:[],notes:[]},extra||{});
+  return Object.assign({title:'',file:{name:'',url:''},headings:[],kind:'draft',variant:'canon',routeId:(curRoute()||{}).id||rootId(),divergesFrom:'',order:maxOf(P('documents'),'order')+1,chron:maxOf(P('documents'),'chron')+1,storyDate:'',pov:'',status:'Idea',arcId:'',characterIds:[],mentionIds:[],locationIds:[],eventIds:[],refEventIds:[],tags:[],notes:[]},extra||{});
 }
 function confirmImport(){
   var m=S.modal, added=0, updated=0, arcMap={}, u=snap();
@@ -1011,7 +1089,7 @@ function confirmImport(){
     var meta={name:it.file,words:it.info.words,modified:it.info.modified,analysed:new Date().toISOString(),size:it.size};
     if(it.od){meta.od={id:it.od.id,etag:it.od.etag,mtime:it.od.mtime};meta.url=it.od.url;meta.stale=false}
     if(it.match){
-      var d=byId('documents',it.match);d.file=Object.assign({url:''},d.file,meta);d.headings=it.info.headings;save('documents',d,true);updated++;
+      var d=byId('documents',it.match);d.file=Object.assign({url:''},d.file,meta);d.headings=mergeHeads(d.headings,it.info.headings);save('documents',d,true);updated++;
     }else{
       var arcId='';
       if(m.arcs&&it.folder){
@@ -1019,7 +1097,7 @@ function confirmImport(){
         if(!arcMap[k]){var a=mk('arcs',{name:it.folder,notes:'',order:maxOf(P('arcs'),'order')+1,routeId:rid,variant:'canon'});arcMap[k]=a.id}
         arcId=arcMap[k];
       }
-      mk('documents',newDoc({title:it.file.replace(/\.docx$/i,''),file:Object.assign({url:''},meta),headings:it.info.headings,order:++o,chron:++c,arcId:arcId,kind:it.kind||'chapter',variant:it.variant||'canon',routeId:rid}));added++;
+      mk('documents',newDoc({title:it.file.replace(/\.docx$/i,''),file:Object.assign({url:''},meta),headings:it.info.headings,order:++o,chron:++c,arcId:arcId,kind:it.kind||'draft',variant:it.variant||'canon',routeId:rid}));added++;
     }
   });
   pushUndo('Import',u);
@@ -1063,7 +1141,7 @@ function typeGrid(d){
   var repBy=P('documents').filter(function(x){return x.divergesFrom===d.id&&!isTrashed(x)});
   var vopts=VARIANTS.concat(isTrashed(d)?[['trashed','Trashed']]:[]);
   var h='<div class="fgrid">'+
-    '<div><label class="lab" for="kd-'+d.id+'">Kind</label><select class="in" id="kd-'+d.id+'" data-bind="documents:'+d.id+':kind">'+selOpts(KINDS,d.kind||'chapter')+'</select></div>'+
+    '<div><label class="lab" for="kd-'+d.id+'">Kind</label><select class="in" id="kd-'+d.id+'" data-bind="documents:'+d.id+':kind">'+selOpts(KINDS,kindOf(d))+'</select></div>'+
     '<div><label class="lab" for="vr-'+d.id+'">Variant</label><select class="in" id="vr-'+d.id+'" data-bind="documents:'+d.id+':variant">'+selOpts(vopts,d.variant||'canon')+'</select></div>'+
     '<div><label class="lab" for="rt-'+d.id+'">Route</label><select class="in" id="rt-'+d.id+'" data-bind="documents:'+d.id+':routeId">'+routeOpts(rid)+'</select></div>'+
     '<div><label class="lab" for="rf-'+d.id+'">Replaces</label><select class="in" id="rf-'+d.id+'" data-bind="documents:'+d.id+':divergesFrom"><option value="">Nothing</option>'+cands.map(function(x){return '<option value="'+x.id+'"'+(d.divergesFrom===x.id?' selected':'')+'>'+esc(x.title||'Untitled')+' ('+esc(nameOf('routes',routeOf(x)))+')</option>'}).join('')+'</select></div></div>';
@@ -1117,7 +1195,7 @@ function routeDelModal(){
 }
 function pathModal(){
   var m=S.modal, cur=curRoute()||{name:'the main route'};
-  var docs=sortBy(eff('documents'),'order').filter(function(d){return m.aux||AUX_KINDS.indexOf(d.kind||'chapter')<0});
+  var docs=sortBy(eff('documents'),'order').filter(function(d){return m.aux||AUX_KINDS.indexOf(kindOf(d))<0});
   var h='<h2>Reading path</h2><p>The order a reader meets documents on '+esc(cur.name)+'. Branch points are marked.</p>'+
     '<label class="chk"><input type="checkbox" data-change="path-aux"'+(m.aux?' checked':'')+'><span><b>Include outlines, notes and research</b></span></label>';
   var last=null, i=0;
@@ -1134,7 +1212,7 @@ function pathModal(){
   return h+'<div class="actions"><button class="btn primary" data-act="close">Done</button></div>';
 }
 function infer(name,parts){
-  var kind='chapter', variant='canon';
+  var kind='draft', variant='canon';
   (parts||[]).slice(0,-1).forEach(function(x){if(/^(au|alt|alternate)\b/i.test(x))variant=/^au/i.test(x)?'au':'alternate'});
   var b=name.replace(/\.docx$/i,'');
   if(/^outline\b/i.test(b))kind='outline';
@@ -1281,8 +1359,51 @@ async function exportData(all){
     catch(e){textBox=json;S.modal={type:'text'};renderModal()}
   }
 }
+function hollowName(c){
+  var dp=c.displayParts||{first:true,middle:false,last:true}, parts=[];
+  if(dp.first!==false&&c.firstName)parts.push(c.firstName);
+  if(dp.middle&&c.middleName)parts.push(c.middleName);
+  if(dp.last!==false&&c.lastName)parts.push(c.lastName);
+  return parts.join(' ')||[c.firstName,c.lastName].filter(Boolean).join(' ')||c.nickname||c.alias||'';
+}
+function hollowNotes(c,teams){
+  var L=[], s=function(x){return (x==null?'':String(x)).trim()};
+  var aka=uniq([c.nickname,c.alias].concat(s(c.associatedNames).split(/[,;]+/)).concat((c.previousNames||[]).map(function(p){return p&&p.name})).map(s).filter(Boolean));
+  if(aka.length)L.push('Also known as: '+aka.join(', '));
+  if(s(c.birthYear))L.push('Born '+s(c.birthYear));
+  if(c.deceased)L.push('Died'+(s(c.deathYear)?' '+s(c.deathYear):'')+(s(c.deathCause)?' ('+s(c.deathCause)+')':''));
+  if(teams&&teams.length)L.push('Teams: '+uniq(teams).join(', '));
+  if(s(c.specialty))L.push('Specialty: '+s(c.specialty));
+  var look=[c.eyes,c.hair,c.skin,c.build].map(s).filter(Boolean);
+  if(look.length)L.push('Appearance: '+look.join('; '));
+  if(s(c.appearanceNotes))L.push(s(c.appearanceNotes));
+  if(s(c.notes))L.push('',s(c.notes));
+  return L.join('\n');
+}
+function importHollow(o){
+  var list=((o.data&&o.data.characters)||[]).filter(function(c){return c&&hollowName(c)});
+  var teamsOf={};
+  ((o.data&&o.data.teams)||[]).forEach(function(t){(t.members||[]).forEach(function(m){(teamsOf[m.characterId]=teamsOf[m.characterId]||[]).push(t.name)})});
+  var have=P('characters'), fresh=[], dup=0;
+  list.forEach(function(c){
+    var nm=hollowName(c), low=nm.toLowerCase();
+    if(have.some(function(x){return (c.id&&x.extId===c.id)||(x.name||'').toLowerCase()===low}))dup++;else fresh.push(c);
+  });
+  if(!proj()){toast('Create or open a project first.');return}
+  if(!fresh.length){toast(dup?'All '+dup+' characters are already here.':'No characters found in that file.');return}
+  var names=fresh.slice(0,12).map(hollowName).join(', ')+(fresh.length>12?' and '+(fresh.length-12)+' more':'');
+  askConfirm('Add '+fresh.length+' character'+(fresh.length>1?'s':'')+'?',names+'. They are only added to the character list so you can assign them. They are not placed in any scene.'+(dup?' '+dup+' already here and skipped.':''),'Add',function(){
+    var u=snap();
+    fresh.forEach(function(c){
+      var last=(c.careerStatus||[]).filter(function(x){return x&&(x.title||x.status)}).slice(-1)[0];
+      mk('characters',{name:hollowName(c),role:last?(last.title||last.status):'',notes:hollowNotes(c,teamsOf[c.id]),extId:c.id||''});
+    });
+    pushUndo('Imported characters',u);closeModal();S.view='characters';render();toast(fresh.length+' characters added',true);
+  });
+}
 function restoreBackup(text){
   var o;try{o=JSON.parse(text)}catch(e){toast('That file is not valid JSON.');return}
+  if(o&&o.format==='hollow-blades'){importHollow(o);return}
   if(!o||o.app!=='story-organiser'||!Array.isArray(o.projects)){toast('That file is not a Story Organiser backup.');return}
   var n=0;COLLS.forEach(function(c){n+=(o[c]||[]).length});
   S.modal={type:'confirm',title:'Restore backup',msg:'This adds '+o.projects.length+' project'+(o.projects.length===1?'':'s')+' and '+n+' items. Anything with the same id is replaced.',label:'Restore',fn:function(){
@@ -1320,6 +1441,18 @@ projects:function(){S.modal={type:'projects'};renderModal()},
 'proj-new':function(){askName('New project','For example Hollow Blades',function(n){newProject(n);closeModal();render()})},
 sample:function(){loadSample();closeModal();render();toast('Sample project added. Delete it any time from Settings.')},
 'import-backup':function(){$('#fileBackup').click()},
+'chap-pick':function(el){
+  var d=byId('documents',el.dataset.id),hd=d&&(d.headings||[]).find(function(x){return x.id===el.dataset.hid});if(!hd)return;
+  var field=el.dataset.field,coll=el.dataset.coll;
+  openPicker({title:'Choose '+el.dataset.noun+'s',coll:coll,
+    isOn:function(x){return (hd[field]||[]).indexOf(x.id)>-1},
+    toggle:function(x){var a=hd[field]||[];hd[field]=a.indexOf(x.id)>-1?a.filter(function(y){return y!==x.id}):a.concat(x.id);save('documents',d)},
+    create:function(nm){var n=createEntity(coll,nm);hd[field]=(hd[field]||[]).concat(n.id);save('documents',d)}});
+},
+'chap-unlink':function(el){
+  var d=byId('documents',el.dataset.id),hd=d&&(d.headings||[]).find(function(x){return x.id===el.dataset.hid});if(!hd)return;
+  hd[el.dataset.field]=(hd[el.dataset.field]||[]).filter(function(x){return x!==el.dataset.v});save('documents',d);render();
+},
 settings:function(){S.modal={type:'settings'};renderModal()},
 theme:function(el){applyTheme(el.dataset.v);renderModal()},
 search:function(){S.modal={type:'search'};renderModal()},
@@ -1504,6 +1637,14 @@ document.addEventListener('input',function(e){
     if(t.tagName==='SELECT'){render()}else{renderRows()}
     return;
   }
+  if(d.chap){
+    var cp=d.chap.split(':'), cd=byId('documents',cp[0]);if(!cd)return;
+    var ch=(cd.headings||[]).find(function(x){return x.id===cp[1]});if(!ch)return;
+    ch[cp[2]]=t.value;save('documents',cd);
+    if(t.tagName==='SELECT'){render();return}
+    var sm=$('.summ');if(sm)sm.outerHTML=fileSummary(cd);
+    renderRows();return;
+  }
   if('vis' in d){S.vis=t.value;S.sel=null;render();return}
   if(d.bind){
     var parts=d.bind.split(':'), o=byId(parts[0],parts[1]);if(!o)return;
@@ -1515,6 +1656,7 @@ document.addEventListener('input',function(e){
   if(d.input==='search'){$('#searchRes').innerHTML=searchResults(t.value);return}
   if(d.input==='pick'){$('#pickList').innerHTML=pickRows(t.value)}
 });
+document.addEventListener('toggle',function(e){var t=e.target;if(t&&t.classList&&t.classList.contains('chap')){S.chapOpen=S.chapOpen||{};S.chapOpen[t.dataset.hid]=t.open}},true);
 document.addEventListener('keydown',function(e){
   var t=e.target;
   if(e.key==='Escape'&&S.modal&&S.modal.type!=='busy'){closeModal();return}
@@ -1572,7 +1714,7 @@ async function applyRefresh(d,file){
   S.modal={type:'busy',msg:'Reading headings.'};renderModal();
   try{
     var info=await parseDocx(file), before=(d.headings||[]).length;
-    d.headings=info.headings;
+    d.headings=mergeHeads(d.headings,info.headings);
     d.file=Object.assign({url:''},d.file,{words:info.words,modified:info.modified,analysed:new Date().toISOString(),size:file.size});
     if(file._od){d.file.od={id:file._od.id,etag:file._od.etag,mtime:file._od.mtime};d.file.url=file._od.url;d.file.stale=false}
     if(!d.file.name)d.file.name=file.name;
