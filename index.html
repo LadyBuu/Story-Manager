@@ -1596,9 +1596,9 @@ var OD={app:null,acct:null,etag:null,timer:null,saving:false,dirty:false,conflic
   scopes:['User.Read','Files.ReadWrite'],scan:{}};
 var GRAPH='https://graph.microsoft.com/v1.0', DATA_PATH='/me/drive/root:/Story%20Organiser/data.json';
 function odCfg(){
-  var c={clientId:'',tenant:'common'};
+  var c={clientId:'',tenant:'consumers'};
   try{
-    var b=window.SO_CONFIG||{};c.clientId=b.clientId||'';c.tenant=b.tenant||'common';
+    var b=window.SO_CONFIG||{};c.clientId=b.clientId||'';c.tenant=b.tenant||'consumers';
     var l=JSON.parse(localStorage.getItem('so-od-cfg')||'null');
     if(l){c.clientId=l.clientId||c.clientId;c.tenant=l.tenant||c.tenant}
   }catch(e){}
@@ -1624,6 +1624,7 @@ async function odInit(){
   try{r=await OD.app.handleRedirectPromise()}
   catch(e){
     var msg=((e&&(e.errorMessage||e.message))||'unknown error').split('\n')[0].slice(0,220);
+    if(/userAudience|\/common\//i.test(msg)){try{var lc=JSON.parse(localStorage.getItem('so-od-cfg')||'null');if(lc&&lc.tenant!=='consumers'){lc.tenant='consumers';localStorage.setItem('so-od-cfg',JSON.stringify(lc))}}catch(e2){}msg='This app is registered for personal Microsoft accounts only. Switched to the personal-account endpoint; press Try again'}
     S.banner='Sign-in failed: '+msg.replace(/\.$/,'')+(/quota/i.test(msg)?'. Your browser is refusing to store sign-in data for this site. In Firefox, allow cookies and site data for it, or clear its data.':'');
     S.bannerAct=[{label:'Clear this site\'s data',act:'od-clear'},{label:'Try again',act:'od-signin'}];
   }
