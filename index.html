@@ -283,6 +283,23 @@ textarea.in{min-height:88px;resize:vertical;line-height:1.5}
 .chip em{font:500 11px var(--f-mono);color:var(--fg-3);margin-left:6px;font-style:normal}
 .wholefile>summary{cursor:pointer;margin:14px 0 6px}
 .wholefile>summary h3{display:inline;margin:0}
+
+.av{--s:40px;width:var(--s);height:var(--s);border-radius:50%;flex:none;display:inline-grid;place-items:center;position:relative;overflow:hidden;background:var(--accent-soft);color:var(--fg-2);font:500 calc(var(--s)*.38) var(--f-body)}
+.av img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.chead{display:flex;gap:12px;align-items:center}.chead .title-in{flex:1;min-width:0}
+.row.plain .av{margin-right:10px}
+.csec{border-top:1px solid var(--line);margin-top:10px}
+.csec>summary{cursor:pointer;padding:10px 0;list-style:none}.csec>summary::-webkit-details-marker{display:none}
+.csec>summary h3{display:inline;margin:0}
+.csec>summary::after{content:'\25B8';color:var(--fg-3);margin-left:8px}.csec[open]>summary::after{content:'\25BE'}
+.csb{padding-bottom:10px}
+.ck{display:inline-flex;gap:6px;align-items:center;margin:0 14px 6px 0;color:var(--fg-2);font-size:13px}
+.cks{display:flex;flex-wrap:wrap}
+.statgrid,.magicgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.arow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px}.arow .in{flex:1 1 120px;min-width:0}.arow .in.wide{flex:2 1 200px}
+
+.ghead{font:500 11px var(--f-mono);color:var(--fg-3);text-transform:uppercase;letter-spacing:.06em;padding:14px 12px 4px}
+.rtab[aria-pressed="true"]{background:var(--accent-soft);color:var(--fg);font-weight:600;border-color:var(--accent)}
 .fpick{display:grid;gap:2px;max-height:48vh;overflow:auto;margin:8px 0}
 .fpick .btn{justify-content:flex-start;text-align:left}
 .chg{font:500 11px var(--f-mono);color:var(--st-draft)}
@@ -340,6 +357,30 @@ var uid=function(){return 'i'+Math.random().toString(36).slice(2,9)+Date.now().t
 var P=function(c){return S[c].filter(function(x){return x.pid===S.pid})};
 var byId=function(c,id){return S[c].find(function(x){return x.id===id})};
 var sortBy=function(a,k){return a.slice().sort(function(x,y){return (x[k]==null?0:x[k])-(y[k]==null?0:y[k])})};
+var MAGIC=['earth','water','fire','air','metal','wood','blood','bone','mind','morphic','life','death','space','time','dimension','void','reality','transference'];
+var STATK=['str','dex','con','int','wis','cha'];
+var PERS=[['traits','Traits'],['ideals','Ideals'],['bonds','Bonds'],['flaws','Flaws'],['alignment','Alignment'],['likes','Likes'],['dislikes','Dislikes'],['habits','Habits'],['fears','Fears'],['goals','Goals'],['authority','Attitude to authority'],['conflictStyle','Conflict style'],['socialStyle','Social style'],['quirks','Quirks']];
+function normChar(c){
+  if(!c.displayParts)c.displayParts={first:true,middle:false,last:true,nickname:false,alias:false};
+  c.stats=c.stats||{};STATK.forEach(function(k){if(c.stats[k]==null||c.stats[k]==='')c.stats[k]=10});
+  c.magic=c.magic||{};MAGIC.forEach(function(k){if(c.magic[k]==null||c.magic[k]==='')c.magic[k]=0});
+  c.personality=c.personality||{};
+  c.weapons=c.weapons||[];c.previousNames=c.previousNames||[];
+  c.specialMoves=c.specialMoves||{};c.specialMoves.physical=c.specialMoves.physical||[];c.specialMoves.magical=c.specialMoves.magical||[];
+  [c.weapons,c.previousNames,c.specialMoves.physical,c.specialMoves.magical].forEach(function(a){a.forEach(function(x){if(!x.id)x.id='a'+uid()})});
+  return c;
+}
+function getPath(o,path){var p=path.split('.'),t=o;for(var i=0;i<p.length;i++){if(t==null)return undefined;t=t[p[i]]}return t}
+function showAv(){try{return localStorage.getItem('so-av')==='1'}catch(e){return false}}
+function portraitOf(c){return (window.SO_PORTRAITS&&window.SO_PORTRAITS[c.id])||c.portrait||''}
+function avatar(c,sz){
+  var u=safeUrl(portraitOf(c)), ini=(c.name||'?').split(/\s+/).filter(Boolean).slice(0,2).map(function(w){return w.charAt(0).toUpperCase()}).join('');
+  return '<span class="av" style="--s:'+sz+'px" aria-hidden="true">'+esc(ini)+(u?'<img src="'+esc(u)+'" alt="" referrerpolicy="no-referrer" loading="lazy">':'')+'</span>';
+}
+function charHay(c){
+  var p=c.personality||{};
+  return [c.name,c.role,c.firstName,c.middleName,c.lastName,c.nickname,c.alias,c.specialty,c.gender,c.build].concat(Object.keys(p).map(function(k){return p[k]})).join(' ').toLowerCase();
+}
 var nameOf=function(c,id){var o=byId(c,id);return o?(o.name||o.title||''):''};
 var proj=function(){return byId('projects',S.pid)};
 var pad=function(n){return n==null?'--':String(n).padStart(2,'0')};
@@ -357,7 +398,12 @@ function chainOf(rid){
   return out;
 }
 function curRoute(){var r=byId('routes',S.rid);return (r&&r.pid===S.pid)?r:(byId('routes',rootId())||null)}
-function inChain(){var m={};chainOf((curRoute()||{}).id).forEach(function(x){m[x]=1});return m}
+function selRoutes(){
+  var prim=(curRoute()||{}).id, ids=(S.rids||[]).filter(function(id){var r=byId('routes',id);return r&&r.pid===S.pid});
+  if(prim&&ids.indexOf(prim)<0)ids.unshift(prim);
+  return ids.length?ids:(prim?[prim]:[]);
+}
+function inChain(){var m={};selRoutes().forEach(function(r){chainOf(r).forEach(function(x){m[x]=1})});return m}
 function eff(c){
   var all=P(c);
   if(c!=='documents'&&c!=='events'&&c!=='arcs')return all;
@@ -371,6 +417,53 @@ function kindOf(d){var k=d&&d.kind;return (!k||k==='chapter'||k==='scene')?'draf
 function kindLabel(k){k=(!k||k==='chapter'||k==='scene')?'draft':k;var x=KINDS.find(function(y){return y[0]===k});return x?x[1]:'Draft'}
 
 /* chapters live inside a file: the headings at the chapter level carry the story data */
+var MONTHS={january:1,jan:1,february:2,feb:2,march:3,mar:3,april:4,apr:4,may:5,june:6,jun:6,july:7,jul:7,august:8,aug:8,september:9,sep:9,sept:9,october:10,oct:10,november:11,nov:11,december:12,dec:12};
+function autoKey(text){
+  var t=(text||'').trim().toLowerCase().replace(/[,.]/g,' ').replace(/\s+/g,' ').trim(), m, y, mo=0, da=0;
+  if(!t)return null;
+  if((m=/^(\d{3,4})-(\d{1,2})-(\d{1,2})$/.exec(t))){y=+m[1];mo=+m[2];da=+m[3]}
+  else if((m=/^(\d{1,2})(?:st|nd|rd|th)? (?:of )?([a-z]+) (\d{3,4})$/.exec(t))&&MONTHS[m[2]]){da=+m[1];mo=MONTHS[m[2]];y=+m[3]}
+  else if((m=/^([a-z]+) (\d{1,2})(?:st|nd|rd|th)? (\d{3,4})$/.exec(t))&&MONTHS[m[1]]){mo=MONTHS[m[1]];da=+m[2];y=+m[3]}
+  else if((m=/^([a-z]+) (\d{3,4})$/.exec(t))&&MONTHS[m[1]]){mo=MONTHS[m[1]];y=+m[2]}
+  else if((m=/^(\d{3,4})$/.exec(t))){y=+m[1]}
+  else return null;
+  if(mo>12||da>31)return null;
+  return y*10000+mo*100+da;
+}
+function dateMode(){var p=proj();return (p&&p.dateMode)||'auto'}
+function itemKey(x){
+  if(dateMode()==='manual'){var k=x.dateKey;return (k===''||k==null||isNaN(+k))?null:+k}
+  return autoKey(x.storyDate);
+}
+function chapArc(d,x){return x.arcId||d.arcId||''}
+function docArcs(d){return uniq([d.arcId].concat(chapters(d).map(function(x){return x.arcId})))}
+function chapWords(d,x){var hs=d.headings||[],i=hs.indexOf(x);if(i<0||x.words==null)return null;var t=x.words||0;for(var j=i+1;j<hs.length&&hs[j].level>x.level;j++)t+=hs[j].words||0;return t}
+function arcWords(a){
+  var t=0;
+  P('documents').filter(function(d){return !isTrashed(d)}).forEach(function(d){
+    var chs=chapters(d);
+    if(chs.some(function(x){return x.words!=null}))chs.forEach(function(x){if(chapArc(d,x)===a.id){var w=chapWords(d,x);if(w!=null)t+=w}});
+    else if(d.arcId===a.id)t+=(d.file&&d.file.words)||0;
+  });
+  return t;
+}
+function chapCount(d,id,kind){return chapters(d).filter(function(x){return kind==='char'?((x.characterIds||[]).indexOf(id)>-1||x.pov===id):(x.locationIds||[]).indexOf(id)>-1}).length}
+function docSub(d,id,kind){var tot=chapters(d).length;if(!tot)return docSpan(d);var n=chapCount(d,id,kind);return [n?(n+' of '+tot+' chapters'):'whole file',docSpan(d)].filter(Boolean).join(' · ')}
+function chronItems(){
+  var out=[];
+  eff('documents').filter(function(d){return kindOf(d)==='draft'}).forEach(function(d){
+    var dk=itemKey(d), chs=chapters(d);
+    if(!chs.length){out.push({d:d,h:null,key:dk,ord:0});return}
+    chs.forEach(function(x,i){var k=itemKey(x);out.push({d:d,h:x,key:k!=null?k:dk,ord:i})});
+  });
+  out.sort(function(a,b){
+    var ka=a.key,kb=b.key,tie=((a.d.chron||0)-(b.d.chron||0))||(a.ord-b.ord);
+    if(ka==null&&kb==null)return tie;
+    if(ka==null)return 1;if(kb==null)return -1;
+    return (ka-kb)||tie;
+  });
+  return out;
+}
 function chapLvl(d){
   var p=proj(),want=parseInt(p&&p.chapterLevel,10)||2,hs=(d&&d.headings)||[];
   if(!hs.length)return 0;
@@ -395,7 +488,7 @@ function mergeHeads(old,nu){
     for(var k=0;k<old.length;k++){if(!used[k]&&old[k].level===x.level&&(old[k].title||'').toLowerCase()===(x.title||'').toLowerCase()){j=k;break}}
     if(j<0&&old.length===nu.length&&!used[i]&&old[i].level===x.level)j=i;
     if(j<0)return x;
-    used[j]=1;return Object.assign({},old[j],{level:x.level,title:x.title});
+    used[j]=1;return Object.assign({},old[j],{level:x.level,title:x.title,words:x.words});
   });
 }
 function variantLabel(v){v=v||'canon';if(v==='trashed')return 'Trashed';var x=VARIANTS.find(function(y){return y[0]===v});return x?x[1]:'Canon'}
@@ -405,7 +498,7 @@ function pushUndo(label,u){undoStack.push({label:label,u:u});if(undoStack.length
 function undo(){
   var e=undoStack.pop();if(!e){toast('Nothing to undo.');return}
   if(e.u.pid!==S.pid){toast('That change was in another project.');return}
-  COLLS.forEach(function(c){
+  withBulk(function(){COLLS.forEach(function(c){
     if(c==='projects')return;
     var before=e.u.d[c]||[], ids={};
     before.forEach(function(js){
@@ -414,7 +507,7 @@ function undo(){
       else if(stable(cur)!==js){S[c][S[c].indexOf(cur)]=o;save(c,o,true)}
     });
     S[c].filter(function(x){return x.pid===S.pid&&!ids[x.id]}).forEach(function(x){dropDoc(c,x.id)});
-  });
+  })});
   render();toast('Undone: '+e.label);
 }
 var label=function(lv){var p=proj();var l=p&&p.labels&&p.labels[lv];return l!=null?l:(DEFAULT_LABELS[lv]||'')};
@@ -446,9 +539,11 @@ boxcheck:'<rect x="4.5" y="4.5" width="15" height="15" rx="3"/><path d="M8.5 12.
 function ic(n,sz){sz=sz||18;return '<svg class="ic" width="'+sz+'" height="'+sz+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+ICONS[n]+'</svg>'}
 
 /* ---------- persistence ---------- */
-var pending={}, chains={};
+var pending={}, chains={}, bulk=0, bulkLocal=0;
+function withBulk(fn){bulk++;try{return fn()}finally{bulk--;if(!bulk&&bulkLocal){bulkLocal=0;persistLocal()}}}
 function key(c,id){return c+'/'+id}
 function save(coll,obj,now){
+  if(bulk&&S.mode!=='cloud'){bulkLocal=1;return}
   var k=key(coll,obj.id);
   clearTimeout(pending[k]);
   pending[k]=setTimeout(function(){flush(coll,obj.id)},now?0:350);
@@ -473,7 +568,7 @@ function writeFailed(e){
   toast(c==='quota_exceeded'?'Storage is full. Export a backup and delete something you no longer need.':'A change could not be saved. Check your connection and try again.');
 }
 function cacheLocal(){try{var o={};COLLS.forEach(function(c){o[c]=S[c]});localStorage.setItem('story-organiser-v1',JSON.stringify(o))}catch(e){}}
-function persistLocal(){cacheLocal();if(S.mode==='od')odSchedule()}
+function persistLocal(){if(bulk){bulkLocal=1;return}cacheLocal();if(S.mode==='od')odSchedule()}
 function loadLocal(){try{var o=JSON.parse(localStorage.getItem('story-organiser-v1')||'null');if(o)COLLS.forEach(function(c){S[c]=o[c]||[]})}catch(e){}}
 function mk(coll,props){var o=Object.assign({id:uid(),pid:S.pid},props);S[coll].push(o);save(coll,o,true);return o}
 
@@ -596,10 +691,10 @@ function routeList(){
 }
 function routeBar(){
   var rs=routeList();if(rs.length<2)return '';
-  var cur=curRoute();
-  return '<div class="routes" role="tablist" aria-label="Route">'+rs.map(function(x){
-    return '<button class="rtab" role="tab" data-act="route" data-id="'+x.r.id+'" aria-selected="'+(!!cur&&cur.id===x.r.id)+'" style="--rc:var(--r-'+(x.r.color||'a')+')"><i></i>'+esc(x.r.name)+'</button>';
-  }).join('')+'</div>';
+  var sel=selRoutes();
+  return '<div class="routes" role="group" aria-label="Routes shown. Tap to add or remove a route. Double-click to show only one.">'+rs.map(function(x){
+    return '<button class="rtab" data-act="route" data-id="'+x.r.id+'" aria-pressed="'+(sel.indexOf(x.r.id)>-1)+'" style="--rc:var(--r-'+(x.r.color||'a')+')"><i></i>'+esc(x.r.name)+'</button>';
+  }).join('')+'<button class="rtab" data-act="route-all" aria-pressed="'+(sel.length===rs.length)+'">All</button></div>';
 }
 function docRow(d,o){
   var pvs=docPovs(d), pov=nameOf('characters',pvs[0])+(pvs.length>1?' +'+(pvs.length-1):'');
@@ -628,7 +723,7 @@ documents:function(){
   var trashed=sortBy(P('documents').filter(isTrashed),'order'), trashView=S.vis==='trash';
   var f=S.filter, q=f.q.trim().toLowerCase();
   var base=trashView?trashed:docs.filter(visOk);
-  var vis=base.filter(function(d){return (!f.status||d.status===f.status)&&(!f.arc||d.arcId===f.arc)&&(!f.tag||(d.tags||[]).indexOf(f.tag)>-1)&&(!f.kind||kindOf(d)===f.kind)&&(!q||hay(d).indexOf(q)>-1)});
+  var vis=base.filter(function(d){return (!f.status||d.status===f.status)&&(!f.arc||docArcs(d).indexOf(f.arc)>-1)&&(!f.tag||(d.tags||[]).indexOf(f.tag)>-1)&&(!f.kind||kindOf(d)===f.kind)&&(!q||hay(d).indexOf(q)>-1)});
   var filtered=!!(f.status||f.arc||f.tag||f.kind||q||S.vis!=='all');
   var arcs=sortBy(eff('arcs'),'order'), anyArc=docs.some(function(d){return d.arcId&&byId('arcs',d.arcId)});
   var cnt={};STATUSES.forEach(function(s){cnt[s]=0});docs.forEach(function(d){cnt[d.status||'Idea']++});
@@ -642,7 +737,7 @@ documents:function(){
     '<button class="btn" data-act="new-doc">'+ic('plus')+'Blank</button>'+
     (S.mode==='od'&&p&&p.odFolder?'<button class="btn" data-act="od-sync">'+ic('refresh')+'Sync</button>':'')+
     (S.mode==='od'&&p&&!p.odFolder?'<button class="btn" data-act="od-pick">'+ic('folder')+'OneDrive folder</button>':'')+
-    (docs.length?'<button class="btn" data-act="path">Reading path</button>':'')+
+    (docs.length?'<button class="btn" data-act="path">Reading path</button>':'')+clearBtn('documents',docs.length)+
     '<button class="btn" data-act="routes">'+ic('layers')+'Routes</button>'+
     (trashView&&trashed.length?'<button class="btn danger" data-act="empty-trash">'+ic('trash')+'Empty trash</button>':'')+
     (folder?'<a class="btn" href="'+esc(folder)+'" target="_blank" rel="noopener noreferrer">'+ic('open')+'OneDrive</a>':'')+'</div></div>'+routeBar()+
@@ -671,19 +766,19 @@ documents:function(){
 },
 characters:function(){
   var q=S.filter.q.trim().toLowerCase(), docs=P('documents');
-  var list=P('characters').slice().sort(function(a,b){return (a.name||'').localeCompare(b.name||'')}).filter(function(c){return !q||(c.name||'').toLowerCase().indexOf(q)>-1||(c.role||'').toLowerCase().indexOf(q)>-1});
-  var head='<div class="lhead"><div class="ltitle"><h1>Characters</h1><span class="cnt">'+P('characters').length+'</span></div><div class="lact"><button class="btn primary" data-act="new-char">'+ic('plus')+'New character</button><button class="btn" data-act="import-backup">'+ic('upload')+'Import characters</button></div></div>'+
+  var list=P('characters').slice().sort(function(a,b){return (a.name||'').localeCompare(b.name||'')}).filter(function(c){return !q||charHay(c).indexOf(q)>-1});
+  var head='<div class="lhead"><div class="ltitle"><h1>Characters</h1><span class="cnt">'+P('characters').length+'</span></div><div class="lact"><button class="btn primary" data-act="new-char">'+ic('plus')+'New character</button><button class="btn" data-act="import-backup">'+ic('upload')+'Import characters</button>'+clearBtn('characters',P('characters').length)+'</div></div>'+
     '<div class="filters"><input class="in" type="search" data-filter="q" placeholder="Filter characters" value="'+esc(S.filter.q)+'" aria-label="Filter characters"></div>';
   var rows=list.length?list.map(function(c){
     var a=docs.filter(function(d){return docChars(d).indexOf(c.id)>-1}).length;
-    return '<div class="row plain'+(S.sel===c.id?' sel':'')+'" role="listitem" tabindex="0" data-act="select" data-id="'+c.id+'"><div class="rb"><div class="rt">'+(esc(c.name)||'Unnamed')+'</div>'+(c.role?'<div class="rm">'+esc(c.role)+'</div>':'')+'</div><span class="num">'+a+' doc'+(a===1?'':'s')+'</span></div>';
+    return '<div class="row plain'+(S.sel===c.id?' sel':'')+'" role="listitem" tabindex="0" data-act="select" data-id="'+c.id+'">'+(showAv()?avatar(c,32):'')+'<div class="rb"><div class="rt">'+(esc(c.name)||'Unnamed')+'</div>'+(c.role?'<div class="rm">'+esc(c.role)+'</div>':'')+'</div><span class="num">'+a+' doc'+(a===1?'':'s')+'</span></div>';
   }).join(''):'<div class="empty"><h1>No characters</h1><p>Add the people in your story. Link them to documents to see where each one appears.</p></div>';
   return {head:head,rows:rows};
 },
 locations:function(){
   var q=S.filter.q.trim().toLowerCase(), docs=P('documents');
   var list=P('locations').slice().sort(function(a,b){return (a.name||'').localeCompare(b.name||'')}).filter(function(c){return !q||(c.name||'').toLowerCase().indexOf(q)>-1||(c.type||'').toLowerCase().indexOf(q)>-1});
-  var head='<div class="lhead"><div class="ltitle"><h1>Locations</h1><span class="cnt">'+P('locations').length+'</span></div><div class="lact"><button class="btn primary" data-act="new-loc">'+ic('plus')+'New location</button></div></div>'+
+  var head='<div class="lhead"><div class="ltitle"><h1>Locations</h1><span class="cnt">'+P('locations').length+'</span></div><div class="lact"><button class="btn primary" data-act="new-loc">'+ic('plus')+'New location</button>'+clearBtn('locations',P('locations').length)+'</div></div>'+
     '<div class="filters"><input class="in" type="search" data-filter="q" placeholder="Filter locations" value="'+esc(S.filter.q)+'" aria-label="Filter locations"></div>';
   var rows=list.length?list.map(function(c){
     var a=docs.filter(function(d){return docLocs(d).indexOf(c.id)>-1}).length;
@@ -693,9 +788,20 @@ locations:function(){
 },
 timeline:function(){
   var trashView=S.vis==='trash', canDrag=S.vis==='all';
-  var seg='<div class="seg" role="group" aria-label="Timeline view" style="min-width:210px"><button data-act="seg" data-v="chron" aria-pressed="'+(S.seg==='chron')+'">Chronology</button><button data-act="seg" data-v="events" aria-pressed="'+(S.seg==='events')+'">Events</button></div>';
+  var seg='<div class="seg" role="group" aria-label="Timeline view" style="min-width:min(100%,360px)"><button data-act="seg" data-v="chron" aria-pressed="'+(S.seg==='chron')+'">Chronology</button><button data-act="seg" data-v="dates" aria-pressed="'+(S.seg==='dates')+'">Scenes by date</button><button data-act="seg" data-v="events" aria-pressed="'+(S.seg==='events')+'">Events</button></div>';
   var head,rows;
-  if(S.seg==='chron'){
+  if(S.seg==='dates'){
+    var items=chronItems(), rp2=posMap('documents','order'), undated=items.filter(function(x){return x.key==null}).length, shownU=false;
+    head='<div class="lhead"><div class="ltitle"><h1>Timeline</h1><span class="cnt">'+items.length+' scenes</span></div>'+seg+'</div>'+routeBar()+
+      '<div class="sbwrap"><p class="hint">Every chapter on its own, placed by its story date. A chapter without a date follows its file. '+(undated?undated+' have no readable date and sit at the end. ':'')+(dateMode()==='manual'?'Sorting by your sort numbers.':'Dates are read as real calendar dates. For a made-up calendar, switch to sort numbers in Settings.')+'</p></div>';
+    rows=items.length?'<div>'+items.map(function(it){
+      var d=it.d, x=it.h, g='';
+      if(it.key==null&&!shownU){shownU=true;g='<div class="ghead">No readable date</div>'}
+      var rid=routeOf(d), rc=byId('routes',rid), rt=(rid!==rootId()&&rc)?'<span class="rtag" style="--rc:var(--r-'+(rc.color||'a')+')"><i></i>'+esc(rc.name)+'</span>':'';
+      var sub=[d.title,rp2[d.id]!=null?'reading position '+rp2[d.id]:'',x&&x.storyDate||(!x&&d.storyDate)||'',x&&x.pov&&('POV '+nameOf('characters',x.pov))].filter(Boolean).join(' · ');
+      return g+'<div class="row plain" role="listitem" tabindex="0" data-act="chap-go" data-id="'+d.id+'" data-hid="'+(x?x.id:'')+'"><div class="folio"><b>'+(x?pad(it.ord+1):'·')+'</b></div><div class="rb"><div class="rt">'+(esc(x?x.title:d.title)||'Untitled')+'</div><div class="rm">'+esc(sub)+'</div></div>'+rt+'</div>';
+    }).join('')+'</div>':'<div class="empty"><p>No drafts to place yet. Add documents, then give their chapters story dates.</p></div>';
+  }else if(S.seg==='chron'){
     var all=sortBy(eff('documents'),'chron'), rp=posMap('documents','order'), cp=posMap('documents','chron');
     var docs=trashView?sortBy(P('documents').filter(isTrashed),'chron'):all.filter(visOk);
     head='<div class="lhead"><div class="ltitle"><h1>Timeline</h1><span class="cnt">story order</span></div>'+seg+'</div>'+routeBar()+
@@ -707,7 +813,7 @@ timeline:function(){
   }else{
     var evs=sortBy(eff('events'),'order').filter(visOk), ep=posMap('events','order');
     head='<div class="lhead"><div class="ltitle"><h1>Timeline</h1><span class="cnt">'+evs.length+' events</span></div>'+seg+'</div>'+routeBar()+
-      '<div class="lhead" style="padding-top:0"><div class="lact"><button class="btn primary" data-act="new-event">'+ic('plus')+'New event</button></div></div><div class="filters">'+visSel()+'</div>';
+      '<div class="lhead" style="padding-top:0"><div class="lact"><button class="btn primary" data-act="new-event">'+ic('plus')+'New event</button>'+clearBtn('events',P('events').length)+'</div></div><div class="filters">'+visSel()+'</div>';
     rows=evs.length?'<div data-sort="events:order">'+evs.map(function(e){
       var loc=nameOf('locations',e.locationId);
       var meta=[e.dateText,loc].filter(Boolean).join(' · ');
@@ -719,7 +825,7 @@ timeline:function(){
 arcs:function(){
   var arcs=sortBy(eff('arcs'),'order'), docs=eff('documents'), ap=posMap('arcs','order'), canDrag=S.vis==='all';
   var list=arcs.filter(visOk);
-  var head='<div class="lhead"><div class="ltitle"><h1>Arcs</h1><span class="cnt">'+arcs.length+'</span></div><div class="lact"><button class="btn primary" data-act="new-arc">'+ic('plus')+'New arc</button><button class="btn" data-act="routes">'+ic('layers')+'Routes</button></div></div>'+routeBar()+
+  var head='<div class="lhead"><div class="ltitle"><h1>Arcs</h1><span class="cnt">'+arcs.length+'</span></div><div class="lact"><button class="btn primary" data-act="new-arc">'+ic('plus')+'New arc</button>'+clearBtn('arcs',P('arcs').length)+'<button class="btn" data-act="routes">'+ic('layers')+'Routes</button></div></div>'+routeBar()+
     '<div class="sbwrap"><p class="hint">Acts, storylines or sections within a route. Assign each document to one from its detail card.</p></div><div class="filters">'+visSel()+'</div>';
   var rows=list.length?'<div data-sort="arcs:order">'+list.map(function(a){
     var n=docs.filter(function(d){return d.arcId===a.id}).length;
@@ -770,11 +876,16 @@ function chipsFor(d,hd,field,coll){
 }
 function chapterRow(d,hd,oc){
   var pv=nameOf('characters',hd.pov), n=(hd.characterIds||[]).length, k=d.id+':'+hd.id+':';
-  var sum=[hd.storyDate,pv&&('POV '+pv),n&&(n+' character'+(n>1?'s':''))].filter(Boolean).join(' · ');
+  var cw=chapWords(d,hd), ak=nameOf('arcs',chapArc(d,hd));
+  var sum=[hd.storyDate,pv&&('POV '+pv),n&&(n+' character'+(n>1?'s':'')),ak&&hd.arcId&&('Arc '+ak),cw!=null&&(fmtN(cw)+' words')].filter(Boolean).join(' · ');
+  var unread=dateMode()==='auto'&&(hd.storyDate||'').trim()&&autoKey(hd.storyDate)==null;
   function add(field,coll,noun){return '<button class="btn sm" data-act="chap-pick" data-id="'+d.id+'" data-hid="'+hd.id+'" data-field="'+field+'" data-coll="'+coll+'" data-noun="'+noun+'">'+ic('plus',14)+'Add</button>'}
   return '<details class="chap" data-hid="'+hd.id+'"'+(S.chapOpen&&S.chapOpen[hd.id]?' open':'')+'><summary><span class="hlab">'+esc(label(hd.level)||('H'+hd.level))+'</span><span class="t">'+esc(hd.title)+'</span>'+(oc?'<span class="nb">'+oc+' open</span>':'')+(sum?'<small>'+esc(sum)+'</small>':'')+'</summary><div class="chapbody">'+
     '<div class="fgrid"><div><label class="lab" for="chd-'+hd.id+'">Story date</label><input class="in" id="chd-'+hd.id+'" data-chap="'+k+'storyDate" value="'+esc(hd.storyDate||'')+'" placeholder="For example 12 Frost, 1248"></div>'+
+    (dateMode()==='manual'?'<div><label class="lab" for="chk-'+hd.id+'">Sort number</label><input class="in" id="chk-'+hd.id+'" type="number" inputmode="decimal" data-chap="'+k+'dateKey" value="'+esc(hd.dateKey==null?'':hd.dateKey)+'" placeholder="For example story day 340"></div>':'')+
+    (unread?'<p class="hint span2" style="margin:0">That date is not one I can sort, so this chapter follows its file. Write it like 12 August 1248, or switch to sort numbers in Settings.</p>':'')+
     '<div><label class="lab" for="chp-'+hd.id+'">POV</label><select class="in" id="chp-'+hd.id+'" data-chap="'+k+'pov">'+optList('characters',hd.pov,'None')+'</select></div>'+
+    '<div><label class="lab" for="cha-'+hd.id+'">Arc</label><select class="in" id="cha-'+hd.id+'" data-chap="'+k+'arcId">'+optList('arcs',hd.arcId,'Same as the file','order')+'</select></div>'+
     '<div class="span2"><label class="lab" for="chs-'+hd.id+'">What happens</label><textarea class="in" id="chs-'+hd.id+'" data-chap="'+k+'summary" placeholder="A line or two in your own words">'+esc(hd.summary||'')+'</textarea></div></div>'+
     '<div class="chapsec"><span class="lab">Characters</span><div class="chips">'+chipsFor(d,hd,'characterIds','characters')+add('characterIds','characters','character')+'</div></div>'+
     '<div class="chapsec"><span class="lab">Locations</span><div class="chips">'+chipsFor(d,hd,'locationIds','locations')+add('locationIds','locations','location')+'</div></div>'+
@@ -808,6 +919,7 @@ function docCard(d){
     posInput(d,'order','rp-','Reading order',rp,n)+
     posInput(d,'chron','cp-','Story chronology',cp,n)+
     '<div class="span2"><label class="lab" for="sd-'+d.id+'">Story date</label><input class="in" id="sd-'+d.id+'" data-bind="documents:'+d.id+':storyDate" value="'+esc(d.storyDate||'')+'" placeholder="For example 12 Frost, 1248"></div>'+
+    (dateMode()==='manual'?'<div><label class="lab" for="dk-'+d.id+'">Sort number</label><input class="in" id="dk-'+d.id+'" type="number" inputmode="decimal" data-bind="documents:'+d.id+':dateKey" value="'+esc(d.dateKey==null?'':d.dateKey)+'" placeholder="Story day"></div>':'')+
     '<div><label class="lab" for="pv-'+d.id+'">POV</label><select class="in" id="pv-'+d.id+'" data-bind="documents:'+d.id+':pov">'+optList('characters',d.pov,'None')+'</select></div>'+
     '<div><label class="lab" for="ar-'+d.id+'">Arc</label><select class="in" id="ar-'+d.id+'" data-bind="documents:'+d.id+':arcId">'+optList('arcs',d.arcId,'No arc','order')+'</select></div>'+
   '</div>';
@@ -845,6 +957,52 @@ function docCard(d){
   return h;
 }
 
+function cf(c,path,label,o){
+  o=o||{};var id='cf-'+c.id+'-'+path.replace(/\./g,'-'), v=getPath(c,path);
+  var inner=o.area?'<textarea class="in" id="'+id+'" data-bind="characters:'+c.id+':'+path+'">'+esc(v||'')+'</textarea>'
+    :'<input class="in" id="'+id+'" type="'+(o.num?'number':'text')+'"'+(o.num?' min="0" max="9999" inputmode="numeric"':'')+' data-bind="characters:'+c.id+':'+path+'" value="'+esc(v==null?'':v)+'"'+(o.ph?' placeholder="'+esc(o.ph)+'"':'')+'>';
+  return '<div'+(o.wide?' class="span2"':'')+'><label class="lab" for="'+id+'">'+label+'</label>'+inner+'</div>';
+}
+function ccheck(c,path,label){return '<label class="ck"><input type="checkbox" data-bind="characters:'+c.id+':'+path+'"'+(getPath(c,path)?' checked':'')+'>'+label+'</label>'}
+function csec(c,key,title,def,body){
+  var id=c.id+':'+key, open=S.csOpen&&S.csOpen[id]!=null?S.csOpen[id]:def;
+  return '<details class="csec" data-ck="'+id+'"'+(open?' open':'')+'><summary><h3>'+title+'</h3></summary><div class="csb">'+body+'</div></details>';
+}
+function arrRows(c,path,kind,addLabel){
+  var arr=getPath(c,path)||[], k=function(x,f){return 'data-arr="'+c.id+'|'+path+'|'+x.id+'|'+f+'"'};
+  var rows=arr.map(function(x){
+    var body=kind==='prev'?'<input class="in" '+k(x,'name')+' value="'+esc(x.name||'')+'" placeholder="Name" aria-label="Previous name"><input class="in" '+k(x,'reason')+' value="'+esc(x.reason||'')+'" placeholder="Why it changed" aria-label="Reason">'
+      :kind==='weapon'?'<input class="in" '+k(x,'name')+' value="'+esc(x.name||'')+'" placeholder="Weapon" aria-label="Weapon name"><select class="in" '+k(x,'type')+' aria-label="Weapon type">'+['sharp','blunt','ranged','morphic','other'].map(function(t){return '<option'+(x.type===t?' selected':'')+'>'+t+'</option>'}).join('')+'</select><input class="in wide" '+k(x,'notes')+' value="'+esc(x.notes||'')+'" placeholder="Notes" aria-label="Weapon notes">'
+      :'<input class="in" '+k(x,'name')+' value="'+esc(x.name||'')+'" placeholder="Name" aria-label="Name"><input class="in wide" '+k(x,'description')+' value="'+esc(x.description||'')+'" placeholder="Description" aria-label="Description">';
+    return '<div class="arow">'+body+'<button class="nx" data-act="arr-del" data-id="'+c.id+'" data-path="'+path+'" data-aid="'+x.id+'" aria-label="Remove">'+ic('x',14)+'</button></div>';
+  }).join('');
+  return rows+'<button class="btn sm" data-act="arr-add" data-id="'+c.id+'" data-path="'+path+'" data-kind="'+kind+'">'+ic('plus',14)+addLabel+'</button>';
+}
+function charSections(c){
+  normChar(c);
+  var dp=['first','middle','last','nickname','alias'].map(function(k){return ccheck(c,'displayParts.'+k,k.charAt(0).toUpperCase()+k.slice(1))}).join('');
+  var ident='<div class="fgrid">'+cf(c,'firstName','First name')+cf(c,'middleName','Middle name')+cf(c,'lastName','Last name')+cf(c,'nickname','Nickname')+cf(c,'alias','Alias')+cf(c,'mode','Mode',{ph:'student, professional'})+
+    cf(c,'gender','Gender')+cf(c,'attraction','Attracted to')+cf(c,'sexuality','Sexuality')+cf(c,'birthYear','Birth year')+'</div>'+
+    '<div class="lab" style="margin-top:10px">Show in the display name</div><div class="cks">'+dp+'</div>'+
+    '<div class="cks" style="margin-top:10px">'+ccheck(c,'deceased','Deceased')+'</div>'+
+    (c.deceased?'<div class="fgrid">'+cf(c,'deathYear','Death year')+cf(c,'deathAge','Age at death')+cf(c,'deathCause','Cause',{wide:true})+'</div>':'')+
+    '<div class="lab" style="margin-top:10px">Previous names</div>'+arrRows(c,'previousNames','prev','Add a previous name');
+  var look='<div class="fgrid">'+cf(c,'portrait','Portrait image link',{wide:true,ph:'https://… .jpg or .png'})+cf(c,'eyes','Eyes')+cf(c,'hair','Hair')+cf(c,'skin','Skin')+cf(c,'build','Build')+cf(c,'height','Height')+cf(c,'weight','Weight')+cf(c,'appearanceNotes','Appearance notes',{wide:true,area:true})+'</div>'+
+    '<p class="hint">Use a direct link to an image. With the OneDrive edition you can also name image files after your characters in a portraits folder.</p>';
+  var stats='<div class="statgrid">'+STATK.map(function(k){return cf(c,'stats.'+k,k.toUpperCase(),{num:true})}).join('')+'</div>';
+  var combat='<div class="fgrid">'+cf(c,'hp','HP',{num:true})+cf(c,'mp','MP',{num:true})+cf(c,'specialty','Specialty',{wide:true})+'</div>'+stats+
+    '<div class="lab" style="margin-top:10px">Weapons</div>'+arrRows(c,'weapons','weapon','Add a weapon')+
+    '<div class="lab" style="margin-top:10px">Physical techniques</div>'+arrRows(c,'specialMoves.physical','move','Add a technique')+
+    '<div class="lab" style="margin-top:10px">Magical abilities</div>'+arrRows(c,'specialMoves.magical','move','Add an ability')+
+    '<div class="fgrid" style="margin-top:10px">'+cf(c,'combatNotes','Combat notes',{wide:true,area:true})+'</div>';
+  var more=(S.magicMore&&S.magicMore[c.id])||[];
+  var shown=MAGIC.filter(function(k){return (+c.magic[k]||0)>0||more.indexOf(k)>-1}), hidden=MAGIC.filter(function(k){return shown.indexOf(k)<0});
+  var magic=(shown.length?'<div class="magicgrid">'+shown.map(function(k){return cf(c,'magic.'+k,k.charAt(0).toUpperCase()+k.slice(1),{num:true})}).join('')+'</div>':'<p class="hint">No magic schools set.</p>')+
+    (hidden.length?'<select class="in" data-change="magic-add" data-id="'+c.id+'" aria-label="Add a school of magic"><option value="">Add a school</option>'+hidden.map(function(k){return '<option value="'+k+'">'+k.charAt(0).toUpperCase()+k.slice(1)+'</option>'}).join('')+'</select>':'');
+  var pers='<div class="fgrid">'+PERS.map(function(x){return cf(c,'personality.'+x[0],x[1],{wide:true,area:x[0]!=='alignment'})}).join('')+'</div>';
+  var nm=magic.length&&shown.length?' ('+shown.length+')':'';
+  return csec(c,'identity','Identity',true,ident)+csec(c,'look','Appearance',true,look)+csec(c,'combat','Combat',false,combat)+csec(c,'magic','Magic'+nm,false,magic)+csec(c,'pers','Personality',false,pers);
+}
 function charCard(c){
   var docs=sortBy(P('documents').filter(function(d){return !isTrashed(d)}),'order'), rp=posMap('documents','order');
   var app=docs.filter(function(d){return docChars(d).indexOf(c.id)>-1});
@@ -852,24 +1010,25 @@ function charCard(c){
   var pov=docs.filter(function(d){return docPovs(d).indexOf(c.id)>-1});
   var evs=sortBy(P('events'),'order').filter(function(e){return (e.characterIds||[]).indexOf(c.id)>-1});
   var arcs=sortBy(P('arcs'),'order');
-  var bars=arcs.map(function(a){return {a:a.name,n:app.filter(function(d){return d.arcId===a.id}).length}}).filter(function(x){return x.n});
-  var noArc=app.filter(function(d){return !d.arcId||!byId('arcs',d.arcId)}).length;if(noArc)bars.push({a:'No arc',n:noArc});
+  var bars=arcs.map(function(a){return {a:a.name,n:app.filter(function(d){return docArcs(d).indexOf(a.id)>-1}).length}}).filter(function(x){return x.n});
+  var noArc=app.filter(function(d){return !docArcs(d).some(function(i){return byId('arcs',i)})}).length;if(noArc)bars.push({a:'No arc',n:noArc});
   var mx=Math.max.apply(null,[1].concat(bars.map(function(x){return x.n})));
   var outs=(c.rels||[]).filter(function(r){return byId('characters',r.other)});
   var ins=[];P('characters').forEach(function(o){(o.rels||[]).forEach(function(r){if(r.other===c.id)ins.push({from:o,label:r.label})})});
   var others=P('characters').filter(function(o){return o.id!==c.id}).sort(function(a,b){return (a.name||'').localeCompare(b.name||'')});
   var h=dbar('Character','characters',c.id);
-  h+='<input class="title-in" data-bind="characters:'+c.id+':name" value="'+esc(c.name)+'" aria-label="Name" placeholder="Name">';
+  h+='<div class="chead">'+avatar(c,64)+'<input class="title-in" data-bind="characters:'+c.id+':name" value="'+esc(c.name)+'" aria-label="Name" placeholder="Name"></div>';
   h+='<div class="stats"><div><b>'+app.length+'</b>Documents</div><div><b>'+pov.length+'</b>POV</div><div><b>'+men.length+'</b>Mentions</div><div><b>'+evs.length+'</b>Events</div></div>';
   h+='<div class="fgrid"><div class="span2"><label class="lab" for="rl-'+c.id+'">Role</label><input class="in" id="rl-'+c.id+'" data-bind="characters:'+c.id+':role" value="'+esc(c.role||'')+'" placeholder="Protagonist, mentor, rival"></div>'+
     '<div class="span2"><label class="lab" for="cn-'+c.id+'">Notes</label><textarea class="in" id="cn-'+c.id+'" data-bind="characters:'+c.id+':notes">'+esc(c.notes||'')+'</textarea></div></div>';
+  h+=charSections(c);
   if(bars.length){h+='<div class="sec"><h3>Appears in, by arc</h3>'+bars.map(function(b){return '<div class="barrow"><span>'+esc(b.a)+'</span><em><i style="--w:'+Math.round(b.n/mx*100)+'%"></i></em><b>'+b.n+'</b></div>'}).join('')+'</div>'}
   h+='<div class="sec"><h3>Relationships</h3>'+
     outs.map(function(r){return '<div class="relrow"><button class="lkt" style="background:none;border:0;padding:0;color:inherit" data-act="goto" data-view="characters" data-id="'+r.other+'">'+esc(nameOf('characters',r.other))+'</button><span class="l">'+esc(r.label||'related')+'</span><button class="nx" data-act="rel-del" data-id="'+c.id+'" data-rid="'+r.id+'" aria-label="Remove relationship">'+ic('x',14)+'</button></div>'}).join('')+
     ins.map(function(r){return '<div class="relrow"><button class="lkt" style="background:none;border:0;padding:0;color:inherit" data-act="goto" data-view="characters" data-id="'+r.from.id+'">'+esc(r.from.name)+'</button><span class="l">'+esc(r.label||'related')+' (set on their card)</span></div>'}).join('')+
     (!outs.length&&!ins.length?'<p class="hint">No relationships yet.</p>':'')+
     (others.length?'<div class="relform"><select class="in" id="relOther" aria-label="Other character">'+others.map(function(o){return '<option value="'+o.id+'">'+esc(o.name)+'</option>'}).join('')+'</select><input class="in" id="relLabel" data-enter="rel-add" data-id="'+c.id+'" placeholder="partner, mother, rival" aria-label="Relationship"><button class="btn" data-act="rel-add" data-id="'+c.id+'">Add</button></div>':'')+'</div>';
-  h+='<div class="sec"><h3>Documents</h3><div class="links">'+(app.length?app.map(function(d){return linkRow('documents','',d.id,rp[d.id],d.title,d.storyDate)}).join(''):'<p class="hint">Not linked to any document. Add this character from a document card.</p>')+'</div></div>';
+  h+='<div class="sec"><h3>Documents</h3><div class="links">'+(app.length?app.map(function(d){return linkRow('documents','',d.id,rp[d.id],d.title,docSub(d,c.id,'char'))}).join(''):'<p class="hint">Not linked to any document. Add this character from a document card.</p>')+'</div></div>';
   if(men.length)h+='<div class="sec"><h3>Mentioned in</h3><div class="links">'+men.map(function(d){return linkRow('documents','',d.id,rp[d.id],d.title)}).join('')+'</div></div>';
   if(evs.length)h+='<div class="sec"><h3>Events</h3><div class="links">'+evs.map(function(e){return linkRow('timeline','events',e.id,'',e.title,e.dateText)}).join('')+'</div></div>';
   return h;
@@ -886,7 +1045,7 @@ function locCard(l){
   h+='<div class="fgrid"><div class="span2"><label class="lab" for="lt-'+l.id+'">Type</label><input class="in" id="lt-'+l.id+'" data-bind="locations:'+l.id+':type" value="'+esc(l.type||'')+'" placeholder="City, building, room"></div>'+
     '<div class="span2"><label class="lab" for="ln-'+l.id+'">Notes</label><textarea class="in" id="ln-'+l.id+'" data-bind="locations:'+l.id+':notes">'+esc(l.notes||'')+'</textarea></div></div>';
   h+='<div class="sec"><h3>Characters seen here</h3><div class="chips">'+(chars.length?chars.map(function(id){return '<span class="chip"><button data-act="goto" data-view="characters" data-id="'+id+'">'+esc(nameOf('characters',id))+'</button></span>'}).join(''):'<span class="hint">None yet. Characters appear here when a document at this location lists them.</span>')+'</div></div>';
-  h+='<div class="sec"><h3>Documents</h3><div class="links">'+(here.length?here.map(function(d){return linkRow('documents','',d.id,rp[d.id],d.title,d.storyDate)}).join(''):'<p class="hint">Not linked to any document.</p>')+'</div></div>';
+  h+='<div class="sec"><h3>Documents</h3><div class="links">'+(here.length?here.map(function(d){return linkRow('documents','',d.id,rp[d.id],d.title,docSub(d,l.id,'loc'))}).join(''):'<p class="hint">Not linked to any document.</p>')+'</div></div>';
   if(evs.length)h+='<div class="sec"><h3>Events</h3><div class="links">'+evs.map(function(e){return linkRow('timeline','events',e.id,'',e.title,e.dateText)}).join('')+'</div></div>';
   return h;
 }
@@ -909,14 +1068,17 @@ function eventCard(e){
 
 function arcCard(a){
   var docs=sortBy(P('documents').filter(function(d){return !isTrashed(d)}),'order'), rp=posMap('documents','order');
-  var mine=docs.filter(function(d){return d.arcId===a.id});
+  var mine=docs.filter(function(d){return docArcs(d).indexOf(a.id)>-1}), aw=arcWords(a);
+  var achs=[];docs.forEach(function(d){chapters(d).forEach(function(x){if(chapArc(d,x)===a.id)achs.push({d:d,h:x})})});
   var cnt={};STATUSES.forEach(function(s){cnt[s]=0});mine.forEach(function(d){cnt[d.status||'Idea']++});
   var h=dbar('Arc','arcs',a.id);
   h+='<input class="title-in" data-bind="arcs:'+a.id+':name" value="'+esc(a.name)+'" aria-label="Arc name" placeholder="Arc name">';
   h+=arcMeta(a);
+  if(aw)h+='<p class="hint">About '+fmtN(aw)+' words in this arc, counted by chapter.</p>';
   if(mine.length)h+='<div class="sbar" role="img" aria-label="Progress by status">'+STATUSES.filter(function(s){return cnt[s]}).map(function(s){return '<i style="flex:'+cnt[s]+';--st:var(--st-'+s.toLowerCase()+')"></i>'}).join('')+'</div><div class="legend">'+STATUSES.filter(function(s){return cnt[s]}).map(function(s){return '<span><i style="--st:var(--st-'+s.toLowerCase()+')"></i>'+cnt[s]+' '+s+'</span>'}).join('')+'</div>';
   h+='<div class="fgrid"><div class="span2"><label class="lab" for="an-'+a.id+'">Notes</label><textarea class="in" id="an-'+a.id+'" data-bind="arcs:'+a.id+':notes">'+esc(a.notes||'')+'</textarea></div></div>';
   h+='<div class="sec"><h3>Documents</h3><div class="links">'+(mine.length?mine.map(function(d){return linkRow('documents','',d.id,rp[d.id],d.title,d.status)}).join(''):'<p class="hint">No documents in this arc. Set the arc from a document card.</p>')+'</div></div>';
+  if(achs.length)h+='<div class="sec"><h3>Chapters in this arc</h3><div class="links">'+achs.map(function(x){return '<button class="lk" data-act="chap-go" data-id="'+x.d.id+'" data-hid="'+x.h.id+'"><span class="n"></span><span><span class="lkt">'+(esc(x.h.title)||'Untitled')+'</span><small>'+esc([x.d.title,x.h.storyDate].filter(Boolean).join(' · '))+'</small></span></button>'}).join('')+'</div></div>';
   return h;
 }
 
@@ -935,6 +1097,8 @@ function renderModal(){
   else if(m.type==='picker')inner='<h2>'+esc(pickerSpec.title)+'</h2><input class="in" id="pickIn" data-input="pick" data-enter="pick-create" placeholder="'+(pickerSpec.create?'Filter, or type a new name and press Enter':'Filter')+'" aria-label="Filter"><div id="pickList" style="margin-top:8px">'+pickRows('')+'</div><div class="actions"><button class="btn primary" data-act="close">Done</button></div>';
   else if(m.type==='routes')inner=routesModal();
   else if(m.type==='odpick')inner=odPickModal();
+  else if(m.type==='clear')inner=clearModal();
+  else if(m.type==='hollow')inner=hollowModal();
   else if(m.type==='routedel')inner=routeDelModal();
   else if(m.type==='path')inner=pathModal();
   else if(m.type==='import')inner=importModal();
@@ -962,10 +1126,14 @@ function settingsModal(){
   if(p){
     h+='<div class="sec"><h3>This project</h3><label class="lab" for="sp-n">Name</label><input class="in" id="sp-n" data-bind="projects:'+p.id+':name" value="'+esc(p.name)+'">'+
       '<label class="lab" for="sp-f" style="margin-top:12px">OneDrive folder link</label><input class="in" id="sp-f" data-bind="projects:'+p.id+':folderUrl" value="'+esc(p.folderUrl||'')+'" placeholder="Optional. Adds an OneDrive button to Documents" inputmode="url">'+
+      '<label class="lab" for="sp-dm" style="margin-top:12px">Timeline date sorting</label><select class="in" id="sp-dm" data-bind="projects:'+p.id+':dateMode"><option value="auto"'+(dateMode()==='auto'?' selected':'')+'>Read my dates (real calendar)</option><option value="manual"'+(dateMode()==='manual'?' selected':'')+'>Use sort numbers (made-up calendar)</option></select><p class="hint" style="margin-top:4px">Real calendar: understands dates like 12 August 1248, August 1248, 1248 or 1248-08-12. Made-up calendar: you give each chapter a number, such as the story day.</p>'+
       '<label class="lab" for="sp-cl" style="margin-top:12px">Chapter heading level</label><select class="in" id="sp-cl" data-bind="projects:'+p.id+':chapterLevel">'+[1,2,3,4].map(function(l){return '<option value="'+l+'"'+((parseInt(p.chapterLevel,10)||2)===l?' selected':'')+'>Heading '+l+(label(l)?' ('+esc(label(l))+')':'')+'</option>'}).join('')+'</select><p class="hint" style="margin-top:4px">Headings at this level are the chapters inside each file. They carry the date, POV, characters and locations.</p>'+
       '<label class="lab" style="margin-top:12px">Word heading levels</label><p class="hint" style="margin-bottom:8px">Names shown beside each heading level in a document structure.</p><div class="fgrid" style="margin-top:0">'+
       [1,2,3,4].map(function(l){return '<div><label class="lab" for="sp-l'+l+'">Heading '+l+'</label><input class="in" id="sp-l'+l+'" data-bind="projects:'+p.id+':labels.'+l+'" value="'+esc(label(l))+'"></div>'}).join('')+'</div></div>';
   }
+  var lc=null;try{lc=JSON.parse(localStorage.getItem('so-last-clear')||'null')}catch(e){}
+  h+='<div class="sec"><h3>Characters</h3><div class="actions" style="justify-content:flex-start"><button class="btn" data-act="pref-av" aria-pressed="'+showAv()+'">Portraits in lists: '+(showAv()?'On':'Off')+'</button>'+(P('characters').length?'<button class="btn" data-act="export-hollow">Export characters (Hollow format)</button>':'')+'</div>'+
+    (lc&&lc.pid===S.pid?'<p class="hint" style="margin-top:8px">Last clear: '+lc.n+' '+esc(lc.coll)+' on '+esc(fmtDate(lc.at))+'.</p><button class="btn" data-act="restore-clear">Restore what I last cleared</button>':'')+'</div>';
   h+='<div class="sec"><h3>Backup</h3><p class="hint">Your structure and notes can be exported as a JSON file at any time. Restoring a backup replaces items that share an id and adds the rest.</p><div class="actions" style="justify-content:flex-start;margin-top:8px">'+
     (p?'<button class="btn" data-act="export" data-all="0">Export this project</button>':'')+'<button class="btn" data-act="export" data-all="1">Export everything</button><button class="btn" data-act="import-backup">Restore a backup or import characters</button></div></div>';
   h+=odSettings();
@@ -982,12 +1150,15 @@ function searchResults(q){
     if((d.title||'').toLowerCase().indexOf(q)>-1||(d.storyDate||'').toLowerCase().indexOf(q)>-1||kindLabel(d.kind).toLowerCase().indexOf(q)>-1||variantLabel(d.variant).toLowerCase().indexOf(q)>-1||(nameOf('routes',routeOf(d))||'').toLowerCase().indexOf(q)>-1||(d.tags||[]).some(function(t){return t.indexOf(q)>-1})||hs.length||ns.length)
       out.push({t:'Document',v:'documents',s:'',id:d.id,title:d.title,sub:hs[0]?'Heading: '+hs[0].title:ns[0]?'Note: '+ns[0].text:''});
   });
-  P('characters').forEach(function(c){if((c.name||'').toLowerCase().indexOf(q)>-1||(c.role||'').toLowerCase().indexOf(q)>-1)out.push({t:'Character',v:'characters',s:'',id:c.id,title:c.name,sub:c.role})});
+  P('documents').forEach(function(d){chapters(d).forEach(function(x){
+    if(((x.title||'')+' '+(x.summary||'')+' '+(x.storyDate||'')).toLowerCase().indexOf(q)>-1)out.push({t:'Chapter',v:'documents',s:'',a:'chap-go',hid:x.id,id:d.id,title:x.title,sub:[d.title,x.storyDate].filter(Boolean).join(' · ')});
+  })});
+  P('characters').forEach(function(c){if(charHay(c).indexOf(q)>-1)out.push({t:'Character',v:'characters',s:'',id:c.id,title:c.name,sub:c.role})});
   P('locations').forEach(function(c){if((c.name||'').toLowerCase().indexOf(q)>-1)out.push({t:'Location',v:'locations',s:'',id:c.id,title:c.name,sub:c.type})});
   P('events').forEach(function(c){if((c.title||'').toLowerCase().indexOf(q)>-1||(c.dateText||'').toLowerCase().indexOf(q)>-1)out.push({t:'Event',v:'timeline',s:'events',id:c.id,title:c.title,sub:c.dateText})});
   P('arcs').forEach(function(c){if((c.name||'').toLowerCase().indexOf(q)>-1)out.push({t:'Arc',v:'arcs',s:'',id:c.id,title:c.name,sub:''}) });
   if(!out.length)return '<p class="hint">Nothing matches that.</p>';
-  return out.slice(0,40).map(function(r){return '<button class="lk" data-act="goto" data-view="'+r.v+'" data-seg="'+r.s+'" data-id="'+r.id+'" style="grid-template-columns:78px minmax(0,1fr)"><span class="n" style="text-align:left;font-size:11px">'+r.t+'</span><span><span class="lkt">'+(esc(r.title)||'Untitled')+'</span>'+(r.sub?'<small>'+esc(r.sub)+'</small>':'')+'</span></button>'}).join('');
+  return out.slice(0,40).map(function(r){return '<button class="lk" data-act="'+(r.a||'goto')+'" data-hid="'+(r.hid||'')+'" data-view="'+r.v+'" data-seg="'+r.s+'" data-id="'+r.id+'" style="grid-template-columns:78px minmax(0,1fr)"><span class="n" style="text-align:left;font-size:11px">'+r.t+'</span><span><span class="lkt">'+(esc(r.title)||'Untitled')+'</span>'+(r.sub?'<small>'+esc(r.sub)+'</small>':'')+'</span></button>'}).join('');
 }
 function pickRows(q){
   var sp=pickerSpec;q=(q||'').trim().toLowerCase();
@@ -1041,19 +1212,19 @@ async function parseDocx(file){
     }
   }
   var doc=parse(await docF.async('string')), ps=doc.getElementsByTagNameNS(W,'p');
-  var heads=[], words=0;
+  var heads=[], words=0, cur=null;
   for(var j=0;j<ps.length;j++){
     var p=ps[j], ts=p.getElementsByTagNameNS(W,'t'), txt='';
     for(var k=0;k<ts.length;k++)txt+=ts[k].textContent;
     txt=txt.trim();if(!txt)continue;
-    words+=txt.split(/\s+/).length;
+    var wc=txt.split(/\s+/).length;words+=wc;
     var pPr=p.getElementsByTagNameNS(W,'pPr')[0], lv=0;
     if(pPr){
       var ol=pPr.getElementsByTagNameNS(W,'outlineLvl')[0], ps2=pPr.getElementsByTagNameNS(W,'pStyle')[0];
       if(ol){var v=parseInt(ol.getAttributeNS(W,'val'),10);lv=v<9?v+1:0}
       else if(ps2)lv=lvlOfStyle(ps2.getAttributeNS(W,'val'),styles);
     }
-    if(lv>0)heads.push({level:lv,title:txt.slice(0,200)});
+    if(lv>0){cur={level:lv,title:txt.slice(0,200),words:wc};heads.push(cur)}else if(cur)cur.words+=wc;
   }
   var modified='';
   var cf=zip.file('docProps/core.xml');
@@ -1084,7 +1255,7 @@ function confirmImport(){
   var m=S.modal, added=0, updated=0, arcMap={}, u=snap();
   P('arcs').forEach(function(a){arcMap[(a.name||'').toLowerCase()]=a.id});
   var o=maxOf(P('documents'),'order'), c=maxOf(P('documents'),'chron'), rid=m.route||(curRoute()||{}).id||rootId();
-  m.items.forEach(function(it){
+  withBulk(function(){m.items.forEach(function(it){
     if(!it.include||it.error)return;
     var meta={name:it.file,words:it.info.words,modified:it.info.modified,analysed:new Date().toISOString(),size:it.size};
     if(it.od){meta.od={id:it.od.id,etag:it.od.etag,mtime:it.od.mtime};meta.url=it.od.url;meta.stale=false}
@@ -1099,11 +1270,11 @@ function confirmImport(){
       }
       mk('documents',newDoc({title:it.file.replace(/\.docx$/i,''),file:Object.assign({url:''},meta),headings:it.info.headings,order:++o,chron:++c,arcId:arcId,kind:it.kind||'draft',variant:it.variant||'canon',routeId:rid}));added++;
     }
-  });
+  })});
   pushUndo('Import',u);
   S.modal=null;renderModal();
   S.view='documents';
-  if(byId('routes',rid))S.rid=rid;
+  if(byId('routes',rid)){S.rid=rid;S.rids=[rid]}
   render();
   toast((added?added+' added':'')+(added&&updated?', ':'')+(updated?updated+' refreshed':''),true);
 }
@@ -1152,7 +1323,7 @@ function evMeta(e){
   var branches=P('routes').filter(function(r){return r.divergenceEventId===e.id});
   var h='<div class="fgrid"><div><label class="lab" for="evr-'+e.id+'">Route</label><select class="in" id="evr-'+e.id+'" data-bind="events:'+e.id+':routeId">'+routeOpts(routeOf(e))+'</select></div>'+
     '<div><label class="lab" for="evv-'+e.id+'">Variant</label><select class="in" id="evv-'+e.id+'" data-bind="events:'+e.id+':variant">'+selOpts(VARIANTS,e.variant||'canon')+'</select></div></div>';
-  if(branches.length)h+='<div class="sec"><h3>Divergence point for</h3><div class="chips">'+branches.map(function(r){return '<span class="chip"><button data-act="route" data-id="'+r.id+'">'+esc(r.name)+'</button></span>'}).join('')+'</div></div>';
+  if(branches.length)h+='<div class="sec"><h3>Divergence point for</h3><div class="chips">'+branches.map(function(r){return '<span class="chip"><button data-act="route-view" data-id="'+r.id+'">'+esc(r.name)+'</button></span>'}).join('')+'</div></div>';
   return h;
 }
 function arcMeta(a){
@@ -1274,7 +1445,19 @@ function reorder(coll,k,id,newIndex){
 function pull(coll,field,id){
   S[coll].forEach(function(o){if((o[field]||[]).indexOf(id)>-1){o[field]=o[field].filter(function(x){return x!==id});save(coll,o,true)}});
 }
+function pullHeads(id){
+  S.documents.forEach(function(d){
+    var ch=false;
+    (d.headings||[]).forEach(function(x){
+      if(x.pov===id){x.pov='';ch=true}
+      ['characterIds','locationIds'].forEach(function(f){if((x[f]||[]).indexOf(id)>-1){x[f]=x[f].filter(function(y){return y!==id});ch=true}});
+    });
+    if(ch)save('documents',d,true);
+  });
+}
 function removeEntity(coll,id){
+  if(coll==='characters'||coll==='locations')pullHeads(id);
+  if(coll==='events')S.routes.forEach(function(r){if(r.divergenceEventId===id){r.divergenceEventId='';save('routes',r,true)}});
   if(coll==='characters'){
     pull('documents','characterIds',id);pull('documents','mentionIds',id);pull('events','characterIds',id);
     S.documents.forEach(function(d){if(d.pov===id){d.pov='';save('documents',d,true)}});
@@ -1293,8 +1476,21 @@ function removeEntity(coll,id){
   if(coll==='projects'){S.pid=(S.projects[0]||{}).id||null;S.sel=null}
   if(S.sel===id)S.sel=null;
 }
+var CLEAR_WORD={characters:'characters',locations:'locations',events:'events',arcs:'arcs'};
+function clearBtn(coll,n){return n?'<button class="btn danger" data-act="clear" data-coll="'+coll+'">'+(coll==='documents'?'Trash all':'Clear')+'</button>':''}
+function clearModal(){
+  var m=S.modal, what={characters:'Characters are also removed from chapters, scenes, events and relationships.',locations:'Locations are also removed from chapters, scenes and events.',events:'Events are also unlinked from documents, and routes that split at one lose their split point.',arcs:'Documents in these arcs stay, but lose their arc.'}[m.coll];
+  return '<h2>Clear all '+m.coll+'?</h2><p>This removes '+m.n+' '+m.coll+' from this project, across every route. '+what+' Documents and your Word files are not deleted.</p><p class="hint">You can undo this right after, and Settings keeps one copy of the last clear. To confirm, type <b>'+m.word+'</b>.</p>'+
+    '<input class="in" id="clearIn" data-input="clear" autocomplete="off" aria-label="Type '+m.word+' to confirm"><div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn danger" id="clearGo" data-act="clear-go" disabled>Clear</button></div>';
+}
+function clearSection(coll){
+  var items=P(coll).slice(), u=snap();
+  try{localStorage.setItem('so-last-clear',JSON.stringify({at:new Date().toISOString(),pid:S.pid,coll:coll,n:items.length,snap:u}))}catch(e){}
+  withBulk(function(){items.forEach(function(o){removeEntity(coll,o.id)})});
+  pushUndo('Cleared '+coll,u);S.sel=null;closeModal();render();toast(items.length+' '+coll+' removed',true);
+}
 function createEntity(coll,nm){
-  if(coll==='characters')return mk('characters',{name:nm,role:'',notes:'',rels:[]});
+  if(coll==='characters')return mk('characters',normChar({name:nm,role:'',notes:'',rels:[]}));
   if(coll==='locations')return mk('locations',{name:nm,type:'',notes:''});
   if(coll==='events')return mk('events',{title:nm,dateText:'',order:maxOf(P('events'),'order')+1,locationId:'',characterIds:[],notes:'',routeId:(curRoute()||{}).id||rootId(),variant:'canon'});
   if(coll==='arcs')return mk('arcs',{name:nm,notes:'',order:maxOf(P('arcs'),'order')+1,routeId:(curRoute()||{}).id||rootId(),variant:'canon'});
@@ -1303,7 +1499,7 @@ function newProject(nm){
   var p={id:uid(),name:nm||'Untitled project',folderUrl:'',seriesId:'',labels:{1:'Section',2:'Chapter',3:'Subsection',4:'Sub-subsection'},created:new Date().toISOString()};
   S.projects.push(p);save('projects',p,true);ensureRoutes();setProject(p.id);return p;
 }
-function setProject(id){S.pid=id;S.rid=null;S.vis='all';S.sel=null;S.view='documents';S.filter={status:'',arc:'',tag:'',q:''};try{localStorage.setItem('so-pid',id)}catch(e){}}
+function setProject(id){S.pid=id;S.rid=null;S.rids=null;S.vis='all';S.sel=null;S.view='documents';S.filter={status:'',arc:'',tag:'',q:''};try{localStorage.setItem('so-pid',id)}catch(e){}}
 
 function loadSample(){
   var p=newProject('Hollow Blades (sample)'), main=rootId();
@@ -1364,42 +1560,80 @@ function hollowName(c){
   if(dp.first!==false&&c.firstName)parts.push(c.firstName);
   if(dp.middle&&c.middleName)parts.push(c.middleName);
   if(dp.last!==false&&c.lastName)parts.push(c.lastName);
+  if(dp.nickname&&c.nickname)parts.push('“'+c.nickname+'”');
+  if(dp.alias&&c.alias)parts.push('('+c.alias+')');
   return parts.join(' ')||[c.firstName,c.lastName].filter(Boolean).join(' ')||c.nickname||c.alias||'';
 }
-function hollowNotes(c,teams){
-  var L=[], s=function(x){return (x==null?'':String(x)).trim()};
-  var aka=uniq([c.nickname,c.alias].concat(s(c.associatedNames).split(/[,;]+/)).concat((c.previousNames||[]).map(function(p){return p&&p.name})).map(s).filter(Boolean));
-  if(aka.length)L.push('Also known as: '+aka.join(', '));
-  if(s(c.birthYear))L.push('Born '+s(c.birthYear));
-  if(c.deceased)L.push('Died'+(s(c.deathYear)?' '+s(c.deathYear):'')+(s(c.deathCause)?' ('+s(c.deathCause)+')':''));
-  if(teams&&teams.length)L.push('Teams: '+uniq(teams).join(', '));
-  if(s(c.specialty))L.push('Specialty: '+s(c.specialty));
-  var look=[c.eyes,c.hair,c.skin,c.build].map(s).filter(Boolean);
-  if(look.length)L.push('Appearance: '+look.join('; '));
-  if(s(c.appearanceNotes))L.push(s(c.appearanceNotes));
-  if(s(c.notes))L.push('',s(c.notes));
-  return L.join('\n');
+var HOL_KNOWN=['id','firstName','middleName','lastName','nickname','alias','previousNames','displayParts','nameFormat','birthYear','deceased','deathYear','deathCause','deathAge','eyes','hair','skin','height','weight','build','appearanceNotes','gender','attraction','sexuality','specialty','combatNotes','hp','mp','stats','magic','weapons','specialMoves','personality','mode','notes','portrait'];
+function mapHollow(c){
+  var j=function(x){return x==null?x:JSON.parse(JSON.stringify(x))}, o={extId:c.id||''};
+  HOL_KNOWN.forEach(function(k){if(k!=='id'&&c[k]!==undefined)o[k]=j(c[k])});
+  o.name=hollowName(c);o.notes=c.notes||'';
+  var last=(c.careerStatus||[]).filter(function(x){return x&&x.title}).slice(-1)[0];
+  o.role=last?last.title:'';
+  o.portrait=c.portrait||c.portraitUrl||c.image||'';
+  var ex={};Object.keys(c).forEach(function(k){if(HOL_KNOWN.indexOf(k)<0)ex[k]=j(c[k])});
+  o._extra=ex;o.rels=[];
+  return normChar(o);
 }
 function importHollow(o){
-  var list=((o.data&&o.data.characters)||[]).filter(function(c){return c&&hollowName(c)});
-  var teamsOf={};
-  ((o.data&&o.data.teams)||[]).forEach(function(t){(t.members||[]).forEach(function(m){(teamsOf[m.characterId]=teamsOf[m.characterId]||[]).push(t.name)})});
-  var have=P('characters'), fresh=[], dup=0;
-  list.forEach(function(c){
-    var nm=hollowName(c), low=nm.toLowerCase();
-    if(have.some(function(x){return (c.id&&x.extId===c.id)||(x.name||'').toLowerCase()===low}))dup++;else fresh.push(c);
-  });
   if(!proj()){toast('Create or open a project first.');return}
-  if(!fresh.length){toast(dup?'All '+dup+' characters are already here.':'No characters found in that file.');return}
-  var names=fresh.slice(0,12).map(hollowName).join(', ')+(fresh.length>12?' and '+(fresh.length-12)+' more':'');
-  askConfirm('Add '+fresh.length+' character'+(fresh.length>1?'s':'')+'?',names+'. They are only added to the character list so you can assign them. They are not placed in any scene.'+(dup?' '+dup+' already here and skipped.':''),'Add',function(){
-    var u=snap();
-    fresh.forEach(function(c){
-      var last=(c.careerStatus||[]).filter(function(x){return x&&(x.title||x.status)}).slice(-1)[0];
-      mk('characters',{name:hollowName(c),role:last?(last.title||last.status):'',notes:hollowNotes(c,teamsOf[c.id]),extId:c.id||''});
-    });
-    pushUndo('Imported characters',u);closeModal();S.view='characters';render();toast(fresh.length+' characters added',true);
+  var list=((o.data&&o.data.characters)||[]).filter(function(c){return c&&hollowName(c)});
+  if(!list.length){toast('No characters found in that file.');return}
+  var have=P('characters'), seen={}, fresh=[], same=[], dup=0;
+  list.forEach(function(c){
+    var low=hollowName(c).toLowerCase();
+    if(seen[low]||(c.id&&seen[c.id])){dup++;return}
+    seen[low]=1;if(c.id)seen[c.id]=1;
+    var ex=have.find(function(x){return (c.id&&x.extId===c.id)||(x.name||'').toLowerCase()===low});
+    if(ex)same.push({c:c,ex:ex});else fresh.push(c);
   });
+  var hasPic=list.some(function(c){return c.portrait||c.portraitUrl||c.image});
+  S.modal={type:'hollow',fresh:fresh,same:same,dup:dup,overwrite:false,portraits:true,hasPic:hasPic};renderModal();
+}
+function hollowModal(){
+  var m=S.modal, names=m.fresh.slice(0,10).map(hollowName).join(', ')+(m.fresh.length>10?' and '+(m.fresh.length-10)+' more':'');
+  return '<h2>Import characters</h2><p><b>'+m.fresh.length+'</b> new · <b>'+m.same.length+'</b> already here'+(m.overwrite?' (will be updated)':'')+(m.dup?' · '+m.dup+' duplicate'+(m.dup>1?'s':'')+' in the file skipped':'')+'</p>'+
+    (m.fresh.length?'<p class="hint">New: '+esc(names)+'</p>':'')+
+    '<p class="hint">Characters are only added to the character list. Nothing is placed in a scene. Teams, classes and careers are not imported.</p>'+
+    '<label class="ck"><input type="checkbox" data-change="hol-ow"'+(m.overwrite?' checked':'')+'>Overwrite existing characters that match by id or name</label>'+
+    (m.hasPic?'<label class="ck"><input type="checkbox" data-change="hol-pt"'+(m.portraits?' checked':'')+'>Also import portrait links</label>':'')+
+    '<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn primary" data-act="hol-go"'+((m.fresh.length||(m.overwrite&&m.same.length))?'':' disabled')+'>Import</button></div>';
+}
+function holGo(){
+  var m=S.modal, u=snap(), added=0, updated=0;
+  withBulk(function(){
+    m.fresh.forEach(function(c){var o=mapHollow(c);if(!m.portraits)o.portrait='';mk('characters',o);added++});
+    if(m.overwrite)m.same.forEach(function(p){
+      var ex=p.ex, o=mapHollow(p.c);
+      if(!m.portraits||!o.portrait)o.portrait=ex.portrait||'';
+      if(!o.role)o.role=ex.role||'';
+      var keep={id:ex.id,pid:ex.pid,rels:ex.rels||[]};
+      Object.assign(ex,o,keep);save('characters',ex,true);updated++;
+    });
+  });
+  pushUndo('Imported characters',u);closeModal();S.view='characters';render();
+  toast((added?added+' added':'')+(added&&updated?', ':'')+(updated?updated+' updated':''),true);
+}
+function deliver(fn,json){
+  return (async function(){
+    var dl=null;try{dl=await window.claude.use('downloads')}catch(e){}
+    if(dl){try{await dl.save({filename:fn,data:json});toast('Saved');return}catch(err){if(err&&err.code==='declined')return}}
+    try{var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));a.download=fn;document.body.appendChild(a);a.click();a.remove();toast('Downloaded')}
+    catch(e){textBox=json;S.modal={type:'text'};renderModal()}
+  })();
+}
+function exportHollow(){
+  var chars=P('characters').map(function(c){
+    var o={id:c.extId||c.id};
+    HOL_KNOWN.forEach(function(k){if(k!=='id'&&c[k]!==undefined&&k!=='portrait')o[k]=JSON.parse(JSON.stringify(c[k]))});
+    if(!o.firstName&&!o.lastName){var p=(c.name||'').split(/\s+/);o.firstName=p.shift()||'';o.lastName=p.join(' ')}
+    if(c.portrait)o.portrait=c.portrait;
+    Object.assign(o,JSON.parse(JSON.stringify(c._extra||{})));
+    return o;
+  });
+  var json=JSON.stringify({format:'hollow-blades',formatVersion:1,exportedAt:new Date().toISOString(),application:{name:'Story Organiser',version:'1'},data:{characters:chars,teams:[]}},null,2);
+  deliver('hollow-characters-'+new Date().toISOString().slice(0,10)+'.json',json);
 }
 function restoreBackup(text){
   var o;try{o=JSON.parse(text)}catch(e){toast('That file is not valid JSON.');return}
@@ -1434,6 +1668,13 @@ var A={
 nav:function(el){go(el.dataset.view)},
 select:function(el){S.sel=el.dataset.id;render();$('#detail').scrollTop=0},
 back:function(){S.sel=null;render()},
+'chap-go':function(el){
+  closeModal();var d=byId('documents',el.dataset.id);if(!d)return;
+  S.chapOpen=S.chapOpen||{};if(el.dataset.hid)S.chapOpen[el.dataset.hid]=true;
+  if(!inChain()[routeOf(d)]){S.rid=routeOf(d);S.rids=[routeOf(d)]}
+  S.view='documents';S.sel=d.id;S.vis=isTrashed(d)?'trash':'all';S.filter={status:'',arc:'',tag:'',q:''};render();
+  if(el.dataset.hid)setTimeout(function(){var c=$('.chap[data-hid="'+el.dataset.hid+'"]');if(c&&c.scrollIntoView)c.scrollIntoView({block:'center',behavior:'smooth'})},60);
+},
 goto:function(el){closeModal();var v=el.dataset.view;S.view=v;S.sel=el.dataset.id;if(v==='timeline')S.seg=el.dataset.seg==='events'?'events':'chron';S.filter={status:'',arc:'',tag:'',q:''};render();$('#detail').scrollTop=0},
 seg:function(el){S.seg=el.dataset.v;S.sel=null;render()},
 projects:function(){S.modal={type:'projects'};renderModal()},
@@ -1441,6 +1682,41 @@ projects:function(){S.modal={type:'projects'};renderModal()},
 'proj-new':function(){askName('New project','For example Hollow Blades',function(n){newProject(n);closeModal();render()})},
 sample:function(){loadSample();closeModal();render();toast('Sample project added. Delete it any time from Settings.')},
 'import-backup':function(){$('#fileBackup').click()},
+clear:function(el){
+  var coll=el.dataset.coll;
+  if(coll==='documents'){
+    var docs=eff('documents');if(!docs.length)return;
+    askConfirm('Move all documents to trash?',docs.length+' documents move to Trash and can be restored from there. Your Word files are not touched.','Move to trash',function(){
+      var u=snap();withBulk(function(){docs.forEach(function(d){d.prevVariant=d.variant||'canon';d.variant='trashed';save('documents',d,true)})});
+      pushUndo('Moved all to trash',u);S.sel=null;closeModal();render();toast(docs.length+' moved to trash',true);
+    },true);
+    return;
+  }
+  var n=P(coll).length;if(!n)return;
+  S.modal={type:'clear',coll:coll,n:n,word:CLEAR_WORD[coll]};renderModal();
+  var i=$('#clearIn');if(i)i.focus();
+},
+'hol-go':function(){if(S.modal&&S.modal.type==='hollow')holGo()},
+'clear-go':function(){var m=S.modal;if(!m||m.type!=='clear')return;var i=$('#clearIn');if(!i||i.value.trim().toLowerCase()!==m.word)return;clearSection(m.coll)},
+'restore-clear':function(){
+  var o=null;try{o=JSON.parse(localStorage.getItem('so-last-clear')||'null')}catch(e){}
+  if(!o||o.pid!==S.pid){toast('Nothing to restore in this project.');return}
+  undoStack.push({label:'Restored the last clear',u:o.snap});closeModal();undo();
+  try{localStorage.removeItem('so-last-clear')}catch(e){}
+},
+'pref-av':function(){try{localStorage.setItem('so-av',showAv()?'0':'1')}catch(e){}renderModal();render()},
+'export-hollow':function(){closeModal();exportHollow()},
+'arr-add':function(el){
+  var c=byId('characters',el.dataset.id);if(!c)return;
+  var arr=getPath(c,el.dataset.path);if(!arr){setPath(c,el.dataset.path,[]);arr=getPath(c,el.dataset.path)}
+  arr.push(el.dataset.kind==='prev'?{id:uid(),name:'',reason:''}:el.dataset.kind==='weapon'?{id:uid(),name:'',type:'sharp',notes:''}:{id:uid(),name:'',description:''});
+  save('characters',c,true);renderDetail();
+},
+'arr-del':function(el){
+  var c=byId('characters',el.dataset.id);if(!c)return;
+  var arr=getPath(c,el.dataset.path)||[];setPath(c,el.dataset.path,arr.filter(function(x){return x.id!==el.dataset.aid}));
+  save('characters',c,true);renderDetail();
+},
 'chap-pick':function(el){
   var d=byId('documents',el.dataset.id),hd=d&&(d.headings||[]).find(function(x){return x.id===el.dataset.hid});if(!hd)return;
   var field=el.dataset.field,coll=el.dataset.coll;
@@ -1563,9 +1839,15 @@ restore:function(el){
   askConfirm('Empty trash?','This permanently removes '+n+' document'+(n===1?'':'s')+' from the organiser. Your Word files are not touched.','Empty trash',function(){var u=snap();P('documents').filter(isTrashed).forEach(function(d){removeEntity('documents',d.id)});pushUndo('Emptied trash',u);closeModal();render();toast('Trash emptied',true)},true);
 },
 undo:function(){undo()},
-route:function(el){S.rid=el.dataset.id;S.sel=null;render();announce('Showing '+nameOf('routes',el.dataset.id))},
+route:function(el){
+  var id=el.dataset.id, set=selRoutes().slice(), i=set.indexOf(id);
+  if(i>-1){if(set.length>1){set.splice(i,1);S.rid=set[set.length-1]}}
+  else{set.push(id);S.rid=id}
+  S.rids=set;S.sel=null;render();announce('Showing '+set.map(function(x){return nameOf('routes',x)}).join(' and '));
+},
+'route-all':function(){S.rids=routeList().map(function(x){return x.r.id});S.sel=null;render();announce('Showing all routes')},
 routes:function(){S.modal={type:'routes',edit:null};renderModal()},
-'route-view':function(el){S.rid=el.dataset.id;S.sel=null;closeModal();render()},
+'route-view':function(el){S.rid=el.dataset.id;S.rids=[el.dataset.id];S.sel=null;closeModal();render()},
 'route-edit':function(el){S.modal.edit=S.modal.edit===el.dataset.id?null:el.dataset.id;renderModal()},
 'route-new':function(el){
   var parent=el.dataset.parent;
@@ -1573,7 +1855,7 @@ routes:function(){S.modal={type:'routes',edit:null};renderModal()},
     var used={};P('routes').forEach(function(r){used[r.color]=1});
     var col=(ROUTE_COLORS.find(function(c){return !used[c[0]]})||ROUTE_COLORS[P('routes').length%ROUTE_COLORS.length])[0];
     var r=mk('routes',{name:n,parentId:parent,divergenceEventId:'',divergenceNote:'',order:maxOf(P('routes'),'order')+1,color:col,variant:'au',isDefault:false});
-    S.rid=r.id;S.modal={type:'routes',edit:r.id};renderModal();render();
+    S.rid=r.id;S.rids=[r.id];S.modal={type:'routes',edit:r.id};renderModal();render();
   });
 },
 'route-del':function(el){S.modal={type:'routedel',id:el.dataset.id};renderModal()},
@@ -1588,7 +1870,7 @@ routes:function(){S.modal={type:'routes',edit:null};renderModal()},
     if(v==='trash'){d.prevVariant=d.variant||'canon';d.variant='trashed'}
     save('documents',d,true);
   });
-  dropDoc('routes',id);if(S.rid===id)S.rid=par;
+  dropDoc('routes',id);if(S.rid===id){S.rid=par;S.rids=[par]}
   pushUndo('Deleted route',u);closeModal();render();toast('Route deleted',true);
 },
 path:function(){S.modal={type:'path',aux:false};renderModal()}
@@ -1599,6 +1881,9 @@ function selectLink(d){
 }
 
 var CH={
+'hol-ow':function(t){S.modal.overwrite=t.checked;renderModal()},
+'hol-pt':function(t){S.modal.portraits=t.checked},
+'magic-add':function(t){var c=byId('characters',t.dataset.id);if(!c||!t.value)return;S.magicMore=S.magicMore||{};(S.magicMore[c.id]=S.magicMore[c.id]||[]).push(t.value);renderDetail()},
 pos:function(t){
   var n=parseInt(t.value,10);if(!n||n<1)return;
   reorderU(t.dataset.coll,t.dataset.key,t.dataset.id,n-1);render();
@@ -1645,10 +1930,18 @@ document.addEventListener('input',function(e){
     var sm=$('.summ');if(sm)sm.outerHTML=fileSummary(cd);
     renderRows();return;
   }
+  if(d.input==='clear'){var go=$('#clearGo');if(go)go.disabled=!(S.modal&&t.value.trim().toLowerCase()===S.modal.word);return}
+  if(d.arr){
+    var ap=d.arr.split('|'), ac=byId('characters',ap[0]);if(!ac)return;
+    var ai=(getPath(ac,ap[1])||[]).find(function(x){return x.id===ap[2]});if(!ai)return;
+    ai[ap[3]]=t.value;save('characters',ac);return;
+  }
   if('vis' in d){S.vis=t.value;S.sel=null;render();return}
   if(d.bind){
     var parts=d.bind.split(':'), o=byId(parts[0],parts[1]);if(!o)return;
-    setPath(o,parts[2],t.value);save(parts[0],o);
+    setPath(o,parts[2],t.type==='checkbox'?t.checked:(t.type==='number'?(t.value===''?'':Number(t.value)):t.value));
+    if(parts[0]==='characters'&&/^(firstName|middleName|lastName|nickname|alias|displayParts)/.test(parts[2])){var nn2=hollowName(o);if(nn2){o.name=nn2;var ti=$('.title-in');if(ti&&ti.dataset.bind==='characters:'+o.id+':name')ti.value=nn2}}
+    save(parts[0],o);
     if(t.tagName==='SELECT'){render();if(S.modal&&S.modal.type==='routes')renderModal()}else{renderRows();renderTop();renderRail()}
     return;
   }
@@ -1656,7 +1949,9 @@ document.addEventListener('input',function(e){
   if(d.input==='search'){$('#searchRes').innerHTML=searchResults(t.value);return}
   if(d.input==='pick'){$('#pickList').innerHTML=pickRows(t.value)}
 });
-document.addEventListener('toggle',function(e){var t=e.target;if(t&&t.classList&&t.classList.contains('chap')){S.chapOpen=S.chapOpen||{};S.chapOpen[t.dataset.hid]=t.open}},true);
+document.addEventListener('dblclick',function(e){var el=e.target.closest&&e.target.closest('[data-act="route"]');if(el){S.rid=el.dataset.id;S.rids=[el.dataset.id];S.sel=null;render();announce('Showing only '+nameOf('routes',el.dataset.id))}});
+document.addEventListener('toggle',function(e){var t=e.target;if(t&&t.classList&&t.classList.contains('chap')){S.chapOpen=S.chapOpen||{};S.chapOpen[t.dataset.hid]=t.open}if(t&&t.classList&&t.classList.contains('csec')){S.csOpen=S.csOpen||{};S.csOpen[t.dataset.ck]=t.open}},true);
+document.addEventListener('error',function(e){var t=e.target;if(t&&t.tagName==='IMG'&&t.closest&&t.closest('.av'))t.remove()},true);
 document.addEventListener('keydown',function(e){
   var t=e.target;
   if(e.key==='Escape'&&S.modal&&S.modal.type!=='busy'){closeModal();return}
@@ -1866,6 +2161,7 @@ async function odBoot(){
   S.pid=(byId('projects',want)||S.projects[0]||{}).id||null;
   render();
   if(S.mode==='od'&&proj()&&proj().odFolder)odCheck(proj()).then(function(){render()}).catch(function(){});
+  if(S.mode==='od'&&proj()&&proj().portraitFolder)odPortraits(proj()).then(function(){render()}).catch(function(){});
 }
 async function odPoll(){
   if(S.mode!=='od'||OD.saving||OD.dirty||OD.conflict||Object.keys(pending).length)return;
@@ -1882,6 +2178,7 @@ async function odPoll(){
       }
     }
     if(proj()&&proj().odFolder&&Date.now()-OD.lastCheck>300000){await odCheck(proj());render()}
+    if(proj()&&proj().portraitFolder&&Date.now()-(OD.lastPortraits||0)>2400000){await odPortraits(proj());render()}
   }catch(e){}
 }
 
@@ -1957,6 +2254,35 @@ async function odSyncNow(){
   }catch(e){closeModal();toast('Could not read the folder. Check your connection and try again.')}
 }
 
+/* portraits: image files in a OneDrive folder, named after the character */
+window.SO_PORTRAITS=window.SO_PORTRAITS||{};
+async function odPortraits(p){
+  if(!p||!p.portraitFolder)return 0;
+  var items=[],url='/me/drive/items/'+p.portraitFolder.id+'/children?$select=id,name,file&$top=200';
+  while(url){
+    var r=await gfetch(url);if(!r.ok)return 0;
+    var j=await r.json();
+    j.value.forEach(function(x){if(x.file&&/\.(png|jpe?g|gif|webp|avif|bmp)$/i.test(x.name))items.push(x)});
+    url=j['@odata.nextLink']||null;
+  }
+  var byName={};items.forEach(function(x){byName[x.name.replace(/\.[^.]+$/,'').trim().toLowerCase()]=x});
+  var want=[];
+  S.characters.filter(function(c){return c.pid===p.id}).forEach(function(c){
+    var keys=[c.name,[c.firstName,c.lastName].filter(Boolean).join(' '),c.nickname,c.alias].map(function(k){return (k||'').trim().toLowerCase()}).filter(Boolean);
+    for(var i=0;i<keys.length;i++){if(byName[keys[i]]){want.push({c:c,item:byName[keys[i]]});break}}
+  });
+  var got=0;
+  for(var i=0;i<want.length;i+=20){
+    var chunk=want.slice(i,i+20);
+    var r2=await gfetch('/$batch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({requests:chunk.map(function(w,n){return {id:String(n),method:'GET',url:'/me/drive/items/'+w.item.id+'/thumbnails/0/medium'}})})});
+    if(!r2.ok)continue;
+    var bj=await r2.json();
+    (bj.responses||[]).forEach(function(rs){var w=chunk[+rs.id];if(w&&rs.status===200&&rs.body&&rs.body.url){window.SO_PORTRAITS[w.c.id]=rs.body.url;got++}});
+  }
+  OD.lastPortraits=Date.now();
+  return got;
+}
+
 /* folder picker */
 async function odList(){
   var m=S.modal;if(!m||m.type!=='odpick')return;
@@ -1977,7 +2303,7 @@ async function odList(){
 }
 function odPickModal(){
   var m=S.modal;
-  var h='<h2>Choose your manuscript folder</h2><p class="hint">'+esc(m.stack.map(function(x){return x.name}).join(' / '))+'</p>';
+  var h='<h2>Choose your '+(m.target==='portraits'?'portraits':'manuscript')+' folder</h2><p class="hint">'+esc(m.stack.map(function(x){return x.name}).join(' / '))+'</p>';
   if(m.err)h+='<p class="hint">'+esc(m.err)+'</p>';
   h+='<div class="fpick">';
   if(m.stack.length>1)h+='<button class="btn ghost" data-act="od-up">'+ic('folder')+'Up one level</button>';
@@ -1991,7 +2317,8 @@ function odSettings(){
   if(OD.acct){
     h+='<p class="hint">Signed in as '+esc(OD.acct.username||OD.acct.name||'your account')+'. Your library is saved in your OneDrive at Story Organiser/data.json, so every device sees the same thing. Your Word files are only read, never changed.</p>';
     if(p){
-      h+='<p class="hint" style="margin-top:8px">Manuscript folder: <b>'+esc(p.odFolder?p.odFolder.name:'not chosen')+'</b></p><div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn" data-act="od-pick">'+ic('folder')+(p.odFolder?'Change folder':'Choose folder')+'</button>'+(p.odFolder?'<button class="btn" data-act="od-sync">'+ic('refresh')+'Sync now</button>':'')+'</div>';
+      h+='<p class="hint" style="margin-top:8px">Manuscript folder: <b>'+esc(p.odFolder?p.odFolder.name:'not chosen')+'</b></p><div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn" data-act="od-pick">'+ic('folder')+(p.odFolder?'Change folder':'Choose folder')+'</button>'+(p.odFolder?'<button class="btn" data-act="od-sync">'+ic('refresh')+'Sync now</button>':'')+'</div>'+
+        '<p class="hint" style="margin-top:12px">Portraits folder: <b>'+esc(p.portraitFolder?p.portraitFolder.name:'not chosen')+'</b>. Name each image after the character, for example Danielle Stewart.jpg.</p><div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn" data-act="od-pick-portraits">'+ic('folder')+(p.portraitFolder?'Change folder':'Choose folder')+'</button></div>';
     }
     h+='<div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn danger" data-act="od-signout">Sign out and clear this device</button></div>';
   }else{
@@ -2029,10 +2356,16 @@ Object.assign(A,{
     OD.conflict=false;S.banner='';S.bannerAct=null;renderBanner();odSchedule();
   },
   'od-pick':function(){S.modal={type:'odpick',stack:[{id:'root',name:'OneDrive'}],items:[],loading:true,err:''};renderModal();odList()},
+  'od-pick-portraits':function(){S.modal={type:'odpick',target:'portraits',stack:[{id:'root',name:'OneDrive'}],items:[],loading:true,err:''};renderModal();odList()},
   'od-open':function(el){var m=S.modal,f=m.items[+el.dataset.i];if(!f)return;m.stack.push({id:f.id,name:f.name,webUrl:f.webUrl});odList()},
   'od-up':function(){var m=S.modal;if(m.stack.length>1){m.stack.pop();odList()}},
   'od-use':function(){
     var m=S.modal,cur=m.stack[m.stack.length-1],p=proj();if(!p||cur.id==='root')return;
+    if(m.target==='portraits'){
+      p.portraitFolder={id:cur.id,name:cur.name};save('projects',p,true);closeModal();
+      odPortraits(p).then(function(n){render();toast(n?n+' portrait'+(n>1?'s':'')+' matched.':'No images matched your character names. Name each file like the character, for example Danielle Stewart.jpg.')}).catch(function(){toast('Could not read the portraits folder.')});
+      return;
+    }
     p.odFolder={id:cur.id,name:cur.name,webUrl:cur.webUrl||''};
     if(cur.webUrl)p.folderUrl=cur.webUrl;
     save('projects',p,true);closeModal();odSyncNow();
