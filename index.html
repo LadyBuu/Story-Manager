@@ -282,6 +282,12 @@ textarea.in{min-height:88px;resize:vertical;line-height:1.5}
 .rd-pg h1{font-size:1.6em;margin-top:0}.rd-pg h2{font-size:1.3em}.rd-pg h3{font-size:1.1em}.rd-pg h4{font-size:1em;font-style:italic}
 .rd-meta{width:300px;flex:none;border-left:1px solid var(--line);overflow:auto;padding:14px;background:var(--surface)}.rd-meta[hidden]{display:none}
 .rd-foot select{flex:1;min-width:0}
+.rd-c{font:inherit;font-size:11px;font-family:var(--f-mono,monospace);margin-left:10px;padding:1px 7px;border:1px solid var(--line);border-radius:10px;background:none;color:var(--fg-3);cursor:pointer;vertical-align:middle;opacity:.7}
+.rd-c:hover{opacity:1;color:var(--accent)}
+.rd-nt{display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--line);font-size:14px}
+.rd-nt.done .tx{text-decoration:line-through;color:var(--fg-3)}.rd-nt .tx{flex:1;min-width:0}.rd-nt small{display:block;color:var(--fg-3)}
+.rd-nt .ns,.rd-nt .nx{background:none;border:0;color:var(--fg-3);padding:2px;cursor:pointer}
+.rd-add{display:grid;gap:6px;margin:8px 0 14px}
 @media(max-width:800px){.rd-meta{position:absolute;left:0;right:0;bottom:0;width:auto;max-height:55%;border-left:0;border-top:1px solid var(--line);box-shadow:0 -6px 18px rgba(0,0,0,.25)}}
 .chap{border:1px solid var(--line);border-radius:8px;margin:6px 0;background:var(--surface)}
 .chap>summary{cursor:pointer;padding:8px 10px;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;list-style:none}
@@ -1925,6 +1931,16 @@ clear:function(el){
   RD.key=hit?rdKey(hit):(RD.key&&items.some(function(x){return rdKey(x)===RD.key})?RD.key:rdKey(items[0]));RD.open=true;closeModal&&S.modal&&closeModal();renderReader();
 },
 'read-close':function(){rdClose()},
+'read-target':function(el){RD.target=el.dataset.t||'';RD.meta=true;var m=$('#reader .rd-meta');if(m)m.hidden=false;var b=$('#reader [data-act="read-meta"]');if(b)b.setAttribute('aria-pressed','true');rdRefreshAside();var n=$('#rdNote');if(n)n.focus()},
+'read-note-add':function(){
+  var items=rdItems(), it=items[rdPos(items)], inp=$('#rdNote');if(!it||!inp)return;
+  var t=(inp.value||'').trim();if(!t)return;
+  var kd=$('#rdKind');RD.kind=kd?kd.value:RD.kind;
+  var d=it.d;d.notes=d.notes||[];d.notes.push({id:uid(),kind:RD.kind,text:t,state:'open',h:RD.target||(it.h?it.h.title:'')});
+  save('documents',d);inp.value='';rdRefreshAside();render();var n=$('#rdNote');if(n)n.focus();
+},
+'read-note-cycle':function(el){var items=rdItems(), it=items[rdPos(items)];if(!it)return;var n=(it.d.notes||[]).find(function(x){return x.id===el.dataset.nid});if(!n)return;n.state=NOTE_STATES[(NOTE_STATES.indexOf(n.state||'open')+1)%3];save('documents',it.d);rdRefreshAside();render()},
+'read-note-del':function(el){var items=rdItems(), it=items[rdPos(items)];if(!it)return;it.d.notes=(it.d.notes||[]).filter(function(x){return x.id!==el.dataset.nid});save('documents',it.d);rdRefreshAside();render()},
 'read-go':function(el){rdStep(+el.dataset.v)},
 'read-size':function(el){var n=Math.min(32,Math.max(13,rdSize()+(+el.dataset.v)*2));try{localStorage.setItem('so-rd-size',n)}catch(e){}var pg=$('#reader .rd-pg');if(pg)pg.style.fontSize=n+'px'},
 'read-meta':function(){RD.meta=!RD.meta;var m=$('#reader .rd-meta');if(m)m.hidden=!RD.meta;var b=$('#reader [data-act="read-meta"]');if(b)b.setAttribute('aria-pressed',RD.meta)},
@@ -2107,6 +2123,7 @@ function selectLink(d){
 var CH={
 'hol-ow':function(t){S.modal.overwrite=t.checked;S.modal.rows.forEach(function(r){if(r.ex)r.on=t.checked});renderModal()},
 'ext-row':function(t){var m=S.modal,d=byId('documents',m.id),n=$('#extName'),cur=n?n.value:m.name;if(!cur||cur===m.sug)cur=null;m.sel[t.dataset.hid]=t.checked;var s=extSug(d,m.sel);m.name=cur==null?s:cur;m.sug=s;holKeep()},
+'read-kind':function(t){RD.kind=t.value},
 'read-sel':function(t){RD.key=t.value;renderReader()},
 'in-order':function(t){var d=byId('documents',t.dataset.id);if(!d)return;d.inOrder=t.checked;save('documents',d);render()},
 'hol-row':function(t){S.modal.rows[+t.dataset.i].on=t.checked;holKeep()},
@@ -2284,7 +2301,7 @@ $('#fileExtract').addEventListener('change',function(){
 
 
 /* ---------- live reader: text is read on demand and never stored ---------- */
-var RDP={}, RDF={}, RD={open:false,key:'',meta:false,tok:0,err:''};
+var RDP={}, RDF={}, RD={open:false,key:'',meta:false,tok:0,err:'',target:'',tkey:'',kind:'Revision'};
 function rdSize(){try{return Math.min(32,Math.max(13,parseInt(localStorage.getItem('so-rd-size'),10)||18))}catch(e){return 18}}
 function rdItems(){var o=[];sortBy(eff('documents'),'order').filter(inOrder).forEach(function(d){var cs=chapters(d);if(cs.length)cs.forEach(function(x){o.push({d:d,h:x})});else o.push({d:d,h:null})});return o}
 function rdKey(it){return it.d.id+'|'+(it.h?it.h.id:'')}
@@ -2308,6 +2325,29 @@ function rdSlice(d,hd,paras){
   return paras.slice(start,end);
 }
 function rdPos(items){for(var i=0;i<items.length;i++)if(rdKey(items[i])===RD.key)return i;return 0}
+function rdSpanTitles(it){var d=it.d,hd=it.h;if(!hd)return null;var hs=d.headings||[],i=hs.indexOf(hd),o=[hd.title];for(var j=i+1;j>0&&j<hs.length&&hs[j].level>hd.level;j++)o.push(hs[j].title);return o}
+function rdNotes(it){
+  var ts=rdSpanTitles(it), ns=(it.d.notes||[]);
+  return ts?ns.filter(function(n){return ts.indexOf(n.h)>-1}):ns;
+}
+function rdAside(it){
+  var d=it.d, ns=rdNotes(it), tgt=RD.target||(it.h?it.h.title:''), ts=rdSpanTitles(it);
+  var list=ns.length?ns.map(function(n){var st=n.state||'open';
+    return '<div class="rd-nt '+st+'"><button class="ns" data-act="read-note-cycle" data-nid="'+n.id+'" aria-label="'+NOTE_LABEL[st]+'. Change status" title="'+NOTE_LABEL[st]+'">'+ic(st==='done'?'boxcheck':st==='doing'?'boxdash':'box',18)+'</button><div class="tx">'+esc(n.text)+'<small>'+esc(n.kind||'Revision')+(n.h&&ts&&n.h!==ts[0]?' · on '+esc(n.h):'')+'</small></div><button class="nx" data-act="read-note-del" data-nid="'+n.id+'" aria-label="Delete comment">'+ic('x',14)+'</button></div>';
+  }).join(''):'<p class="hint" style="margin:0">No comments on this section yet.</p>';
+  return '<div class="lab">Comments</div>'+list+
+    '<div class="rd-add"><div class="hint" style="margin:0">'+(tgt?'On: '+esc(tgt):'On: the whole file')+'</div>'+
+    '<select class="in" id="rdKind" data-change="read-kind" aria-label="Kind of comment">'+NOTE_KINDS.map(function(k){return '<option'+(RD.kind===k?' selected':'')+'>'+k+'</option>'}).join('')+'</select>'+
+    '<input class="in" id="rdNote" data-enter="read-note-add" placeholder="Add a comment in your own words" aria-label="New comment"><button class="btn" data-act="read-note-add">Add comment</button></div>'+
+    '<div class="lab" style="margin-top:6px">Details</div>'+rdMeta(it);
+}
+function rdOpenCount(it){return rdNotes(it).filter(function(n){return (n.state||'open')!=='done'}).length}
+function rdRefreshAside(){
+  var items=rdItems(), it=items[rdPos(items)];if(!it)return;
+  var a=$('#reader .rd-meta'), v=a&&$('#rdNote')?$('#rdNote').value:'';
+  if(a)a.innerHTML=rdAside(it);var n=$('#rdNote');if(n)n.value=v;
+  var b=$('#reader [data-act="read-meta"]');if(b)b.textContent='Comments'+(rdOpenCount(it)?' · '+rdOpenCount(it):'');
+}
 function rdMeta(it){
   var d=it.d, hd=it.h, ks=hd?kin(d,hd):[], nm=function(c,ids){return uniq(ids).map(function(i){return nameOf(c,i)}).filter(Boolean)};
   var all=function(f){var a=(d[f]||[]).slice();ks.forEach(function(x){a=a.concat(x[f]||[])});return a};
@@ -2325,7 +2365,7 @@ function rdBody(it,paras){
   var lvl=it.h?it.h.level:0, out='', started=false;
   seg.forEach(function(x){
     var t=x.text;
-    if(x.lv>0){var n=Math.min(4,Math.max(1,x.lv-lvl+1));if(!lvl)n=Math.min(4,x.lv);out+='<h'+n+'>'+esc(t)+'</h'+n+'>';started=true;return}
+    if(x.lv>0){var n=Math.min(4,Math.max(1,x.lv-lvl+1));if(!lvl)n=Math.min(4,x.lv);out+='<h'+n+'>'+esc(t)+'<button class="rd-c" data-act="read-target" data-t="'+esc(t)+'" aria-label="Comment on '+esc(t)+'">+ note</button></h'+n+'>';started=true;return}
     if(!t.trim())return;
     out+='<p>'+esc(t)+'</p>';started=true;
   });
@@ -2336,16 +2376,17 @@ async function renderReader(keepScroll){
   var items=rdItems();
   if(!items.length){el.hidden=false;el.innerHTML='<div class="rd-top"><button class="icb" data-act="read-close" aria-label="Close reader">'+ic('x')+'</button><div class="rd-t"><b>Nothing to read yet</b></div></div><div class="rd-art"><div class="rd-pg"><p>Add Word files that are in the reading order, then come back.</p></div></div>';return}
   var i=rdPos(items), it=items[i], d=it.d, tok=++RD.tok, sz=rdSize();
+  if(RD.tkey!==rdKey(it)){RD.tkey=rdKey(it);RD.target=''}
   RD.key=rdKey(it);
   var sel='<select class="in" data-change="read-sel" aria-label="Jump to a chapter">';
   var lastD=null;items.forEach(function(x,j){if(x.d.id!==lastD){if(lastD!==null)sel+='</optgroup>';sel+='<optgroup label="'+esc(x.d.title||'Untitled')+'">';lastD=x.d.id}sel+='<option value="'+esc(rdKey(x))+'"'+(j===i?' selected':'')+'>'+esc(x.h?x.h.title:(x.d.title||'Whole file'))+'</option>'});sel+='</optgroup></select>';
   var head='<div class="rd-top"><button class="icb" data-act="read-close" aria-label="Close reader">'+ic('x')+'</button><div class="rd-t"><b>'+esc(it.h?it.h.title:d.title)+'</b><small>'+esc(d.title||'')+' · '+(i+1)+' of '+items.length+'</small></div>'+
     '<button class="btn sm" data-act="read-size" data-v="-1" aria-label="Smaller text">A−</button><button class="btn sm" data-act="read-size" data-v="1" aria-label="Larger text">A+</button>'+
-    '<button class="btn sm" data-act="read-reload" aria-label="Read the file again">'+ic('refresh',14)+'</button><button class="btn sm" data-act="read-meta" aria-pressed="'+RD.meta+'">Details</button></div>';
+    '<button class="btn sm" data-act="read-reload" aria-label="Read the file again">'+ic('refresh',14)+'</button><button class="btn sm" data-act="read-meta" aria-pressed="'+RD.meta+'">Comments'+(rdOpenCount(it)?' · '+rdOpenCount(it):'')+'</button></div>';
   var foot='<div class="rd-foot"><button class="btn" data-act="read-go" data-v="-1"'+(i?'':' disabled')+' aria-label="Previous chapter">←</button>'+sel+'<button class="btn" data-act="read-go" data-v="1"'+(i<items.length-1?'':' disabled')+' aria-label="Next chapter">→</button></div>';
   var prev=$('#reader .rd-art'), top=keepScroll&&prev?prev.scrollTop:0;
   el.hidden=false;
-  el.innerHTML=head+'<div class="rd-main"><div class="rd-art" tabindex="-1"><div class="rd-pg" style="font-size:'+sz+'px"><p class="hint">Reading…</p></div></div><aside class="rd-meta"'+(RD.meta?'':' hidden')+'>'+rdMeta(it)+'</aside></div>'+foot;
+  el.innerHTML=head+'<div class="rd-main"><div class="rd-art" tabindex="-1"><div class="rd-pg" style="font-size:'+sz+'px"><p class="hint">Reading…</p></div></div><aside class="rd-meta"'+(RD.meta?'':' hidden')+'>'+rdAside(it)+'</aside></div>'+foot;
   var art=$('#reader .rd-art'), pg=$('#reader .rd-pg');
   var body, err='';
   try{body=rdBody(it,await rdParas(d,RD.force));RD.force=false}catch(e){body=false;err=(e&&e.message)||''}
