@@ -282,6 +282,7 @@ textarea.in{min-height:88px;resize:vertical;line-height:1.5}
 .rd-pg h1{font-size:1.6em;margin-top:0}.rd-pg h2{font-size:1.3em}.rd-pg h3{font-size:1.1em}.rd-pg h4{font-size:1em;font-style:italic}
 .rd-meta{width:300px;flex:none;border-left:1px solid var(--line);overflow:auto;padding:14px;background:var(--surface)}.rd-meta[hidden]{display:none}
 .rd-foot select{flex:1;min-width:0}
+.rd-date{font:600 12px var(--f-mono,monospace);letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin:0 0 .6em}
 .rd-or{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--line)}.rd-or.cur{background:var(--surface-2)}.rd-or input{width:64px;flex:none}.rd-or .lk{flex:1;min-width:0;text-align:left}
 .rd-c{font:inherit;font-size:11px;font-family:var(--f-mono,monospace);margin-left:10px;padding:1px 7px;border:1px solid var(--line);border-radius:10px;background:none;color:var(--fg-3);cursor:pointer;vertical-align:middle;opacity:.7}
 .rd-c:hover{opacity:1;color:var(--accent)}
@@ -921,7 +922,7 @@ function chapterRow(d,hd,oc){
     '<div class="fgrid"><div><label class="lab" for="chd-'+hd.id+'">Story date</label><input class="in" id="chd-'+hd.id+'" data-chap="'+k+'storyDate" value="'+esc(hd.storyDate||'')+'" placeholder="For example 12 Frost, 1248"></div>'+
     (dateMode()==='manual'?'<div><label class="lab" for="chk-'+hd.id+'">Sort number</label><input class="in" id="chk-'+hd.id+'" type="number" inputmode="decimal" data-chap="'+k+'dateKey" value="'+esc(hd.dateKey==null?'':hd.dateKey)+'" placeholder="For example story day 340"></div>':'')+
     (unread?'<p class="hint span2" style="margin:0">That date is not one I can sort, so this chapter follows its file. Write it like 12 August 1248, or switch to sort numbers in Settings.</p>':'')+
-    (hd.level===chapLvl(d)&&rdPosOf(d,hd)?'<div><label class="lab" for="chr-'+hd.id+'">Reading position in Read mode</label><input class="in mono" id="chr-'+hd.id+'" type="number" min="1" max="'+RDM.n+'" value="'+rdPosOf(d,hd)+'" data-change="rd-pos" data-id="'+d.id+'" data-hid="'+hd.id+'"></div>':'')+
+    (hd.level===chapLvl(d)&&rdPosOf(d,hd)?'<div><label class="lab" for="chr-'+hd.id+'">Reading position</label><input class="in mono" id="chr-'+hd.id+'" type="number" min="1" max="'+RDM.n+'" value="'+rdPosOf(d,hd)+'" data-change="rd-pos" data-id="'+d.id+'" data-hid="'+hd.id+'"></div>':'')+
     '<div><label class="lab" for="chp-'+hd.id+'">POV</label><select class="in" id="chp-'+hd.id+'" data-chap="'+k+'pov">'+optList('characters',hd.pov,'None')+'</select></div>'+
     '<div><label class="lab" for="cha-'+hd.id+'">Arc</label><select class="in" id="cha-'+hd.id+'" data-chap="'+k+'arcId">'+optList('arcs',hd.arcId,'Same as the file','order')+'</select></div>'+
     '<div class="span2"><label class="lab" for="chs-'+hd.id+'">What happens</label><textarea class="in" id="chs-'+hd.id+'" data-chap="'+k+'summary" placeholder="A line or two in your own words">'+esc(hd.summary||'')+'</textarea></div></div>'+
@@ -1598,6 +1599,10 @@ function trapTab(e){
 
 /* ---------- ordering ---------- */
 function reorder(coll,k,id,newIndex){
+  reorder0(coll,k,id,newIndex);
+  if(coll==='documents'&&k==='order')rdSyncDocMove(id);
+}
+function reorder0(coll,k,id,newIndex){
   var items=sortBy(eff(coll),k), idx=items.findIndex(function(x){return x.id===id});
   if(idx<0)return;
   var me=items.splice(idx,1)[0];
@@ -2336,7 +2341,21 @@ function rdCustom(){var pr=proj();return !!(pr&&pr.readSeq&&pr.readSeq.length)}
 function rdMoveTo(key,idx){
   var pr=proj();if(!pr)return;var ks=rdItems().map(rdKey), i=ks.indexOf(key);if(i<0)return;
   ks.splice(i,1);idx=Math.max(0,Math.min(ks.length,idx));ks.splice(idx,0,key);
-  var u=snap();pr.readSeq=ks;save('projects',pr);
+  pr.readSeq=ks;save('projects',pr);rdWriteBack();
+}
+function rdWriteBack(){
+  var its=rdItems(), rank={}, n=0;
+  its.forEach(function(x){if(rank[x.d.id]==null)rank[x.d.id]=n++});
+  var docs=sortBy(eff('documents'),'order').filter(inOrder);
+  var pool=docs.map(function(d){return d.order}).sort(function(a,b){return a-b});
+  docs.slice().sort(function(a,b){return (rank[a.id]==null?1e9:rank[a.id])-(rank[b.id]==null?1e9:rank[b.id])}).forEach(function(d,i){if(d.order!==pool[i]){d.order=pool[i];save('documents',d)}});
+}
+function rdSyncDocMove(id){
+  var pr=proj();if(!pr||!rdCustom())return;
+  var keys=rdItems().map(rdKey), mine=keys.filter(function(k){return k.split('|')[0]===id}), rest=keys.filter(function(k){return k.split('|')[0]!==id});
+  var docs=sortBy(eff('documents'),'order').filter(inOrder), di=docs.findIndex(function(d){return d.id===id}), nxt=docs[di+1], at=rest.length;
+  if(nxt){for(var i=0;i<rest.length;i++)if(rest[i].split('|')[0]===nxt.id){at=i;break}}
+  rest.splice.apply(rest,[at,0].concat(mine));pr.readSeq=rest;save('projects',pr);
 }
 function rdReset(){var pr=proj();if(!pr)return;delete pr.readSeq;save('projects',pr)}
 var RDM={v:-1,m:{},n:0};
@@ -2394,8 +2413,8 @@ function rdOrderHtml(items,cur,modal){
       '<button class="lk" data-act="read-pick-ch" data-k="'+esc(k)+'"><span><span class="lkt">'+esc(t)+'</span><small>'+esc(x.d.title||'')+'</small></span></button>'+
       '<button class="btn sm" data-act="read-mv" data-k="'+esc(k)+'" data-v="-1"'+(i?'':' disabled')+' aria-label="Move up">↑</button><button class="btn sm" data-act="read-mv" data-k="'+esc(k)+'" data-v="1"'+(i<items.length-1?'':' disabled')+' aria-label="Move down">↓</button></div>';
   }).join('');
-  return (modal?'<h2>Chapter order</h2>':'<h1>Reading order</h1>')+'<p class="hint">'+(rdCustom()?'You have set a custom order for Read mode.':'Right now Read mode follows your documents, with chapters in file order.')+' Move a chapter to read it somewhere else. This only changes Read mode. Your Word files and the document order stay as they are.</p>'+
-    (rdCustom()?'<p><button class="btn" data-act="read-reset">Back to the document order</button></p>':'')+(modal?'<div data-hl style="max-height:52vh;overflow:auto;border-top:1px solid var(--line)">'+rows+'</div><div class="actions"><button class="btn" data-act="close">Done</button><button class="btn primary" data-act="read-open" data-first="1">'+ic('open')+'Read from the start</button></div>':'<div>'+rows+'</div>');
+  return (modal?'<h2>Chapter order</h2>':'<h1>Reading order</h1>')+'<p class="hint">'+(rdCustom()?'Chapters from different files are mixed in your own order.':'Right now every file is read whole, in the document order.')+' Move a chapter to place it anywhere. The documents list and every reading position follow this order, and a file whose chapters are split up sits where its first chapter is. Your Word files are not touched.</p>'+
+    (rdCustom()?'<p><button class="btn" data-act="read-reset">Put chapters back inside their files</button></p>':'')+(modal?'<div data-hl style="max-height:52vh;overflow:auto;border-top:1px solid var(--line)">'+rows+'</div><div class="actions"><button class="btn" data-act="close">Done</button><button class="btn primary" data-act="read-open" data-first="1">'+ic('open')+'Read from the start</button></div>':'<div>'+rows+'</div>');
 }
 function rdRefresh(){if(RD.open)renderReader(true);else if(S.modal&&S.modal.type==='rdorder')holKeep();render()}
 function rdMeta(it){
@@ -2413,6 +2432,7 @@ function rdBody(it,paras){
   if(!paras)return null;
   var seg=rdSlice(it.d,it.h,paras);if(!seg)return false;
   var lvl=it.h?it.h.level:0, out='', started=false;
+  var dt=((it.h&&it.h.storyDate)||it.d.storyDate||'').trim();if(dt)out+='<div class="rd-date" role="heading" aria-level="2">'+esc(dt)+'</div>';
   seg.forEach(function(x){
     var t=x.text;
     if(x.lv>0){var n=Math.min(4,Math.max(1,x.lv-lvl+1));if(!lvl)n=Math.min(4,x.lv);out+='<h'+n+'>'+esc(t)+'<button class="rd-c" data-act="read-target" data-t="'+esc(t)+'" aria-label="Comment on '+esc(t)+'">+ note</button></h'+n+'>';started=true;return}
