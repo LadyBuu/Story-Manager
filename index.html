@@ -456,6 +456,14 @@ function autoKey(text){
   if(mo>12||da>31)return null;
   return y*10000+mo*100+da;
 }
+function dateHint(text){
+  var t=(text||'').trim();
+  if(dateMode()==='manual')return 'Shown as written. Order comes from the sort number.';
+  if(!t)return 'Write it however you like. Real dates such as 12 March 1248 or 1248-03-12 place the scene on the timeline. Anything else is kept as a label.';
+  var k=autoKey(t);if(k==null)return 'Kept as written, but I cannot sort it, so it follows its file. For a made-up calendar use sort numbers in Settings.';
+  var y=Math.floor(k/10000), mo=Math.floor(k/100)%100, da=k%100, mn=['','January','February','March','April','May','June','July','August','September','October','November','December'];
+  return 'Sorts as '+(da?da+' ':'')+(mo?mn[mo]+' ':'')+y+'.';
+}
 function dateMode(){var p=proj();return (p&&p.dateMode)||'auto'}
 function itemKey(x){
   if(dateMode()==='manual'){var k=x.dateKey;return (k===''||k==null||isNaN(+k))?null:+k}
@@ -497,14 +505,16 @@ function chapLvl(d){
   return Math.min.apply(null,hs.map(function(x){return x.level}));
 }
 function ensureHeads(d){(d.headings||[]).forEach(function(x){if(!x.id)x.id='h'+uid()})}
-function allHeads(d){ensureHeads(d);return (d.headings||[]).filter(function(x){return !x.moved})}
+function liveH(x){return !x.moved&&!x.missing&&x.variant!=='trashed'}
+function chapVariant(d,x){return (x&&x.variant)||d.variant||'canon'}
+function allHeads(d){ensureHeads(d);return (d.headings||[]).filter(liveH)}
 function kin(d,h){
   var hs=d.headings||[],i=hs.indexOf(h),o=[h];if(i<0)return o;
   for(var j=i+1;j<hs.length&&hs[j].level>h.level;j++)o.push(hs[j]);
   var cur=h.level;for(var k=i-1;k>=0;k--){if(hs[k].level<cur){o.push(hs[k]);cur=hs[k].level}}
-  return o.filter(function(x){return !x.moved});
+  return o.filter(liveH);
 }
-function chapters(d){var l=chapLvl(d);ensureHeads(d);return (d.headings||[]).filter(function(x){return x.level===l&&!x.moved})}
+function chapters(d){var l=chapLvl(d);ensureHeads(d);return (d.headings||[]).filter(function(x){return x.level===l&&liveH(x)})}
 function normTag(s){return (s||'').trim().replace(/^#+/,'').toLowerCase().replace(/\s+/g,'-')}
 function docTags(d){var m={},o=[];(d.tags||[]).concat([].concat.apply([],allHeads(d).map(function(x){return x.tags||[]}))).forEach(function(t){if(!m[t]){m[t]=1;o.push(t)}});return o}
 function hasMoved(d){return (d.headings||[]).some(function(x){return x.moved})}
@@ -517,16 +527,55 @@ function docSpan(d){
   if(!ds.length)return (d.storyDate||'').trim();
   return ds[0]===ds[ds.length-1]?ds[0]:ds[0]+' to '+ds[ds.length-1];
 }
-function mergeHeads(old,nu){
-  old=old||[];var used={};
-  return nu.map(function(x,i){
-    var j=-1;
-    for(var k=0;k<old.length;k++){if(!used[k]&&old[k].level===x.level&&(old[k].title||'').toLowerCase()===(x.title||'').toLowerCase()){j=k;break}}
-    if(j<0&&old.length===nu.length&&!used[i]&&old[i].level===x.level)j=i;
-    if(j<0)return x;
-    used[j]=1;return Object.assign({},old[j],{level:x.level,title:x.title,words:x.words});
-  });
+function hasData(x){return !!(x.storyDate||x.pov||x.arcId||x.summary||x.variant||(x.dateKey!=null&&x.dateKey!=='')||(x.tags||[]).length||(x.characterIds||[]).length||(x.locationIds||[]).length)}
+function titleSim(a,b){
+  var stop={the:1,a:1,an:1,of:1,and:1,to:1,in:1,at:1,on:1};
+  var tok=function(s){return (s||'').toLowerCase().replace(/[^a-z0-9À-￿\s]/g,' ').split(/\s+/).filter(function(w){return w&&!stop[w]})};
+  var x=tok(a),y=tok(b);if(!x.length||!y.length)return 0;
+  var s={};x.forEach(function(w){s[w]=1});var inter=0;y.forEach(function(w){if(s[w])inter++});
+  var j=inter/(x.length+y.length-inter), ov=inter/Math.min(x.length,y.length), al=(a||'').toLowerCase(), bl=(b||'').toLowerCase();
+  var sc=Math.max(j,ov*.8);
+  if(al&&bl&&(al.indexOf(bl)===0||bl.indexOf(al)===0))sc=Math.max(sc,.6);
+  return sc;
 }
+function mergeHeads(old,nu,d){
+  old=old||[];
+  var usedO={}, mN=[], stat={renamed:0,missing:0};
+  nu.forEach(function(x,i){
+    for(var k=0;k<old.length;k++){if(!usedO[k]&&old[k].level===x.level&&(old[k].title||'').toLowerCase()===(x.title||'').toLowerCase()){usedO[k]=1;mN[i]=k;break}}
+  });
+  var anc=[[-1,-1]];nu.forEach(function(x,i){if(mN[i]!=null)anc.push([i,mN[i]])});anc.push([nu.length,old.length]);
+  for(var g=0;g<anc.length-1;g++){
+    var A=anc[g],B=anc[g+1], un=[], uo=[];
+    for(var i=A[0]+1;i<B[0];i++)if(mN[i]==null)un.push(i);
+    for(var k=A[1]+1;k<B[1];k++)if(!usedO[k])uo.push(k);
+    if(!un.length||!uo.length)continue;
+    if(un.length===uo.length&&un.every(function(i,n){return nu[i].level===old[uo[n]].level})){
+      un.forEach(function(i,n){mN[i]=uo[n];usedO[uo[n]]=1});continue;
+    }
+    var cand=[];
+    uo.forEach(function(k){un.forEach(function(i){if(nu[i].level!==old[k].level)return;var s=titleSim(old[k].title,nu[i].title);if(s>=.34)cand.push([s,k,i])})});
+    cand.sort(function(p,q){return q[0]-p[0]});
+    cand.forEach(function(c){if(!usedO[c[1]]&&mN[c[2]]==null){mN[c[2]]=c[1];usedO[c[1]]=1}});
+    var ru=un.filter(function(i){return mN[i]==null}), ro=uo.filter(function(k){return !usedO[k]});
+    if(ru.length===1&&ro.length===1&&nu[ru[0]].level===old[ro[0]].level){mN[ru[0]]=ro[0];usedO[ro[0]]=1}
+  }
+  var out=nu.map(function(x,i){
+    var k=mN[i];if(k==null)return x;
+    var o=old[k];if((o.title||'')!==(x.title||'')){stat.renamed++;if(d)(d.notes||[]).forEach(function(n){if(n.h===o.title)n.h=x.title})}
+    var m=Object.assign({},o,{level:x.level,title:x.title,words:x.words});delete m.missing;return m;
+  });
+  var lastOut=-1;
+  old.forEach(function(o,k){
+    if(usedO[k]){for(var i=0;i<nu.length;i++)if(mN[i]===k){lastOut=i;break};return}
+    if(o.moved||!hasData(o))return;
+    stat.missing++;
+    out.splice(lastOut+1,0,Object.assign({},o,{missing:true}));lastOut++;
+  });
+  mergeHeads.last=stat;
+  return out;
+}
+function mergeNote(st){return st&&(st.renamed||st.missing)?(' '+(st.renamed?st.renamed+' renamed, info kept. ':'')+(st.missing?st.missing+' not found, info kept below.':'')):''}
 function variantLabel(v){v=v||'canon';if(v==='trashed')return 'Trashed';var x=VARIANTS.find(function(y){return y[0]===v});return x?x[1]:'Canon'}
 function stable(v){return JSON.stringify(v,function(k,x){if(x&&typeof x==='object'&&!Array.isArray(x)){var o={};Object.keys(x).sort().forEach(function(y){o[y]=x[y]});return o}return x})}
 function snap(){var o={};COLLS.forEach(function(c){if(c==='projects')return;o[c]=S[c].filter(function(x){return x.pid===S.pid}).map(function(x){return stable(x)})});return {pid:S.pid,d:o}}
@@ -836,7 +885,7 @@ timeline:function(){
       var d=it.d, x=it.h, g='';
       if(it.key==null&&!shownU){shownU=true;g='<div class="ghead">No readable date</div>'}
       var rid=routeOf(d), rc=byId('routes',rid), rt=(rid!==rootId()&&rc)?'<span class="rtag" style="--rc:var(--r-'+(rc.color||'a')+')"><i></i>'+esc(rc.name)+'</span>':'';
-      var sub=[d.title,rp2[d.id]!=null?'reading position '+rp2[d.id]:'',x&&x.storyDate||(!x&&d.storyDate)||'',x&&x.pov&&('POV '+nameOf('characters',x.pov))].filter(Boolean).join(' · ');
+      var sub=[d.title,rp2[d.id]!=null?'reading position '+rp2[d.id]:'',x&&x.storyDate||(!x&&d.storyDate)||'',x&&chapVariant(d,x)!=='canon'&&variantLabel(chapVariant(d,x)),x&&x.pov&&('POV '+nameOf('characters',x.pov))].filter(Boolean).join(' · ');
       return g+'<div class="row plain" role="listitem" tabindex="0" data-act="chap-go" data-id="'+d.id+'" data-hid="'+(x?x.id:'')+'"><div class="folio"><b>'+(x?pad(it.ord+1):'·')+'</b></div><div class="rb"><div class="rt">'+(esc(x?x.title:d.title)||'Untitled')+'</div><div class="rm">'+esc(sub)+'</div></div>'+rt+'</div>';
     }).join('')+'</div>':'<div class="empty"><p>No drafts to place yet. Add documents, then give their chapters story dates.</p></div>';
   }else if(S.seg==='chron'){
@@ -915,16 +964,17 @@ function chipsFor(d,hd,field,coll){
 function chapterRow(d,hd,oc){
   var pv=nameOf('characters',hd.pov), n=(hd.characterIds||[]).length, k=d.id+':'+hd.id+':';
   var cw=chapWords(d,hd), ak=nameOf('arcs',chapArc(d,hd));
-  var sum=[hd.storyDate,pv&&('POV '+pv),n&&(n+' character'+(n>1?'s':'')),ak&&hd.arcId&&('Arc '+ak),(hd.tags||[]).length&&(hd.tags||[]).map(function(t){return '#'+t}).join(' '),cw!=null&&(fmtN(cw)+' words')].filter(Boolean).join(' · ');
+  var sum=[hd.storyDate,pv&&('POV '+pv),n&&(n+' character'+(n>1?'s':'')),ak&&hd.arcId&&('Arc '+ak),hd.variant&&variantLabel(hd.variant),(hd.tags||[]).length&&(hd.tags||[]).map(function(t){return '#'+t}).join(' '),cw!=null&&(fmtN(cw)+' words')].filter(Boolean).join(' · ');
   var unread=dateMode()==='auto'&&(hd.storyDate||'').trim()&&autoKey(hd.storyDate)==null;
   function add(field,coll,noun){return '<button class="btn sm" data-act="chap-pick" data-id="'+d.id+'" data-hid="'+hd.id+'" data-field="'+field+'" data-coll="'+coll+'" data-noun="'+noun+'">'+ic('plus',14)+'Add</button>'}
   return '<details class="chap" style="margin-left:'+Math.min(Math.max(hd.level-1,0),4)*10+'px" data-hid="'+hd.id+'"'+(S.chapOpen&&S.chapOpen[hd.id]?' open':'')+'><summary><span class="hlab">'+esc(label(hd.level)||('H'+hd.level))+'</span><span class="t">'+esc(hd.title)+'</span>'+(oc?'<span class="nb">'+oc+' open</span>':'')+(sum?'<small>'+esc(sum)+'</small>':'')+'</summary><div class="chapbody">'+
-    '<div class="fgrid"><div><label class="lab" for="chd-'+hd.id+'">Story date</label><input class="in" id="chd-'+hd.id+'" data-chap="'+k+'storyDate" value="'+esc(hd.storyDate||'')+'" placeholder="For example 12 Frost, 1248"></div>'+
+    '<div class="fgrid"><div><label class="lab" for="chd-'+hd.id+'">Story date</label><input class="in" id="chd-'+hd.id+'" data-chap="'+k+'storyDate" value="'+esc(hd.storyDate||'')+'" placeholder="For example 12 March 1248" aria-describedby="dh-'+hd.id+'"><small class="hint" id="dh-'+hd.id+'" style="display:block;margin-top:4px">'+esc(dateHint(hd.storyDate))+'</small></div>'+
     (dateMode()==='manual'?'<div><label class="lab" for="chk-'+hd.id+'">Sort number</label><input class="in" id="chk-'+hd.id+'" type="number" inputmode="decimal" data-chap="'+k+'dateKey" value="'+esc(hd.dateKey==null?'':hd.dateKey)+'" placeholder="For example story day 340"></div>':'')+
     (unread?'<p class="hint span2" style="margin:0">That date is not one I can sort, so this chapter follows its file. Write it like 12 August 1248, or switch to sort numbers in Settings.</p>':'')+
     (hd.level===chapLvl(d)&&rdPosOf(d,hd)?'<div><label class="lab" for="chr-'+hd.id+'">Reading position</label><input class="in mono" id="chr-'+hd.id+'" type="number" min="1" max="'+RDM.n+'" value="'+rdPosOf(d,hd)+'" data-change="rd-pos" data-id="'+d.id+'" data-hid="'+hd.id+'"></div>':'')+
     '<div><label class="lab" for="chp-'+hd.id+'">POV</label><select class="in" id="chp-'+hd.id+'" data-chap="'+k+'pov">'+optList('characters',hd.pov,'None')+'</select></div>'+
     '<div><label class="lab" for="cha-'+hd.id+'">Arc</label><select class="in" id="cha-'+hd.id+'" data-chap="'+k+'arcId">'+optList('arcs',hd.arcId,'Same as the file','order')+'</select></div>'+
+    '<div><label class="lab" for="chv-'+hd.id+'">Version</label><select class="in" id="chv-'+hd.id+'" data-chap="'+k+'variant"><option value="">Same as the file</option>'+selOpts(VARIANTS.concat([['trashed','Trashed (leave out of reading and timeline)']]),hd.variant||'')+'</select></div>'+
     '<div class="span2"><label class="lab" for="chs-'+hd.id+'">What happens</label><textarea class="in" id="chs-'+hd.id+'" data-chap="'+k+'summary" placeholder="A line or two in your own words">'+esc(hd.summary||'')+'</textarea></div></div>'+
     '<div class="chapsec"><span class="lab">Tags</span><div class="chips">'+(hd.tags||[]).map(function(t){return '<span class="chip mut">#'+esc(t)+'<button class="x" data-act="ctag-del" data-id="'+d.id+'" data-hid="'+hd.id+'" data-v="'+esc(t)+'" aria-label="Remove tag '+esc(t)+'">'+ic('x',12)+'</button></span>'}).join('')+'</div><div class="addrow"><input class="in" id="ct-'+hd.id+'" data-enter="ctag-add" data-id="'+d.id+'" data-hid="'+hd.id+'" placeholder="Add tags, separated by commas" aria-label="New tags for this chapter"><button class="btn" data-act="ctag-add" data-id="'+d.id+'" data-hid="'+hd.id+'">Add</button></div></div>'+
     '<div class="chapsec"><span class="lab">Characters</span><div class="chips">'+chipsFor(d,hd,'characterIds','characters')+add('characterIds','characters','character')+'</div></div>'+
@@ -960,7 +1010,7 @@ function docCard(d){
   h+='<div class="fgrid">'+
     posInput(d,'order','rp-','Reading order',rp,n)+
     posInput(d,'chron','cp-','Story chronology',cp,n)+
-    '<div class="span2"><label class="lab" for="sd-'+d.id+'">Story date</label><input class="in" id="sd-'+d.id+'" data-bind="documents:'+d.id+':storyDate" value="'+esc(d.storyDate||'')+'" placeholder="For example 12 Frost, 1248"></div>'+
+    '<div class="span2"><label class="lab" for="sd-'+d.id+'">Story date</label><input class="in" id="sd-'+d.id+'" data-bind="documents:'+d.id+':storyDate" value="'+esc(d.storyDate||'')+'" placeholder="For example 12 March 1248" aria-describedby="dh-'+d.id+'"><small class="hint" id="dh-'+d.id+'" style="display:block;margin-top:4px">'+esc(dateHint(d.storyDate))+'</small></div>'+
     (dateMode()==='manual'?'<div><label class="lab" for="dk-'+d.id+'">Sort number</label><input class="in" id="dk-'+d.id+'" type="number" inputmode="decimal" data-bind="documents:'+d.id+':dateKey" value="'+esc(d.dateKey==null?'':d.dateKey)+'" placeholder="Story day"></div>':'')+
     '<div><label class="lab" for="pv-'+d.id+'">POV</label><select class="in" id="pv-'+d.id+'" data-bind="documents:'+d.id+':pov">'+optList('characters',d.pov,'None')+'</select></div>'+
     '<div><label class="lab" for="ar-'+d.id+'">Arc</label><select class="in" id="ar-'+d.id+'" data-bind="documents:'+d.id+':arcId">'+optList('arcs',d.arcId,'No arc','order')+'</select></div>'+
@@ -991,6 +1041,7 @@ function docCard(d){
   h+='</div>';
   h+='<div class="sec"><h3>Chapters and structure</h3>'+(heads.length?'<p class="hint" style="margin:0 0 6px">Open any heading to give it a date, POV, characters, locations and tags. The timeline and chapter counts use the headings at level '+cl+'; change that in Settings.</p>'+(chs.length?'<div class="actions" style="justify-content:flex-start;margin:0 0 8px"><button class="btn sm" data-act="spread" data-id="'+d.id+'" data-field="characterIds" data-coll="characters" data-noun="character">'+ic('plus',14)+'Characters in the whole file</button><button class="btn sm" data-act="spread" data-id="'+d.id+'" data-field="locationIds" data-coll="locations" data-noun="location">'+ic('plus',14)+'Locations in the whole file</button></div>':'')+'<div class="ht">'+heads.map(function(hd){
     var oc=openByHead[hd.title];
+    if(hd.missing)return '<div class="hl moved" style="--lv:'+hd.level+'"><span class="hlab">'+esc(label(hd.level)||('H'+hd.level))+'</span><span class="t" style="text-decoration:none">'+esc(hd.title)+'</span><small>Not found in the file now. Its info is kept.</small><div class="actions" style="justify-content:flex-start;margin:4px 0"><button class="btn sm" data-act="miss-move" data-id="'+d.id+'" data-hid="'+hd.id+'">Move its info to a heading</button><button class="btn sm danger" data-act="miss-drop" data-id="'+d.id+'" data-hid="'+hd.id+'">Discard</button></div></div>';
     if(hd.moved)return '<div class="hl moved" style="--lv:'+hd.level+'"><span class="hlab">'+esc(label(hd.level)||('H'+hd.level))+'</span><span class="t">'+esc(hd.title)+'</span><small>Moved to '+esc(hd.moved.name||'a new file')+'</small></div>';
     if(1)return chapterRow(d,hd,oc);
     return '<div class="hl" style="--lv:'+hd.level+'"><span class="hlab">'+esc(label(hd.level)||('H'+hd.level))+'</span><span class="t">'+esc(hd.title)+'</span>'+(oc?'<span class="nb">'+oc+' open</span>':'')+'</div>';
@@ -1145,6 +1196,10 @@ function renderModal(){
   else if(m.type==='hollow')inner=hollowModal();
   else if(m.type==='extract')inner=extractModal();
   else if(m.type==='rdorder')inner=rdOrderHtml(rdItems(),-1,true);
+  else if(m.type==='missmove'){
+    var md=byId('documents',m.id), mh=md&&(md.headings||[]).find(function(x){return x.id===m.hid});
+    inner='<h2>Move the info for “'+esc(mh?mh.title:'')+'”</h2><p class="hint">Pick the heading it belongs to now. Dates, POV, characters, locations, tags, summary and comments are carried over.</p><div data-hl style="max-height:48vh;overflow:auto;border-top:1px solid var(--line)">'+((md&&md.headings)||[]).filter(function(x){return !x.missing&&!x.moved&&x.id!==m.hid}).map(function(x){return '<button class="pickrow" data-act="miss-do" data-to="'+x.id+'"><span style="padding-left:'+(Math.max(0,x.level-1)*12)+'px">'+esc(x.title)+'</span></button>'}).join('')+'</div><div class="actions"><button class="btn" data-act="close">Cancel</button></div>';
+  }
   else if(m.type==='routedel')inner=routeDelModal();
   else if(m.type==='path')inner=pathModal();
   else if(m.type==='import')inner=importModal();
@@ -1432,7 +1487,7 @@ function confirmImport(){
     var meta={name:it.file,words:it.info.words,modified:it.info.modified,analysed:new Date().toISOString(),size:it.size};
     if(it.od){meta.od={id:it.od.id,etag:it.od.etag,mtime:it.od.mtime};meta.url=it.od.url;meta.stale=false}
     if(it.match){
-      var d=byId('documents',it.match);d.file=Object.assign({url:''},d.file,meta);d.headings=mergeHeads(d.headings,it.info.headings);save('documents',d,true);updated++;
+      var d=byId('documents',it.match);d.file=Object.assign({url:''},d.file,meta);d.headings=mergeHeads(d.headings,it.info.headings,d);save('documents',d,true);updated++;
     }else{
       var arcId='';
       if(m.arcs&&it.folder){
@@ -1946,6 +2001,18 @@ clear:function(el){
 'read-pick-ch':function(el){RD.key=el.dataset.k;RD.order=false;if(S.modal&&S.modal.type==='rdorder'){closeModal();RD.open=true}renderReader()},
 'chap-order':function(){S.modal={type:'rdorder'};renderModal()},
 'read-mv':function(el){var ks=rdItems().map(rdKey),i=ks.indexOf(el.dataset.k);if(i<0)return;rdMoveTo(el.dataset.k,i+(+el.dataset.v));rdRefresh()},
+'miss-move':function(el){S.modal={type:'missmove',id:el.dataset.id,hid:el.dataset.hid};renderModal()},
+'miss-drop':function(el){var d=byId('documents',el.dataset.id);if(!d)return;d.headings=(d.headings||[]).filter(function(x){return x.id!==el.dataset.hid});save('documents',d);render()},
+'miss-do':function(el){
+  var m=S.modal, d=m&&byId('documents',m.id);if(!d)return;
+  var from=(d.headings||[]).find(function(x){return x.id===m.hid}), to=(d.headings||[]).find(function(x){return x.id===el.dataset.to});if(!from||!to)return;
+  ['characterIds','locationIds','tags'].forEach(function(f){to[f]=uniq((to[f]||[]).concat(from[f]||[]))});
+  ['storyDate','dateKey','pov','arcId','summary','variant'].forEach(function(f){if((to[f]==null||to[f]==='')&&from[f]!=null&&from[f]!=='')to[f]=from[f]});
+  (d.notes||[]).forEach(function(n){if(n.h===from.title)n.h=to.title});
+  d.headings=d.headings.filter(function(x){return x.id!==from.id});
+  save('documents',d);closeModal();render();toast('Info moved to “'+to.title+'”.');
+},
+'read-canon':function(){var pr=proj();if(!pr)return;pr.readCanon=!pr.readCanon;save('projects',pr);rdRefresh()},
 'read-reset':function(){rdReset();rdRefresh()},
 'read-target':function(el){RD.target=el.dataset.t||'';RD.meta=true;var m=$('#reader .rd-meta');if(m)m.hidden=false;var b=$('#reader [data-act="read-meta"]');if(b)b.setAttribute('aria-pressed','true');rdRefreshAside();var n=$('#rdNote');if(n)n.focus()},
 'read-note-add':function(){
@@ -2189,6 +2256,7 @@ document.addEventListener('input',function(e){
     var cp=d.chap.split(':'), cd=byId('documents',cp[0]);if(!cd)return;
     var ch=(cd.headings||[]).find(function(x){return x.id===cp[1]});if(!ch)return;
     ch[cp[2]]=t.value;save('documents',cd);
+    if(cp[2]==='storyDate'){var dh=document.getElementById('dh-'+cp[1]);if(dh)dh.textContent=dateHint(t.value)}
     if(t.tagName==='SELECT'){render();return}
     var sm=$('.summ');if(sm)sm.outerHTML=fileSummary(cd);
     renderRows();return;
@@ -2204,6 +2272,7 @@ document.addEventListener('input',function(e){
     var parts=d.bind.split(':'), o=byId(parts[0],parts[1]);if(!o)return;
     setPath(o,parts[2],t.type==='checkbox'?t.checked:(t.type==='number'?(t.value===''?'':Number(t.value)):t.value));
     if(parts[0]==='characters'&&/^(firstName|middleName|lastName|nickname|alias|displayParts)/.test(parts[2])){var nn2=hollowName(o);if(nn2){o.name=nn2;var ti=$('.title-in');if(ti&&ti.dataset.bind==='characters:'+o.id+':name')ti.value=nn2}}
+    if(parts[0]==='documents'&&parts[2]==='storyDate'){var dh2=document.getElementById('dh-'+o.id);if(dh2)dh2.textContent=dateHint(t.value)}
     save(parts[0],o);
     if(t.tagName==='SELECT'){render();if(S.modal&&S.modal.type==='routes')renderModal()}else{renderRows();renderTop();renderRail()}
     return;
@@ -2277,13 +2346,13 @@ async function applyRefresh(d,file){
   S.modal={type:'busy',msg:'Reading headings.'};renderModal();
   try{
     var info=await parseDocx(file), before=(d.headings||[]).length;
-    d.headings=mergeHeads(d.headings,info.headings);
+    d.headings=mergeHeads(d.headings,info.headings,d);
     d.file=Object.assign({url:''},d.file,{words:info.words,modified:info.modified,analysed:new Date().toISOString(),size:file.size});
     if(file._od){d.file.od={id:file._od.id,etag:file._od.etag,mtime:file._od.mtime};d.file.url=file._od.url;d.file.stale=false}
     if(!d.file.name)d.file.name=file.name;
     save('documents',d,true);closeModal();render();
     var diff=info.headings.length-before;
-    toast(info.headings.length+' headings read'+(before?' ('+(diff>=0?'+':'')+diff+')':'')+(d.file.name.toLowerCase()!==file.name.toLowerCase()?'. The file name differs from the one on record.':'.'));
+    toast(info.headings.length+' headings read'+(before?' ('+(diff>=0?'+':'')+diff+')':'')+(d.file.name.toLowerCase()!==file.name.toLowerCase()?'. The file name differs from the one on record.':'.')+mergeNote(mergeHeads.last));
   }catch(err){closeModal();toast('That file could not be read. Check that it is a valid .docx.')}
 }
 $('#fileRefresh').addEventListener('change',async function(){
@@ -2322,7 +2391,8 @@ $('#fileExtract').addEventListener('change',function(){
 var RDP={}, RDF={}, RD={open:false,key:'',meta:false,tok:0,err:'',target:'',tkey:'',kind:'Revision'};
 function rdSize(){try{return Math.min(32,Math.max(13,parseInt(localStorage.getItem('so-rd-size'),10)||18))}catch(e){return 18}}
 function rdKey(it){return it.d.id+'|'+(it.h?it.h.id:'')}
-function rdDefault(){var o=[];sortBy(eff('documents'),'order').filter(inOrder).forEach(function(d){var cs=chapters(d);if(cs.length)cs.forEach(function(x){o.push({d:d,h:x})});else o.push({d:d,h:null})});return o}
+function rdCanonOnly(){var pr=proj();return !!(pr&&pr.readCanon)}
+function rdDefault(){var o=[], co=rdCanonOnly();sortBy(eff('documents'),'order').filter(inOrder).forEach(function(d){var cs=chapters(d);if(co)cs=cs.filter(function(x){return chapVariant(d,x)==='canon'});if(cs.length)cs.forEach(function(x){o.push({d:d,h:x})});else if(!chapters(d).length&&(!co||(d.variant||'canon')==='canon'))o.push({d:d,h:null})});return o}
 function rdItems(){
   var def=rdDefault(), pr=proj(), seq=pr&&pr.readSeq;
   if(!seq||!seq.length)return def;
@@ -2346,7 +2416,7 @@ function rdMoveTo(key,idx){
 function rdWriteBack(){
   var its=rdItems(), rank={}, n=0;
   its.forEach(function(x){if(rank[x.d.id]==null)rank[x.d.id]=n++});
-  var docs=sortBy(eff('documents'),'order').filter(inOrder);
+  var docs=sortBy(eff('documents'),'order').filter(inOrder).filter(function(d){return rank[d.id]!=null});
   var pool=docs.map(function(d){return d.order}).sort(function(a,b){return a-b});
   docs.slice().sort(function(a,b){return (rank[a.id]==null?1e9:rank[a.id])-(rank[b.id]==null?1e9:rank[b.id])}).forEach(function(d,i){if(d.order!==pool[i]){d.order=pool[i];save('documents',d)}});
 }
@@ -2410,11 +2480,11 @@ function rdOrderHtml(items,cur,modal){
   var rows=items.map(function(x,i){
     var k=rdKey(x), t=x.h?x.h.title:(x.d.title||'Whole file');
     return '<div class="rd-or'+(i===cur?' cur':'')+'"><input class="in mono" type="number" min="1" max="'+items.length+'" value="'+(i+1)+'" data-change="read-pos" data-k="'+esc(k)+'" aria-label="Position of '+esc(t)+'">'+
-      '<button class="lk" data-act="read-pick-ch" data-k="'+esc(k)+'"><span><span class="lkt">'+esc(t)+'</span><small>'+esc(x.d.title||'')+'</small></span></button>'+
+      '<button class="lk" data-act="read-pick-ch" data-k="'+esc(k)+'"><span><span class="lkt">'+esc(t)+'</span><small>'+esc(x.d.title||'')+(x.h&&chapVariant(x.d,x.h)!=='canon'?' · '+esc(variantLabel(chapVariant(x.d,x.h))):'')+'</small></span></button>'+
       '<button class="btn sm" data-act="read-mv" data-k="'+esc(k)+'" data-v="-1"'+(i?'':' disabled')+' aria-label="Move up">↑</button><button class="btn sm" data-act="read-mv" data-k="'+esc(k)+'" data-v="1"'+(i<items.length-1?'':' disabled')+' aria-label="Move down">↓</button></div>';
   }).join('');
   return (modal?'<h2>Chapter order</h2>':'<h1>Reading order</h1>')+'<p class="hint">'+(rdCustom()?'Chapters from different files are mixed in your own order.':'Right now every file is read whole, in the document order.')+' Move a chapter to place it anywhere. The documents list and every reading position follow this order, and a file whose chapters are split up sits where its first chapter is. Your Word files are not touched.</p>'+
-    (rdCustom()?'<p><button class="btn" data-act="read-reset">Put chapters back inside their files</button></p>':'')+(modal?'<div data-hl style="max-height:52vh;overflow:auto;border-top:1px solid var(--line)">'+rows+'</div><div class="actions"><button class="btn" data-act="close">Done</button><button class="btn primary" data-act="read-open" data-first="1">'+ic('open')+'Read from the start</button></div>':'<div>'+rows+'</div>');
+    '<label class="chk"><input type="checkbox" data-act="read-canon"'+(rdCanonOnly()?' checked':'')+'><span><b>Canon only</b><small>Leave AU and alternate chapters out of Read mode</small></span></label>'+(rdCustom()?'<p><button class="btn" data-act="read-reset">Put chapters back inside their files</button></p>':'')+(modal?'<div data-hl style="max-height:52vh;overflow:auto;border-top:1px solid var(--line)">'+rows+'</div><div class="actions"><button class="btn" data-act="close">Done</button><button class="btn primary" data-act="read-open" data-first="1">'+ic('open')+'Read from the start</button></div>':'<div>'+rows+'</div>');
 }
 function rdRefresh(){if(RD.open)renderReader(true);else if(S.modal&&S.modal.type==='rdorder')holKeep();render()}
 function rdMeta(it){
@@ -2452,7 +2522,7 @@ async function renderReader(keepScroll){
   var lastD=null;items.forEach(function(x,j){if(x.d.id!==lastD){if(lastD!==null)sel+='</optgroup>';sel+='<optgroup label="'+esc(x.d.title||'Untitled')+'">';lastD=x.d.id}sel+='<option value="'+esc(rdKey(x))+'"'+(j===i?' selected':'')+'>'+esc(x.h?x.h.title:(x.d.title||'Whole file'))+'</option>'});sel+='</optgroup></select>';
   var head='<div class="rd-top"><button class="icb" data-act="read-close" aria-label="Close reader">'+ic('x')+'</button><div class="rd-t"><b>'+esc(it.h?it.h.title:d.title)+'</b><small>'+esc(d.title||'')+' · '+(i+1)+' of '+items.length+'</small></div>'+
     '<button class="btn sm" data-act="read-size" data-v="-1" aria-label="Smaller text">A−</button><button class="btn sm" data-act="read-size" data-v="1" aria-label="Larger text">A+</button>'+
-    '<button class="btn sm" data-act="read-order" aria-pressed="'+!!RD.order+'">Order</button><button class="btn sm" data-act="read-reload" aria-label="Read the file again">'+ic('refresh',14)+'</button><button class="btn sm" data-act="read-meta" aria-pressed="'+RD.meta+'">Comments'+(rdOpenCount(it)?' · '+rdOpenCount(it):'')+'</button></div>';
+    '<button class="btn sm" data-act="read-canon" aria-pressed="'+rdCanonOnly()+'">Canon only</button><button class="btn sm" data-act="read-order" aria-pressed="'+!!RD.order+'">Order</button><button class="btn sm" data-act="read-reload" aria-label="Read the file again">'+ic('refresh',14)+'</button><button class="btn sm" data-act="read-meta" aria-pressed="'+RD.meta+'">Comments'+(rdOpenCount(it)?' · '+rdOpenCount(it):'')+'</button></div>';
   var foot='<div class="rd-foot"><button class="btn" data-act="read-go" data-v="-1"'+(i?'':' disabled')+' aria-label="Previous chapter">←</button>'+sel+'<button class="btn" data-act="read-go" data-v="1"'+(i<items.length-1?'':' disabled')+' aria-label="Next chapter">→</button></div>';
   var prev=$('#reader .rd-art'), top=keepScroll&&prev?prev.scrollTop:0;
   el.hidden=false;
