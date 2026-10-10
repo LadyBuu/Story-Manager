@@ -774,7 +774,7 @@ documents:function(){
     '<button class="btn" data-act="new-doc">'+ic('plus')+'Blank</button>'+
     (S.mode==='od'&&p&&p.odFolder?'<button class="btn" data-act="od-sync">'+ic('refresh')+'Sync</button>':'')+
     (S.mode==='od'&&p&&!p.odFolder?'<button class="btn" data-act="od-pick">'+ic('folder')+'OneDrive folder</button>':'')+
-    (docs.length?'<button class="btn" data-act="read-open">'+ic('open')+'Read</button><button class="btn" data-act="path">Reading path</button>':'')+clearBtn('documents',docs.length)+
+    (docs.length?'<button class="btn" data-act="read-open">'+ic('open')+'Read</button><button class="btn" data-act="chap-order">Chapter order</button><button class="btn" data-act="path">Reading path</button>':'')+clearBtn('documents',docs.length)+
     '<button class="btn" data-act="routes">'+ic('layers')+'Routes</button>'+
     (trashView&&trashed.length?'<button class="btn danger" data-act="empty-trash">'+ic('trash')+'Empty trash</button>':'')+
     (folder?'<a class="btn" href="'+esc(folder)+'" target="_blank" rel="noopener noreferrer">'+ic('open')+'OneDrive</a>':'')+'</div></div>'+routeBar()+
@@ -1143,6 +1143,7 @@ function renderModal(){
   else if(m.type==='clear')inner=clearModal();
   else if(m.type==='hollow')inner=hollowModal();
   else if(m.type==='extract')inner=extractModal();
+  else if(m.type==='rdorder')inner=rdOrderHtml(rdItems(),-1,true);
   else if(m.type==='routedel')inner=routeDelModal();
   else if(m.type==='path')inner=pathModal();
   else if(m.type==='import')inner=importModal();
@@ -1932,13 +1933,15 @@ clear:function(el){
   var items=rdItems(), key=el&&el.dataset&&el.dataset.id?(el.dataset.id+'|'+(el.dataset.hid||'')):'';
   var hit=items.find(function(x){return rdKey(x)===key})||items.find(function(x){return x.d.id===(el&&el.dataset&&el.dataset.id)&&(!el.dataset.hid||(x.h&&kin(x.d,x.h).some(function(k){return k.id===el.dataset.hid})))});
   if(!hit&&!items.length){toast('Nothing in the reading order yet.');return}
+  if(el&&el.dataset&&el.dataset.first&&items.length){RD.key=rdKey(items[0]);RD.open=true;if(S.modal)closeModal();renderReader();return}
   RD.key=hit?rdKey(hit):(RD.key&&items.some(function(x){return rdKey(x)===RD.key})?RD.key:rdKey(items[0]));RD.open=true;closeModal&&S.modal&&closeModal();renderReader();
 },
 'read-close':function(){RD.order=false;rdClose()},
 'read-order':function(){RD.order=!RD.order;renderReader(true)},
-'read-pick-ch':function(el){RD.key=el.dataset.k;RD.order=false;renderReader()},
-'read-mv':function(el){var ks=rdItems().map(rdKey),i=ks.indexOf(el.dataset.k);if(i<0)return;rdMoveTo(el.dataset.k,i+(+el.dataset.v));renderReader(true);render()},
-'read-reset':function(){rdReset();renderReader(true);render()},
+'read-pick-ch':function(el){RD.key=el.dataset.k;RD.order=false;if(S.modal&&S.modal.type==='rdorder'){closeModal();RD.open=true}renderReader()},
+'chap-order':function(){S.modal={type:'rdorder'};renderModal()},
+'read-mv':function(el){var ks=rdItems().map(rdKey),i=ks.indexOf(el.dataset.k);if(i<0)return;rdMoveTo(el.dataset.k,i+(+el.dataset.v));rdRefresh()},
+'read-reset':function(){rdReset();rdRefresh()},
 'read-target':function(el){RD.target=el.dataset.t||'';RD.meta=true;var m=$('#reader .rd-meta');if(m)m.hidden=false;var b=$('#reader [data-act="read-meta"]');if(b)b.setAttribute('aria-pressed','true');rdRefreshAside();var n=$('#rdNote');if(n)n.focus()},
 'read-note-add':function(){
   var items=rdItems(), it=items[rdPos(items)], inp=$('#rdNote');if(!it||!inp)return;
@@ -2131,7 +2134,7 @@ function selectLink(d){
 var CH={
 'hol-ow':function(t){S.modal.overwrite=t.checked;S.modal.rows.forEach(function(r){if(r.ex)r.on=t.checked});renderModal()},
 'ext-row':function(t){var m=S.modal,d=byId('documents',m.id),n=$('#extName'),cur=n?n.value:m.name;if(!cur||cur===m.sug)cur=null;m.sel[t.dataset.hid]=t.checked;var s=extSug(d,m.sel);m.name=cur==null?s:cur;m.sug=s;holKeep()},
-'read-pos':function(t){var n=parseInt(t.value,10);if(!n)return;rdMoveTo(t.dataset.k,n-1);renderReader(true);render()},
+'read-pos':function(t){var n=parseInt(t.value,10);if(!n)return;rdMoveTo(t.dataset.k,n-1);rdRefresh()},
 'rd-pos':function(t){var n=parseInt(t.value,10);if(!n)return;rdMoveTo(t.dataset.id+'|'+t.dataset.hid,n-1);render()},
 'read-kind':function(t){RD.kind=t.value},
 'read-sel':function(t){RD.key=t.value;renderReader()},
@@ -2384,16 +2387,17 @@ function rdRefreshAside(){
   if(a)a.innerHTML=rdAside(it);var n=$('#rdNote');if(n)n.value=v;
   var b=$('#reader [data-act="read-meta"]');if(b)b.textContent='Comments'+(rdOpenCount(it)?' · '+rdOpenCount(it):'');
 }
-function rdOrderHtml(items,cur){
+function rdOrderHtml(items,cur,modal){
   var rows=items.map(function(x,i){
     var k=rdKey(x), t=x.h?x.h.title:(x.d.title||'Whole file');
     return '<div class="rd-or'+(i===cur?' cur':'')+'"><input class="in mono" type="number" min="1" max="'+items.length+'" value="'+(i+1)+'" data-change="read-pos" data-k="'+esc(k)+'" aria-label="Position of '+esc(t)+'">'+
       '<button class="lk" data-act="read-pick-ch" data-k="'+esc(k)+'"><span><span class="lkt">'+esc(t)+'</span><small>'+esc(x.d.title||'')+'</small></span></button>'+
       '<button class="btn sm" data-act="read-mv" data-k="'+esc(k)+'" data-v="-1"'+(i?'':' disabled')+' aria-label="Move up">↑</button><button class="btn sm" data-act="read-mv" data-k="'+esc(k)+'" data-v="1"'+(i<items.length-1?'':' disabled')+' aria-label="Move down">↓</button></div>';
   }).join('');
-  return '<h1>Reading order</h1><p class="hint">'+(rdCustom()?'You have set a custom order for Read mode.':'Right now Read mode follows your documents, with chapters in file order.')+' Move a chapter to read it somewhere else. This only changes Read mode. Your Word files and the document order stay as they are.</p>'+
-    (rdCustom()?'<p><button class="btn" data-act="read-reset">Back to the document order</button></p>':'')+'<div>'+rows+'</div>';
+  return (modal?'<h2>Chapter order</h2>':'<h1>Reading order</h1>')+'<p class="hint">'+(rdCustom()?'You have set a custom order for Read mode.':'Right now Read mode follows your documents, with chapters in file order.')+' Move a chapter to read it somewhere else. This only changes Read mode. Your Word files and the document order stay as they are.</p>'+
+    (rdCustom()?'<p><button class="btn" data-act="read-reset">Back to the document order</button></p>':'')+(modal?'<div data-hl style="max-height:52vh;overflow:auto;border-top:1px solid var(--line)">'+rows+'</div><div class="actions"><button class="btn" data-act="close">Done</button><button class="btn primary" data-act="read-open" data-first="1">'+ic('open')+'Read from the start</button></div>':'<div>'+rows+'</div>');
 }
+function rdRefresh(){if(RD.open)renderReader(true);else if(S.modal&&S.modal.type==='rdorder')holKeep();render()}
 function rdMeta(it){
   var d=it.d, hd=it.h, ks=hd?kin(d,hd):[], nm=function(c,ids){return uniq(ids).map(function(i){return nameOf(c,i)}).filter(Boolean)};
   var all=function(f){var a=(d[f]||[]).slice();ks.forEach(function(x){a=a.concat(x[f]||[])});return a};
