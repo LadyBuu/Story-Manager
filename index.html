@@ -415,7 +415,8 @@ function eff(c){
   return out;
 }
 function visOk(o){var v=o.variant||'canon',s=S.vis;if(s==='trash')return v==='trashed';if(s==='all')return v!=='trashed';return v===s}
-var posMap=function(c,k){var m={};sortBy(eff(c),k).forEach(function(x,i){m[x.id]=i+1});return m};
+function inOrder(d){if(d.inOrder===true)return true;if(d.inOrder===false)return false;return AUX_KINDS.indexOf(kindOf(d))<0}
+var posMap=function(c,k){var m={};sortBy(eff(c),k).filter(function(x){return c!=='documents'||inOrder(x)}).forEach(function(x,i){m[x.id]=i+1});return m};
 function kindOf(d){var k=d&&d.kind;return (!k||k==='chapter'||k==='scene')?'draft':k}
 function kindLabel(k){k=(!k||k==='chapter'||k==='scene')?'draft':k;var x=KINDS.find(function(y){return y[0]===k});return x?x[1]:'Draft'}
 
@@ -454,7 +455,7 @@ function chapCount(d,id,kind){return chapters(d).filter(function(x){return kind=
 function docSub(d,id,kind){var tot=chapters(d).length;if(!tot)return docSpan(d);var n=chapCount(d,id,kind);return [n?(n+' of '+tot+' chapters'):'whole file',docSpan(d)].filter(Boolean).join(' · ')}
 function chronItems(){
   var out=[];
-  eff('documents').filter(function(d){return kindOf(d)==='draft'}).forEach(function(d){
+  eff('documents').filter(function(d){return kindOf(d)==='draft'&&inOrder(d)}).forEach(function(d){
     var dk=itemKey(d), chs=chapters(d);
     if(!chs.length){out.push({d:d,h:null,key:dk,ord:0});return}
     chs.forEach(function(x,i){var k=itemKey(x);out.push({d:d,h:x,key:k!=null?k:dk,ord:i})});
@@ -808,7 +809,7 @@ timeline:function(){
       return g+'<div class="row plain" role="listitem" tabindex="0" data-act="chap-go" data-id="'+d.id+'" data-hid="'+(x?x.id:'')+'"><div class="folio"><b>'+(x?pad(it.ord+1):'·')+'</b></div><div class="rb"><div class="rt">'+(esc(x?x.title:d.title)||'Untitled')+'</div><div class="rm">'+esc(sub)+'</div></div>'+rt+'</div>';
     }).join('')+'</div>':'<div class="empty"><p>No drafts to place yet. Add documents, then give their chapters story dates.</p></div>';
   }else if(S.seg==='chron'){
-    var all=sortBy(eff('documents'),'chron'), rp=posMap('documents','order'), cp=posMap('documents','chron');
+    var all=sortBy(eff('documents'),'chron').filter(inOrder), rp=posMap('documents','order'), cp=posMap('documents','chron');
     var docs=trashView?sortBy(P('documents').filter(isTrashed),'chron'):all.filter(visOk);
     head='<div class="lhead"><div class="ltitle"><h1>Timeline</h1><span class="cnt">story order</span></div>'+seg+'</div>'+routeBar()+
       '<div class="sbwrap"><p class="hint">Documents in the order things happen in the story. Reading order stays separate. A shifted number marks a flashback or a delayed reveal.</p></div><div class="filters">'+visSel()+'</div>';
@@ -913,7 +914,7 @@ function fileSummary(d){
     '<div class="lab">POV</div><div class="chips">'+chips(pc,'characters')+'</div><div class="lab">Characters</div><div class="chips">'+chips(cnt,'characters')+'</div><div class="lab">Locations</div><div class="chips">'+chips(lc,'locations')+'</div></div>';
 }
 function docCard(d){
-  var f=d.file||{}, rp=posMap('documents','order'), cp=posMap('documents','chron'), n=eff('documents').length;
+  var f=d.file||{}, rp=posMap('documents','order'), cp=posMap('documents','chron'), n=eff('documents').filter(inOrder).length;
   var url=safeUrl(f.url), heads=d.headings||[], notes=d.notes||[];
   var openByHead={};notes.forEach(function(x){if(x.h&&x.state!=='done')openByHead[x.h]=(openByHead[x.h]||0)+1});
   var h='', cl=chapLvl(d), chs=chapters(d);
@@ -921,6 +922,7 @@ function docCard(d){
   h+='<input class="title-in" data-bind="documents:'+d.id+':title" value="'+esc(d.title)+'" aria-label="Document title" placeholder="Untitled">';
   h+='<div class="seg" role="group" aria-label="Status">'+STATUSES.map(function(s){return '<button data-act="status" data-id="'+d.id+'" data-v="'+s+'" aria-pressed="'+((d.status||'Idea')===s)+'">'+s+'</button>'}).join('')+'</div>';
   h+=typeGrid(d);
+  h+='<label class="ck"><input type="checkbox" data-change="in-order" data-id="'+d.id+'"'+(inOrder(d)?' checked':'')+'>Include in reading order and timeline'+(AUX_KINDS.indexOf(kindOf(d))>-1&&d.inOrder==null?' <small>(left out by default for '+esc(kindLabel(d.kind)).toLowerCase()+')</small>':'')+'</label>';
   h+='<div class="openrow">'+(url?'<a class="btn primary wide" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+ic('open')+'Open in Word</a><button class="btn" data-act="copy-link" data-id="'+d.id+'">Copy link</button>':'<button class="btn primary wide" disabled>'+ic('open')+'Open in Word</button>')+'</div>';
   h+='<label class="lab" for="u-'+d.id+'">Word link</label><input class="in" id="u-'+d.id+'" data-bind="documents:'+d.id+':file.url" value="'+esc(f.url||'')+'" placeholder="Paste the OneDrive link to this file" inputmode="url">';
   h+='<div class="fgrid">'+
@@ -955,7 +957,7 @@ function docCard(d){
     h+='<div class="addrow"><input class="in" id="noteIn-'+kind+'" data-enter="note-add" data-id="'+d.id+'" data-kind="'+kind+'" placeholder="Add a '+kind.toLowerCase()+' note" aria-label="New '+kind.toLowerCase()+' note"><button class="btn" data-act="note-add" data-id="'+d.id+'" data-kind="'+kind+'">Add</button></div>';
   });
   h+='</div>';
-  h+='<div class="sec"><h3>Chapters and structure</h3>'+(heads.length?'<p class="hint" style="margin:0 0 6px">Open a chapter to set its date, POV, characters and locations. Chapters are the headings at level '+cl+'; change that in Settings.</p><div class="ht">'+heads.map(function(hd){
+  h+='<div class="sec"><h3>Chapters and structure</h3>'+(heads.length?'<p class="hint" style="margin:0 0 6px">Open a chapter to set its date, POV, characters and locations. Chapters are the headings at level '+cl+'; change that in Settings.</p>'+(chs.length?'<div class="actions" style="justify-content:flex-start;margin:0 0 8px"><button class="btn sm" data-act="spread" data-id="'+d.id+'" data-field="characterIds" data-coll="characters" data-noun="character">'+ic('plus',14)+'Characters in the whole file</button><button class="btn sm" data-act="spread" data-id="'+d.id+'" data-field="locationIds" data-coll="locations" data-noun="location">'+ic('plus',14)+'Locations in the whole file</button></div>':'')+'<div class="ht">'+heads.map(function(hd){
     var oc=openByHead[hd.title];
     if(hd.moved)return '<div class="hl moved" style="--lv:'+hd.level+'"><span class="hlab">'+esc(label(hd.level)||('H'+hd.level))+'</span><span class="t">'+esc(hd.title)+'</span><small>Moved to '+esc(hd.moved.name||'a new file')+'</small></div>';
     if(hd.level===cl)return chapterRow(d,hd,oc);
@@ -1440,7 +1442,7 @@ function selOpts(list,sel){return list.map(function(x){return '<option value="'+
 function routeOpts(sel){return routeList().map(function(x){return '<option value="'+x.r.id+'"'+(sel===x.r.id?' selected':'')+'>'+'  '.repeat(x.d)+esc(x.r.name)+'</option>'}).join('')}
 function posInput(d,k,idp,labelTxt,mapObj,n){
   var v=mapObj[d.id];
-  return '<div><label class="lab" for="'+idp+d.id+'">'+labelTxt+'</label>'+(v!=null?'<input class="in mono" id="'+idp+d.id+'" type="number" min="1" max="'+n+'" value="'+v+'" data-change="pos" data-coll="documents" data-key="'+k+'" data-id="'+d.id+'">':'<input class="in mono" id="'+idp+d.id+'" value="" placeholder="Not on this route" disabled>')+'</div>';
+  return '<div><label class="lab" for="'+idp+d.id+'">'+labelTxt+'</label>'+(v!=null?'<input class="in mono" id="'+idp+d.id+'" type="number" min="1" max="'+n+'" value="'+v+'" data-change="pos" data-coll="documents" data-key="'+k+'" data-id="'+d.id+'">':'<input class="in mono" id="'+idp+d.id+'" value="" placeholder="'+(inOrder(d)?'Not on this route':'Left out')+'" disabled>')+'</div>';
 }
 function typeGrid(d){
   var rid=routeOf(d), anc=chainOf(rid).filter(function(x){return x!==rid});
@@ -1503,7 +1505,7 @@ function routeDelModal(){
 }
 function pathModal(){
   var m=S.modal, cur=curRoute()||{name:'the main route'};
-  var docs=sortBy(eff('documents'),'order').filter(function(d){return m.aux||AUX_KINDS.indexOf(kindOf(d))<0});
+  var docs=sortBy(eff('documents'),'order').filter(function(d){return m.aux||inOrder(d)});
   var h='<h2>Reading path</h2><p>The order a reader meets documents on '+esc(cur.name)+'. Branch points are marked.</p>'+
     '<label class="chk"><input type="checkbox" data-change="path-aux"'+(m.aux?' checked':'')+'><span><b>Include outlines, notes and research</b></span></label>';
   var last=null, i=0;
@@ -1895,6 +1897,17 @@ clear:function(el){
   var arr=getPath(c,el.dataset.path)||[];setPath(c,el.dataset.path,arr.filter(function(x){return x.id!==el.dataset.aid}));
   save('characters',c,true);renderDetail();
 },
+'spread':function(el){
+  var d=byId('documents',el.dataset.id);if(!d)return;
+  var field=el.dataset.field, coll=el.dataset.coll;
+  var hasAll=function(x){var chs=chapters(d);return (d[field]||[]).indexOf(x.id)>-1&&chs.every(function(c){return (c[field]||[]).indexOf(x.id)>-1})};
+  var put=function(id){d[field]=d[field]||[];if(d[field].indexOf(id)<0)d[field].push(id);chapters(d).forEach(function(c){c[field]=c[field]||[];if(c[field].indexOf(id)<0)c[field].push(id)})};
+  var pull=function(id){d[field]=(d[field]||[]).filter(function(y){return y!==id});chapters(d).forEach(function(c){c[field]=(c[field]||[]).filter(function(y){return y!==id})})};
+  openPicker({title:'Add '+el.dataset.noun+'s to the file and every chapter',coll:coll,
+    isOn:hasAll,
+    toggle:function(x){if(hasAll(x))pull(x.id);else put(x.id);save('documents',d)},
+    create:function(nm){var n=createEntity(coll,nm);put(n.id);save('documents',d)}});
+},
 'chap-pick':function(el){
   var d=byId('documents',el.dataset.id),hd=d&&(d.headings||[]).find(function(x){return x.id===el.dataset.hid});if(!hd)return;
   var field=el.dataset.field,coll=el.dataset.coll;
@@ -2061,6 +2074,7 @@ function selectLink(d){
 var CH={
 'hol-ow':function(t){S.modal.overwrite=t.checked;S.modal.rows.forEach(function(r){if(r.ex)r.on=t.checked});renderModal()},
 'ext-row':function(t){var m=S.modal,d=byId('documents',m.id),n=$('#extName'),cur=n?n.value:m.name;if(!cur||cur===m.sug)cur=null;m.sel[t.dataset.hid]=t.checked;var s=extSug(d,m.sel);m.name=cur==null?s:cur;m.sug=s;holKeep()},
+'in-order':function(t){var d=byId('documents',t.dataset.id);if(!d)return;d.inOrder=t.checked;save('documents',d);render()},
 'hol-row':function(t){S.modal.rows[+t.dataset.i].on=t.checked;holKeep()},
 'hol-pt':function(t){S.modal.portraits=t.checked},
 'magic-add':function(t){var c=byId('characters',t.dataset.id);if(!c||!t.value)return;S.magicMore=S.magicMore||{};(S.magicMore[c.id]=S.magicMore[c.id]||[]).push(t.value);renderDetail()},
