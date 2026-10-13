@@ -365,6 +365,7 @@ var NOTE_STATES=['open','doing','done'];
 var NOTE_LABEL={open:'Open',doing:'In progress',done:'Done'};
 var KINDS=[['draft','Draft'],['outline','Outline'],['notes','Notes'],['research','Research'],['front-matter','Front matter'],['back-matter','Back matter']];
 var VARIANTS=[['canon','Canon'],['au','AU'],['alternate','Alternate']];
+function syncVersions(){var pr=proj(),cu=(pr&&pr.versions)||[];VARIANTS.length=0;[['canon','Canon'],['au','AU'],['alternate','Alternate']].concat(cu.map(function(v){return [v.id,v.name||'Untitled']})).forEach(function(x){VARIANTS.push(x)})}
 var AUX_KINDS=['outline','notes','research'];
 var ROUTE_COLORS=[['a','Rose'],['b','Blue'],['c','Green'],['d','Amber'],['e','Violet'],['f','Clay']];
 var DEFAULT_LABELS={1:'Section',2:'Chapter',3:'Subsection',4:'Sub-subsection'};
@@ -702,6 +703,7 @@ document.addEventListener('focusout',function(){
 
 var RDV=0;
 function render(){
+  syncVersions();
   RDV++;
   if(S.sel&&!selObj())S.sel=null;
   $('#app').classList.toggle('has-sel',!!S.sel);
@@ -824,7 +826,7 @@ documents:function(){
     '<button class="btn" data-act="new-doc">'+ic('plus')+'Blank</button>'+
     (S.mode==='od'&&p&&p.odFolder?'<button class="btn" data-act="od-sync">'+ic('refresh')+'Sync</button>':'')+
     (S.mode==='od'&&p&&!p.odFolder?'<button class="btn" data-act="od-pick">'+ic('folder')+'OneDrive folder</button>':'')+
-    (docs.length?'<button class="btn" data-act="read-open">'+ic('open')+'Read</button><button class="btn" data-act="chap-order">Chapter order</button><button class="btn" data-act="x-open">Export</button><button class="btn" data-act="path">Reading path</button>':'')+clearBtn('documents',docs.length)+
+    (docs.length?'<button class="btn" data-act="read-open">'+ic('open')+'Read</button><button class="btn" data-act="chap-order">Chapter order</button><button class="btn" data-act="x-open">Export</button><button class="btn" data-act="chk-open">Checks</button><button class="btn" data-act="rev-open">Revision pass'+(revCount()?' · '+revCount():'')+'</button><button class="btn" data-act="path">Reading path</button>':'')+clearBtn('documents',docs.length)+
     '<button class="btn" data-act="routes">'+ic('layers')+'Routes</button>'+
     (trashView&&trashed.length?'<button class="btn danger" data-act="empty-trash">'+ic('trash')+'Empty trash</button>':'')+
     (folder?'<a class="btn" href="'+esc(folder)+'" target="_blank" rel="noopener noreferrer">'+ic('open')+'OneDrive</a>':'')+'</div></div>'+routeBar()+
@@ -1124,6 +1126,7 @@ function charCard(c){
     (!outs.length&&!ins.length?'<p class="hint">No relationships yet.</p>':'')+
     (others.length?'<div class="relform"><select class="in" id="relOther" aria-label="Other character">'+others.map(function(o){return '<option value="'+o.id+'">'+esc(o.name)+'</option>'}).join('')+'</select><input class="in" id="relLabel" data-enter="rel-add" data-id="'+c.id+'" placeholder="partner, mother, rival" aria-label="Relationship"><button class="btn" data-act="rel-add" data-id="'+c.id+'">Add</button></div>':'')+'</div>';
   h+='<div class="sec"><h3>Documents</h3><div class="links">'+(app.length?app.map(function(d){return linkRow('documents','',d.id,rp[d.id],d.title,docSub(d,c.id,'char'))}).join(''):'<p class="hint">Not linked to any document. Add this character from a document card.</p>')+'</div></div>';
+  h+=charTimeline(c);
   if(men.length)h+='<div class="sec"><h3>Mentioned in</h3><div class="links">'+men.map(function(d){return linkRow('documents','',d.id,rp[d.id],d.title)}).join('')+'</div></div>';
   if(evs.length)h+='<div class="sec"><h3>Events</h3><div class="links">'+evs.map(function(e){return linkRow('timeline','events',e.id,'',e.title,e.dateText)}).join('')+'</div></div>';
   return h;
@@ -1197,6 +1200,8 @@ function renderModal(){
   else if(m.type==='extract')inner=extractModal();
   else if(m.type==='rdorder')inner=rdOrderHtml(rdItems(),-1,true);
   else if(m.type==='xport')inner=xportModal();
+  else if(m.type==='checks')inner=checksModal();
+  else if(m.type==='revpass')inner=revModal();
   else if(m.type==='missmove'){
     var md=byId('documents',m.id), mh=md&&(md.headings||[]).find(function(x){return x.id===m.hid});
     inner='<h2>Move the info for “'+esc(mh?mh.title:'')+'”</h2><p class="hint">Pick the heading it belongs to now. Dates, POV, characters, locations, tags, summary and comments are carried over.</p><div data-hl style="max-height:48vh;overflow:auto;border-top:1px solid var(--line)">'+((md&&md.headings)||[]).filter(function(x){return !x.missing&&!x.moved&&x.id!==m.hid}).map(function(x){return '<button class="pickrow" data-act="miss-do" data-to="'+x.id+'"><span style="padding-left:'+(Math.max(0,x.level-1)*12)+'px">'+esc(x.title)+'</span></button>'}).join('')+'</div><div class="actions"><button class="btn" data-act="close">Cancel</button></div>';
@@ -1233,6 +1238,9 @@ function settingsModal(){
       '<label class="lab" style="margin-top:12px">Word heading levels</label><p class="hint" style="margin-bottom:8px">Names shown beside each heading level in a document structure.</p><div class="fgrid" style="margin-top:0">'+
       [1,2,3,4].map(function(l){return '<div><label class="lab" for="sp-l'+l+'">Heading '+l+'</label><input class="in" id="sp-l'+l+'" data-bind="projects:'+p.id+':labels.'+l+'" value="'+esc(label(l))+'"></div>'}).join('')+'</div></div>';
   }
+  if(p){h+='<div class="sec"><h3>Versions</h3><p class="hint">Canon, AU, Alternate and Trashed are built in. Add your own, such as Draft 1 or Cut. They show up everywhere you pick a version, and as export filters. Only Canon counts as canon for Canon only reading.</p>'+
+    (p.versions||[]).map(function(v){return '<div class="addrow"><input class="in" data-change="ver-name" data-id="'+v.id+'" value="'+esc(v.name)+'" aria-label="Version name"><button class="btn" data-act="ver-del" data-id="'+v.id+'" aria-label="Remove '+esc(v.name)+'">'+ic('x',14)+'</button></div>'}).join('')+
+    '<div class="addrow"><input class="in" id="verIn" data-enter="ver-add" placeholder="New version name" aria-label="New version name"><button class="btn" data-act="ver-add">Add</button></div></div>'}
   var lc=null;try{lc=JSON.parse(localStorage.getItem('so-last-clear')||'null')}catch(e){}
   h+='<div class="sec"><h3>Characters</h3><div class="actions" style="justify-content:flex-start"><button class="btn" data-act="pref-av" aria-pressed="'+showAv()+'">Portraits in lists: '+(showAv()?'On':'Off')+'</button>'+(P('characters').length?'<button class="btn" data-act="export-hollow">Export characters (Hollow format)</button>':'')+'</div>'+
     (lc&&lc.pid===S.pid?'<p class="hint" style="margin-top:8px">Last clear: '+lc.n+' '+esc(lc.coll)+' on '+esc(fmtDate(lc.at))+'.</p><button class="btn" data-act="restore-clear">Restore what I last cleared</button>':'')+'</div>';
@@ -2013,6 +2021,28 @@ clear:function(el){
   d.headings=d.headings.filter(function(x){return x.id!==from.id});
   save('documents',d);closeModal();render();toast('Info moved to “'+to.title+'”.');
 },
+'chk-open':function(){S.modal={type:'checks',show:false};renderModal()},
+'chk-show':function(){S.modal.show=!S.modal.show;holKeep()},
+'chk-ign':function(el){var pr=proj();if(!pr)return;var a=pr.ignore||[],k=el.dataset.k,i=a.indexOf(k);if(i>-1)a.splice(i,1);else a.push(k);pr.ignore=a;save('projects',pr);holKeep()},
+'rev-open':function(){S.modal={type:'revpass',i:0,doing:true,kinds:{Revision:true,Continuity:true,Ideas:true},seen:false};renderModal()},
+'rev-done':function(){var c=revCur();if(!c)return;c.n.state='done';save('documents',c.d);S.modal.seen=true;var l=revList(S.modal);if(S.modal.i>=l.length&&l.length)S.modal.i=l.length;renderModal();render()},
+'rev-doing':function(){var c=revCur();if(!c)return;c.n.state='doing';save('documents',c.d);S.modal.i++;renderModal();render()},
+'rev-skip':function(){S.modal.i++;renderModal()},
+'rev-back':function(){S.modal.i=Math.max(0,S.modal.i-1);renderModal()},
+'rev-again':function(){S.modal.i=0;renderModal()},
+'ver-add':function(){
+  var pr=proj(),inp=$('#verIn');if(!pr||!inp)return;
+  var n=(inp.value||'').trim();if(!n)return;
+  if(VARIANTS.concat([['trashed','Trashed']]).some(function(v){return v[1].toLowerCase()===n.toLowerCase()})){toast('That version name already exists.');return}
+  pr.versions=(pr.versions||[]).concat({id:'v'+uid(),name:n});save('projects',pr);render();renderModal();var i2=$('#verIn');if(i2)i2.focus();
+},
+'ver-del':function(el){
+  var pr=proj();if(!pr)return;var id=el.dataset.id,n=0;
+  ['documents','events','arcs','routes'].forEach(function(c){S[c].forEach(function(o){if(o.pid===S.pid&&o.variant===id){o.variant='canon';n++;save(c,o)}})});
+  S.documents.forEach(function(d){if(d.pid!==S.pid)return;var ch=false;(d.headings||[]).forEach(function(x){if(x.variant===id){x.variant='';ch=true;n++}});if(ch)save('documents',d)});
+  pr.versions=(pr.versions||[]).filter(function(v){return v.id!==id});save('projects',pr);render();renderModal();
+  toast(n?'Version removed. '+n+' item'+(n===1?'':'s')+' moved back to Canon.':'Version removed.');
+},
 'x-open':function(){var s={};XF.forEach(function(f){s[f[0]]={}});S.modal={type:'xport',sel:s,name:'',mark:false,err:''};renderModal()},
 'x-go':function(){runXport()},
 'read-canon':function(){var pr=proj();if(!pr)return;pr.readCanon=!pr.readCanon;save('projects',pr);rdRefresh()},
@@ -2213,6 +2243,11 @@ var CH={
 'rd-pos':function(t){var n=parseInt(t.value,10);if(!n)return;rdMoveTo(t.dataset.id+'|'+t.dataset.hid,n-1);render()},
 'x-f':function(t){var m=S.modal;if(!m||m.type!=='xport')return;var nm=$('#xName');if(nm)m.name=nm.value;m.sel[t.dataset.f][t.dataset.v]=t.checked;m.err='';holKeep()},
 'x-mark':function(t){var m=S.modal;if(m&&m.type==='xport'){var nm=$('#xName');if(nm)m.name=nm.value;m.mark=t.checked}},
+'cgap':function(t){S.cgap=parseInt(t.value,10)||30;render()},
+'rev-text':function(t){var c=revCur();if(!c)return;c.n.text=t.value;save('documents',c.d)},
+'rev-kind':function(t){S.modal.kinds[t.dataset.k]=t.checked;S.modal.i=0;renderModal()},
+'rev-doing':function(t){S.modal.doing=t.checked;S.modal.i=0;renderModal()},
+'ver-name':function(t){var pr=proj(),v=pr&&(pr.versions||[]).find(function(x){return x.id===t.dataset.id});if(!v)return;var n=(t.value||'').trim();if(!n){t.value=v.name;return}v.name=n;save('projects',pr);render()},
 'read-kind':function(t){RD.kind=t.value},
 'read-sel':function(t){RD.key=t.value;renderReader()},
 'in-order':function(t){var d=byId('documents',t.dataset.id);if(!d)return;d.inOrder=t.checked;save('documents',d);render()},
@@ -2279,6 +2314,7 @@ document.addEventListener('input',function(e){
     if(parts[0]==='characters'&&/^(firstName|middleName|lastName|nickname|alias|displayParts)/.test(parts[2])){var nn2=hollowName(o);if(nn2){o.name=nn2;var ti=$('.title-in');if(ti&&ti.dataset.bind==='characters:'+o.id+':name')ti.value=nn2}}
     if(parts[0]==='documents'&&parts[2]==='storyDate'){var dh2=document.getElementById('dh-'+o.id);if(dh2)dh2.textContent=dateHint(t.value)}
     save(parts[0],o);
+    if(parts[0]==='characters'&&parts[2]==='deceased'){renderDetail();renderRows();return}
     if(t.tagName==='SELECT'){render();if(S.modal&&S.modal.type==='routes')renderModal()}else{renderRows();renderTop();renderRail()}
     return;
   }
@@ -2662,6 +2698,122 @@ async function runXport(){
     else toast('Export failed'+(err&&err.message?': '+err.message:'')+'.');
   }
 }
+
+
+/* ---------- continuity checks ---------- */
+function cIssues(){
+  var out=[], auto=dateMode()==='auto';
+  var mk=function(type,c,it,txt){var d=it.d,x=it.h;return {id:type+'|'+c.id+'|'+(x?x.id:d.id),type:type,c:c,d:d,x:x,text:txt}};
+  chronItems().forEach(function(it){
+    var d=it.d,x=it.h, ids=[], lenient=(d.characterIds||[]).slice();
+    if(x)kin(d,x).forEach(function(k){ids=ids.concat(k.characterIds||[])});ids=ids.concat(d.characterIds||[]);
+    var pov=(x&&x.pov)||d.pov||'', here=uniq(ids.concat(pov?[pov]:[]));
+    var label=x?x.title:d.title, date=((x&&x.storyDate)||d.storyDate||'').trim(), y=(auto&&it.key!=null)?Math.floor(it.key/10000):null;
+    here.forEach(function(cid){
+      var c=byId('characters',cid);if(!c)return;
+      var by=parseInt(c.birthYear,10), dy=parseInt(c.deathYear,10);
+      if(y!=null&&!isNaN(dy)&&y>dy)out.push(mk('death',c,it,c.name+' is in “'+label+'” ('+date+'), after their death year '+dy+'.'));
+      if(y!=null&&!isNaN(by)&&y<by)out.push(mk('birth',c,it,c.name+' is in “'+label+'” ('+date+'), before their birth year '+by+'.'));
+    });
+    if(pov&&ids.indexOf(pov)<0&&lenient.indexOf(pov)<0){var pc=byId('characters',pov);if(pc)out.push(mk('pov',pc,it,pc.name+' is the POV of “'+label+'” but is not listed in it.'))}
+  });
+  return out;
+}
+var CTYPES=[['death','Appears after their death year'],['birth','Appears before their birth year'],['pov','POV character not in the scene']];
+function cIgnored(){var pr=proj();return (pr&&pr.ignore)||[]}
+function checksModal(){
+  var m=S.modal, ig=cIgnored(), all=cIssues(), shown=all.filter(function(i){return m.show||ig.indexOf(i.id)<0}), hid=all.length-all.filter(function(i){return ig.indexOf(i.id)<0}).length;
+  var body=CTYPES.map(function(t){
+    var l=shown.filter(function(i){return i.type===t[0]});if(!l.length)return '';
+    return '<div class="lab" style="margin-top:10px">'+t[1]+' <span class="cnt">'+l.length+'</span></div>'+l.map(function(i){
+      var off=ig.indexOf(i.id)>-1;
+      return '<div class="rd-nt'+(off?' done':'')+'"><div class="tx">'+esc(i.text)+'<small>'+esc(i.d.title||'')+'</small></div><button class="btn sm" data-act="chap-go" data-id="'+i.d.id+'" data-hid="'+(i.x?i.x.id:'')+'">Open</button><button class="btn sm" data-act="chk-ign" data-k="'+esc(i.id)+'">'+(off?'Unignore':'Ignore')+'</button></div>';
+    }).join('');
+  }).join('');
+  return '<h2>Continuity checks</h2><p class="hint">Looks at scenes in your reading order. '+(dateMode()==='auto'?'Birth and death years come from your characters.':'Dates are on sort numbers, so only the POV check runs.')+' Ignore anything you did on purpose, such as a flashback or a ghost.</p>'+
+    '<div data-hl style="max-height:52vh;overflow:auto;border-top:1px solid var(--line)">'+(body||'<p class="hint" style="margin-top:12px">Nothing to flag.</p>')+'</div>'+
+    '<div class="actions"><button class="btn" data-act="close">Done</button>'+(hid||m.show?'<button class="btn" data-act="chk-show">'+(m.show?'Hide ignored':'Show ignored ('+hid+')')+'</button>':'')+'</div>';
+}
+/* ---------- character timeline ---------- */
+function dayNum(key){var y=Math.floor(key/10000),mo=Math.floor(key/100)%100||1,da=key%100||1,dt=new Date(0);dt.setUTCFullYear(y,mo-1,da);return Math.round(dt.getTime()/86400000)}
+function gapText(n,auto){if(!auto)return n+' sort units';if(n>=730)return 'about '+Math.round(n/365)+' years';if(n>=60)return 'about '+Math.round(n/30)+' months';return n+' day'+(n===1?'':'s')}
+function charScenes(c){
+  return chronItems().filter(function(it){
+    var d=it.d,x=it.h;
+    if(!x)return (d.characterIds||[]).indexOf(c.id)>-1||d.pov===c.id;
+    return (d.characterIds||[]).indexOf(c.id)>-1||d.pov===c.id||kin(d,x).some(function(k){return (k.characterIds||[]).indexOf(c.id)>-1||k.pov===c.id});
+  });
+}
+function sceneLinkRow(it,n,extra){
+  var d=it.d,x=it.h, locs=x?uniq([].concat.apply([],kin(d,x).map(function(k){return k.locationIds||[]}))).map(function(i){return nameOf('locations',i)}).filter(Boolean):[];
+  var date=((x&&x.storyDate)||d.storyDate||'').trim();
+  return '<button class="lk" data-act="chap-go" data-id="'+d.id+'" data-hid="'+(x?x.id:'')+'"><span class="n">'+n+'</span><span><span class="lkt">'+esc(x?x.title:d.title)+'</span><small>'+esc([date,d.title,locs.slice(0,2).join(', ')&&('at '+locs.slice(0,2).join(', ')),extra].filter(Boolean).join(' · '))+'</small></span></button>';
+}
+function charTimeline(c){
+  var auto=dateMode()==='auto', all=chronItems(), sc=charScenes(c), mine={};sc.forEach(function(it){mine[rdKey(it)]=1});
+  var dated=sc.filter(function(it){return it.key!=null}), und=sc.filter(function(it){return it.key==null});
+  var by=parseInt(c.birthYear,10), dy=parseInt(c.deathYear,10), thr=S.cgap||30;
+  var body='';
+  if(!sc.length)body='<p class="hint">No scenes in your reading order include this character yet.</p>';
+  else{
+    var rows=[], bornAdded=false, deadAdded=false;
+    dated.forEach(function(it,i){
+      var y=auto?Math.floor(it.key/10000):null;
+      if(auto&&!isNaN(by)&&!bornAdded&&y>=by){rows.push('<div class="rd-nt"><div class="tx"><b>Born '+by+'</b></div></div>');bornAdded=true}
+      if(auto&&!isNaN(dy)&&!deadAdded&&y>dy){rows.push('<div class="rd-nt"><div class="tx"><b>Died '+dy+'</b></div></div>');deadAdded=true}
+      rows.push(sceneLinkRow(it,i+1,auto&&!isNaN(dy)&&y>dy?'after death year':''));
+    });
+    if(auto&&!isNaN(dy)&&!deadAdded&&dated.length)rows.push('<div class="rd-nt"><div class="tx"><b>Died '+dy+'</b></div></div>');
+    if(und.length)rows.push('<div class="lab" style="margin-top:8px">No readable date</div>'+und.map(function(it,i){return sceneLinkRow(it,dated.length+i+1,'')}).join(''));
+    body='<div class="lab">Scenes <span class="cnt">'+sc.length+'</span></div><div class="links">'+rows.join('')+'</div>';
+    var gaps='';
+    for(var i=1;i<dated.length;i++){
+      var a=dated[i-1],b=dated[i], diff=auto?dayNum(b.key)-dayNum(a.key):b.key-a.key;
+      if(diff<thr)continue;
+      var between=all.filter(function(o){return o.key!=null&&o.key>a.key&&o.key<b.key&&!mine[rdKey(o)]});
+      var tt=function(it){return (it.h?it.h.title:it.d.title)};
+      gaps+='<div class="rd-nt"><div class="tx"><b>'+esc(gapText(diff,auto))+'</b> with no scenes<small>after “'+esc(tt(a))+'” → before “'+esc(tt(b))+'”</small>'+
+        (between.length?'<details><summary class="hint">Meanwhile, '+between.length+' scene'+(between.length===1?'':'s')+' without them</summary><div class="links">'+between.slice(0,12).map(function(o,j){return sceneLinkRow(o,j+1,'')}).join('')+(between.length>12?'<p class="hint">and '+(between.length-12)+' more</p>':'')+'</div></details>':'<small>Nothing else is dated in this stretch either.</small>')+'</div></div>';
+    }
+    body+='<div class="lab" style="margin-top:12px">Gaps</div><div class="addrow"><select class="in" data-change="cgap" aria-label="Show gaps of at least">'+[[7,'a week or more'],[30,'a month or more'],[90,'three months or more'],[365,'a year or more']].map(function(o){return '<option value="'+o[0]+'"'+(thr===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select></div>'+(gaps||'<p class="hint">No gaps that long between their dated scenes.</p>');
+  }
+  return csec(c,'timeline','Story timeline',false,body);
+}
+/* ---------- revision pass ---------- */
+function revList(m){
+  var items=rdItems(), first={}, idxOf={};
+  items.forEach(function(it,i){if(first[it.d.id]==null)first[it.d.id]=i;(idxOf[it.d.id]=idxOf[it.d.id]||[]).push([i,it])});
+  var out=[];
+  P('documents').filter(function(d){return !isTrashed(d)}).forEach(function(d){
+    (d.notes||[]).forEach(function(n,ni){
+      var st=n.state||'open';if(st==='done'||(st==='doing'&&!m.doing)||!m.kinds[n.kind||'Revision'])return;
+      var pos=first[d.id]!=null?first[d.id]-.5:1e6+(d.order||0)*100, hid='';
+      if(n.h){
+        var hh=(d.headings||[]).find(function(x){return x.title===n.h});if(hh)hid=hh.id;
+        (idxOf[d.id]||[]).forEach(function(pr){var it=pr[1];if(it.h&&hh&&kin(d,it.h).indexOf(hh)>-1&&pos<first[d.id]){pos=pr[0]}});
+        if(hh&&first[d.id]!=null){var hit=(idxOf[d.id]||[]).find(function(pr){return pr[1].h&&kin(d,pr[1].h).indexOf(hh)>-1});if(hit)pos=hit[0]}
+      }
+      out.push({d:d,n:n,pos:pos+ni/1000,hid:hid});
+    });
+  });
+  return out.sort(function(a,b){return a.pos-b.pos});
+}
+function revModal(){
+  var m=S.modal, list=revList(m), tot=list.length;
+  var kinds='<div class="cks" style="margin:8px 0">'+NOTE_KINDS.map(function(k){return '<label class="ck"><input type="checkbox" data-change="rev-kind" data-k="'+k+'"'+(m.kinds[k]?' checked':'')+'>'+k+'</label>'}).join('')+'<label class="ck"><input type="checkbox" data-change="rev-doing"'+(m.doing?' checked':'')+'>Include in progress</label></div>';
+  if(!tot)return '<h2>Revision pass</h2>'+kinds+'<p>'+(m.seen?'All caught up. Nothing open in that selection.':'No open comments in that selection.')+'</p><div class="actions"><button class="btn primary" data-act="close">Done</button></div>';
+  if(m.i>=tot)return '<h2>Revision pass</h2>'+kinds+'<p>That is the end of the pass.</p><div class="actions"><button class="btn" data-act="rev-again">Start again</button><button class="btn primary" data-act="close">Done</button></div>';
+  if(m.i<0)m.i=0;
+  var it=list[m.i], n=it.n, st=n.state||'open';
+  return '<h2>Revision pass <span class="cnt">'+(m.i+1)+' of '+tot+'</span></h2>'+kinds+
+    '<div class="sec" style="margin:0 0 10px"><div class="hint" style="margin:0">'+esc(it.d.title||'Untitled')+(n.h?' · '+esc(n.h):' · whole file')+'</div>'+
+    '<div class="lab" style="margin-top:8px">'+esc(n.kind||'Revision')+' · '+esc(NOTE_LABEL[st])+'</div>'+
+    '<textarea class="in" id="revText" data-change="rev-text" aria-label="Comment text">'+esc(n.text)+'</textarea></div>'+
+    '<div class="actions" style="justify-content:flex-start;flex-wrap:wrap"><button class="btn primary" data-act="rev-done">'+ic('check',16)+'Done</button><button class="btn" data-act="rev-doing">In progress</button><button class="btn" data-act="rev-skip">Skip</button><button class="btn" data-act="rev-back"'+(m.i?'':' disabled')+'>Back</button>'+
+    '<button class="btn" data-act="read-open" data-id="'+it.d.id+'" data-hid="'+it.hid+'">Read it</button><button class="btn" data-act="chap-go" data-id="'+it.d.id+'" data-hid="'+it.hid+'">Open</button></div>';
+}
+function revCount(){var n=0;P('documents').forEach(function(d){if(!isTrashed(d))(d.notes||[]).forEach(function(x){if((x.state||'open')!=='done')n++})});return n}
+function revCur(){var m=S.modal;if(!m||m.type!=='revpass')return null;var l=revList(m);return l[m.i]||null}
 
 /* ---------- OneDrive (Microsoft sign-in + Graph) ---------- */
 var OD={app:null,acct:null,etag:null,timer:null,saving:false,dirty:false,conflict:false,state:'idle',lastCheck:0,lastPoll:0,
