@@ -1197,6 +1197,8 @@ function renderModal(){
   else if(m.type==='picker')inner='<h2>'+esc(pickerSpec.title)+'</h2><input class="in" id="pickIn" data-input="pick" data-enter="pick-create" placeholder="'+(pickerSpec.create?'Filter, or type a new name and press Enter':'Filter')+'" aria-label="Filter"><div id="pickList" style="margin-top:8px">'+pickRows('')+'</div><div class="actions"><button class="btn primary" data-act="close">Done</button></div>';
   else if(m.type==='routes')inner=routesModal();
   else if(m.type==='odpick')inner=odPickModal();
+  else if(m.type==='odfiles')inner=odFilesModal();
+  else if(m.type==='odrep')inner=odReportModal();
   else if(m.type==='clear')inner=clearModal();
   else if(m.type==='hollow')inner=hollowModal();
   else if(m.type==='extract')inner=extractModal();
@@ -1289,9 +1291,10 @@ function importModal(){
   var h='<h2>Add documents</h2><p>Only heading text and a word count are saved. Your prose is read in this browser and then discarded.</p>';
   h+='<div class="fgrid" style="margin-top:0"><div class="span2"><label class="lab" for="impRoute">Add to route</label><select class="in" id="impRoute" data-change="imp-route">'+routeOpts(m.route)+'</select></div></div>';
   h+=m.items.map(function(it,i){
-    var sub=it.error?it.error:((it.match?'Already here. Headings will be refreshed':'New document')+' · '+it.info.headings.length+' heading'+(it.info.headings.length===1?'':'s')+' · '+fmtN(it.info.words)+' words'+(it.folder?' · folder '+it.folder:''));
+    var sub=it.error?it.error:((it.match?(it.guess?'Looks like a renamed copy of “'+esc(((byId('documents',it.match)||{}).title)||'')+'”. Headings will be refreshed':'Already here. Headings will be refreshed'):'New document')+' · '+it.info.headings.length+' heading'+(it.info.headings.length===1?'':'s')+' · '+fmtN(it.info.words)+' words'+(it.folder?' · folder '+it.folder:''));
     return '<div class="imp"><label class="chk"><input type="checkbox" data-change="imp-inc" data-i="'+i+'"'+(it.include&&!it.error?' checked':'')+(it.error?' disabled':'')+'><span><b>'+esc(it.file)+'</b><small>'+esc(sub)+'</small></span></label>'+
-      ((it.error||it.match)?'':'<div class="impsel"><select class="in" data-change="imp-kind" data-i="'+i+'" aria-label="Kind of '+esc(it.file)+'">'+selOpts(KINDS,it.kind)+'</select><select class="in" data-change="imp-var" data-i="'+i+'" aria-label="Variant of '+esc(it.file)+'">'+selOpts(VARIANTS,it.variant)+'</select></div>')+'</div>';
+      ((it.error||it.match)?'':'<div class="impsel"><select class="in" data-change="imp-kind" data-i="'+i+'" aria-label="Kind of '+esc(it.file)+'">'+selOpts(KINDS,it.kind)+'</select><select class="in" data-change="imp-var" data-i="'+i+'" aria-label="Variant of '+esc(it.file)+'">'+selOpts(VARIANTS,it.variant)+'</select></div>')+
+      (it.error?'':'<div class="impsel"><select class="in" data-change="imp-match" data-i="'+i+'" aria-label="Which document is '+esc(it.file)+'">'+'<option value="">New document</option>'+P('documents').filter(function(d){return !isTrashed(d)}).map(function(d){return '<option value="'+d.id+'"'+(it.match===d.id?' selected':'')+'>Update: '+esc(d.title||d.file&&d.file.name||'Untitled')+'</option>'}).join('')+'</select></div>')+'</div>';
   }).join('');
   if(m.items.some(function(i){return i.folder}))h+='<label class="chk"><input type="checkbox" data-change="imp-arcs"'+(m.arcs?' checked':'')+'><span><b>Create arcs from folder names</b><small>New documents join an arc named after their folder.</small></span></label>';
   h+='<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn primary" data-act="imp-go"'+(n?'':' disabled')+'>Add '+n+' document'+(n===1?'':'s')+'</button></div>';
@@ -1484,6 +1487,24 @@ async function handleFiles(fileList){
   items.sort(natural);
   var ex=P('documents');
   items.forEach(function(it){var m=(it.od&&ex.find(function(d){return d.file&&d.file.od&&d.file.od.id===it.od.id}))||ex.find(function(d){return d.file&&d.file.name&&d.file.name.toLowerCase()===it.file.toLowerCase()});it.match=m?m.id:''});
+  var taken={},inBatch={},odIn={};
+  items.forEach(function(it){if(it.match)taken[it.match]=1;inBatch[it.file.toLowerCase()]=1;if(it.od)odIn[it.od.id]=1});
+  var nset=function(hs){var o={},n=0;(hs||[]).forEach(function(x){if(x.missing||x.moved)return;var k=(x.title||'').toLowerCase().replace(/\s+/g,' ').trim();if(k&&!o[k]){o[k]=1;n++}});o.__n=n;return o};
+  items.forEach(function(it){
+    if(it.match||it.error)return;
+    var mine=nset(it.info.headings), best=null, bs=0;
+    ex.forEach(function(d){
+      if(taken[d.id])return;
+      if(d.file&&d.file.name&&inBatch[d.file.name.toLowerCase()])return;
+      if(d.file&&d.file.od&&odIn[d.file.od.id])return;
+      var theirs=nset(d.headings), inter=0;
+      Object.keys(mine).forEach(function(k){if(k!=='__n'&&theirs[k])inter++});
+      var uni=mine.__n+theirs.__n-inter, s=uni?inter/uni:0;
+      if(!(inter>=2||(mine.__n===1&&theirs.__n===1&&inter===1)))return;
+      if(s>bs){bs=s;best=d}
+    });
+    if(best&&bs>=0.6){it.match=best.id;it.guess=true;taken[best.id]=1}
+  });
   S.modal={type:'import',items:items,arcs:items.some(function(i){return i.folder}),route:(curRoute()||{}).id||rootId()};
   renderModal();
 }
@@ -2273,6 +2294,8 @@ pos:function(t){
 'imp-inc':function(t){S.modal.items[+t.dataset.i].include=t.checked;renderModal()},
 'imp-arcs':function(t){S.modal.arcs=t.checked},
 'imp-kind':function(t){S.modal.items[+t.dataset.i].kind=t.value},
+'imp-match':function(t){var it=S.modal.items[+t.dataset.i];it.match=t.value;it.guess=false;renderModal()},
+'odf-sel':function(t){var m=S.modal,i=+t.dataset.i;if(t.checked)m.sel[i]=1;else delete m.sel[i];holKeep()},
 'imp-var':function(t){S.modal.items[+t.dataset.i].variant=t.value},
 'imp-route':function(t){S.modal.route=t.value},
 'route-parent':function(t){setRouteParent(t.dataset.id,t.value)},
@@ -2739,7 +2762,7 @@ function toolsModal(){
   var t=function(act,name,sub,extra){return '<button class="tool" data-act="tool" data-do="'+act+'"'+(extra||'')+'><b>'+name+'</b><small>'+sub+'</small></button>'};
   var sec=function(title,btns){btns=btns.filter(Boolean);return btns.length?'<div class="lab" style="margin-top:12px">'+title+'</div><div class="tgrid">'+btns.join('')+'</div>':''};
   return '<h2>Tools</h2><div data-hl style="max-height:62vh;overflow:auto">'+
-    sec('Add',[t('new-doc','Blank document','A document with no Word file yet'),fine?t('add-folder','Whole folder','Pick a folder of .docx files'):'']) +
+    sec('Add',[t('new-doc','Blank document','A document with no Word file yet'),(fine||S.mode==='od')?t('add-folder','Whole folder','Pick a folder of .docx files'):'']) +
     sec('Order',[t('routes','Routes','Add or edit alternate routes')].concat(n?[t('chap-order','Chapter order','Reading order across files'),t('path','Reading path','Follow a route in order')]:[])) +
     sec('Review',n?[t('chk-open','Checks','Dates and POV that do not add up'),t('rev-open','Revision pass'+(rc?' · '+rc:''),'Every open comment, in reading order')]:[]) +
     sec('Output',n?[t('x-open','Export','Headings only, filtered by route, version or tag')]:[]) +
@@ -2989,7 +3012,7 @@ async function odPoll(){
         cacheLocal();render();toast('Updated from another device.');
       }
     }
-    if(proj()&&proj().odFolder&&Date.now()-OD.lastCheck>300000){await odCheck(proj());render()}
+    if(proj()&&proj().odFolder&&Date.now()-OD.lastCheck>60000){await odCheck(proj());render()}
     if(proj()&&proj().portraitFolder&&Date.now()-(OD.lastPortraits||0)>2400000){await odPortraits(proj());render()}
   }catch(e){}
 }
@@ -3011,7 +3034,8 @@ async function odScan(folder){
           if(depth>=10){skipped.push(it.name+' (too deep)');continue}
           folders++;
           var dr=(ri&&ri.parentReference&&ri.parentReference.driveId)||drive||'', nid=(ri&&ri.id)||it.id;
-          await walk(dr,nid,rel.concat(it.name),depth+1);
+          try{await walk(dr,nid,rel.concat(it.name),depth+1)}
+          catch(e){if(ri)skipped.push(it.name+' (shared folder, not allowed to open it)');else throw e}
         }
         else if(/\.docx$/i.test(it.name)){
           if(it.name.indexOf('~$')===0)continue;
@@ -3023,7 +3047,7 @@ async function odScan(folder){
       url=j['@odata.nextLink']||null;
     }
   }
-  await walk('',folder.id,[],0);
+  await walk(folder.drive||'',folder.id,[],0);
   out.skipped=skipped;out.folders=folders;
   return out;
 }
@@ -3031,20 +3055,26 @@ async function odCheck(p){
   var files=await odScan(p.odFolder), byOd={};
   files.forEach(function(f){byOd[f.id]=f});
   var docs=S.documents.filter(function(d){return d.pid===p.id&&d.file&&d.file.od});
-  var linked={},changed=[],renamed=0;
+  var linked={},changed=[],renamed=0,renList=[],missing=[];
   docs.forEach(function(d){
-    var f=byOd[d.file.od.id];if(!f)return;
+    var f=byOd[d.file.od.id];if(!f){missing.push(d);return}
     linked[f.id]=1;
     var stale=f.mtime!==d.file.od.mtime;
     if(stale)changed.push(f);
-    var ren=renameFollow(d,f.name), ch=ren;
-    if(ren)renamed++;
+    var oldNm=d.file.name, ren=renameFollow(d,f.name), ch=ren;
+    if(ren){renamed++;renList.push(oldNm+' → '+f.name)}
     if(f.webUrl&&d.file.url!==f.webUrl){d.file.url=f.webUrl;ch=true}
     if(!!d.file.stale!==stale){d.file.stale=stale;ch=true}
     if(ch)save('documents',d,false)
   });
+  docs=S.documents.filter(function(d){return d.pid===p.id&&d.file&&!d.file.od&&d.file.name});
+  docs.forEach(function(d){
+    var f=files.find(function(x){return !linked[x.id]&&x.name.toLowerCase()===d.file.name.toLowerCase()});if(!f)return;
+    linked[f.id]=1;d.file.od={id:f.id,drive:f.drive||'',etag:f.etag,mtime:f.mtime};d.file.url=f.webUrl||d.file.url;
+    var st=!!(d.file.analysed&&f.mtime>d.file.analysed);d.file.stale=st;if(st)changed.push(f);save('documents',d,false);
+  });
   var fresh=files.filter(function(f){return !linked[f.id]});
-  OD.lastCheck=Date.now();OD.scan[p.id]={files:files,changed:changed,fresh:fresh,renamed:renamed,skipped:files.skipped||[],folders:files.folders||0};
+  OD.lastCheck=Date.now();OD.scan[p.id]={files:files,changed:changed,fresh:fresh,renamed:renamed,renList:renList,missing:missing,skipped:files.skipped||[],folders:files.folders||0};
   return OD.scan[p.id];
 }
 async function odDownload(list,root,onProgress){
@@ -3067,6 +3097,20 @@ async function odDownload(list,root,onProgress){
   await Promise.all([worker(),worker(),worker(),worker()]);
   out.fails=fails;return out;
 }
+function odReportModal(){
+  var p=proj(), r=p&&OD.scan[p.id];if(!r)return '<h2>OneDrive scan</h2><p>No scan yet.</p><div class="actions"><button class="btn primary" data-act="close">Close</button></div>';
+  var byId2={};S.documents.forEach(function(d){if(d.pid===p.id&&d.file&&d.file.od)byId2[d.file.od.id]=d});
+  var line=function(a,b){return '<div class="rd-nt"><div class="tx"><b>'+esc(a)+'</b><small>'+esc(b)+'</small></div></div>'};
+  var new1=r.fresh.map(function(f){return line(f.name,(f.rel.length?f.rel.join(' / ')+' · ':'')+'Not in the app yet')});
+  var chg=r.changed.filter(function(f){return r.fresh.indexOf(f)<0}).map(function(f){return line(f.name,'Changed since you last read it')});
+  var ren=(r.renList||[]).map(function(x){return line(x,'Renamed in OneDrive. The app has followed it.')});
+  var mis=(r.missing||[]).map(function(d){return line(d.file.name||d.title,'In the app, but no longer in the folder (renamed with Save As, moved or deleted?)')});
+  var ok=r.files.filter(function(f){return byId2[f.id]&&r.changed.indexOf(f)<0}).map(function(f){return line(f.name,'Up to date · “'+(byId2[f.id].title||'')+'”')});
+  var sec=function(t,l){return l.length?'<div class="lab" style="margin-top:10px">'+t+' <span class="cnt">'+l.length+'</span></div>'+l.join(''):''};
+  return '<h2>What the app sees in OneDrive</h2><p class="hint">'+r.files.length+' Word file'+(r.files.length===1?'':'s')+' in “'+esc(p.odFolder?p.odFolder.name:'')+'”'+(r.folders?', across '+(r.folders+1)+' folders':'')+'. Scanned '+new Date(OD.lastCheck).toLocaleTimeString()+'.</p>'+
+    '<div data-hl style="max-height:50vh;overflow:auto;border-top:1px solid var(--line)">'+sec('Not in the app yet',new1)+sec('Renamed',ren)+sec('Changed',chg)+sec('In the app but not found in the folder',mis)+sec('Skipped',(r.skipped||[]).map(function(x){return line(x,'Not a .docx, or not allowed to open')}))+sec('Up to date',ok)+'</div>'+
+    '<div class="actions"><button class="btn" data-act="close">Close</button>'+((r.fresh.length||r.changed.length)?'<button class="btn primary" data-act="od-sync">Add and refresh '+(r.fresh.length+chg.length)+'</button>':'')+'</div>';
+}
 function odBusy(msg){S.modal={type:'busy',msg:msg};renderModal()}
 async function odSyncNow(){
   var p=proj();if(!p||!p.odFolder||S.mode!=='od')return;
@@ -3075,7 +3119,7 @@ async function odSyncNow(){
     var res=await odCheck(p), todo=res.changed.concat(res.fresh);
     render();
     var sk=res.skipped||[], note=(res.renamed?res.renamed+' renamed. ':'')+'Found '+res.files.length+' Word file'+(res.files.length===1?'':'s')+(res.folders?' in '+(res.folders+1)+' folders':'')+'.'+(sk.length?' Skipped '+sk.length+' not saved as .docx ('+sk.slice(0,3).join(', ')+(sk.length>3?', …':'')+').':'');
-    if(!todo.length){closeModal();render();toast(note+' Everything is up to date.');return}
+    if(!todo.length){S.modal={type:'odrep'};renderModal();render();return}
     var files=await odDownload(todo,p.odFolder.name,function(n,t){S.modal={type:'busy',msg:'Downloading '+n+' of '+t+'.'};renderModal()});
     if(!files.length){closeModal();toast('Those files could not be downloaded.');return}
     await handleFiles(files);
@@ -3112,6 +3156,65 @@ async function odPortraits(p){
   return got;
 }
 
+/* browse OneDrive and add files from it */
+function odCur(m){return m.stack[m.stack.length-1]}
+async function odFilesList(){
+  var m=S.modal;if(!m||m.type!=='odfiles')return;
+  var tok=m.tok=(m.tok||0)+1;m.loading=true;m.err='';m.sel={};renderModal();
+  var folders=[],files=[];
+  try{
+    var cur=odCur(m);
+    var url=(cur.id==='root'?'/me/drive/root':(cur.drive?'/drives/'+cur.drive+'/items/':'/me/drive/items/')+cur.id)+'/children?$select=id,name,size,webUrl,eTag,lastModifiedDateTime,folder,file,remoteItem&$top=200';
+    while(url){
+      var r=await gfetch(url);if(!r.ok)throw new Error(r.status);
+      var j=await r.json();
+      j.value.forEach(function(x){
+        var ri=x.remoteItem;
+        if(x.folder||(ri&&ri.folder))folders.push({id:(ri&&ri.id)||x.id,drive:(ri&&ri.parentReference&&ri.parentReference.driveId)||cur.drive||'',name:x.name,webUrl:x.webUrl});
+        else if(/\.docx$/i.test(x.name)&&x.name.indexOf('~$')!==0)files.push({id:(ri&&ri.id)||x.id,drive:(ri&&ri.parentReference&&ri.parentReference.driveId)||cur.drive||'',name:x.name,size:x.size,webUrl:x.webUrl,etag:x.eTag,mtime:x.lastModifiedDateTime,rel:[]});
+      });
+      url=j['@odata.nextLink']||null;
+    }
+    var nat=function(a,b){return a.name.localeCompare(b.name,undefined,{numeric:true})};
+    folders.sort(nat);files.sort(nat);
+  }catch(e){if(S.modal===m&&m.tok===tok)m.err='Could not list this folder.';folders=[];files=[]}
+  if(S.modal!==m||m.tok!==tok)return;
+  m.folders=folders;m.files=files;m.loading=false;renderModal();
+}
+function odFilesModal(){
+  var m=S.modal, cur=odCur(m), nsel=Object.keys(m.sel||{}).length;
+  var h='<h2>Add from OneDrive</h2><p class="hint">'+esc(m.stack.map(function(x){return x.name}).join(' / '))+'</p>';
+  if(m.err)h+='<p class="hint">'+esc(m.err)+'</p>';
+  h+='<div data-hl style="max-height:46vh;overflow:auto;border-top:1px solid var(--line)"><div class="fpick">';
+  if(m.stack.length>1)h+='<button class="btn ghost" data-act="odf-up">'+ic('folder')+'Up one level</button>';
+  if(m.loading)h+='<p class="hint">Loading.</p>';
+  else{
+    h+=m.folders.map(function(f,i){return '<button class="btn ghost" data-act="odf-open" data-i="'+i+'">'+ic('folder')+esc(f.name)+'</button>'}).join('');
+    if(!m.folders.length&&!m.files.length)h+='<p class="hint">No Word files or folders here.</p>';
+    h+=m.files.map(function(f,i){return '<label class="chk"><input type="checkbox" data-change="odf-sel" data-i="'+i+'"'+(m.sel[i]?' checked':'')+'><span><b>'+esc(f.name)+'</b></span></label>'}).join('');
+  }
+  h+='</div></div><div class="actions" style="flex-wrap:wrap">';
+  h+='<button class="btn" data-act="close">Cancel</button>';
+  if(m.files.length)h+='<button class="btn" data-act="odf-all">'+(nsel===m.files.length?'Clear ticks':'Tick all')+'</button>';
+  h+='<button class="btn" data-act="odf-local">From this device</button>';
+  if(cur.id!=='root')h+='<button class="btn" data-act="odf-folder">Add whole folder</button><button class="btn" data-act="odf-sync">Use for sync</button>';
+  h+='<button class="btn primary" data-act="odf-go"'+(nsel?'':' disabled')+'>Add '+nsel+' file'+(nsel===1?'':'s')+'</button></div>';
+  return h;
+}
+function odFilesOpen(){
+  var p=proj(), st=[{id:'root',name:'OneDrive'}];
+  if(p&&p.odFolder)st.push({id:p.odFolder.id,name:p.odFolder.name,drive:p.odFolder.drive||'',webUrl:p.odFolder.webUrl});
+  S.modal={type:'odfiles',stack:st,folders:[],files:[],sel:{},loading:true,err:''};renderModal();odFilesList();
+}
+async function odFilesGet(list,rootName){
+  odBusy('Downloading 0 of '+list.length+'.');
+  try{
+    var files=await odDownload(list,rootName,function(n,t){S.modal={type:'busy',msg:'Downloading '+n+' of '+t+'.'};renderModal()});
+    if(!files.length){closeModal();toast('Those files could not be downloaded.');return}
+    await handleFiles(files);
+    if(files.fails)toast(files.fails+' file'+(files.fails>1?'s':'')+' could not be downloaded.');
+  }catch(e){closeModal();toast('Could not read those files from OneDrive.')}
+}
 /* folder picker */
 async function odList(){
   var m=S.modal;if(!m||m.type!=='odpick')return;
@@ -3146,7 +3249,7 @@ function odSettings(){
   if(OD.acct){
     h+='<p class="hint">Signed in as '+esc(OD.acct.username||OD.acct.name||'your account')+'. Your library is saved in your OneDrive at Story Organiser/data.json, so every device sees the same thing. Your Word files are only read, never changed.</p>';
     if(p){
-      h+='<p class="hint" style="margin-top:8px">Manuscript folder: <b>'+esc(p.odFolder?p.odFolder.name:'not chosen')+'</b></p><div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn" data-act="od-pick">'+ic('folder')+(p.odFolder?'Change folder':'Choose folder')+'</button>'+(p.odFolder?'<button class="btn" data-act="od-sync">'+ic('refresh')+'Sync now</button>':'')+'</div>'+
+      h+='<p class="hint" style="margin-top:8px">Manuscript folder: <b>'+esc(p.odFolder?p.odFolder.name:'not chosen')+'</b></p><div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn" data-act="od-pick">'+ic('folder')+(p.odFolder?'Change folder':'Choose folder')+'</button>'+(p.odFolder?'<button class="btn" data-act="od-sync">'+ic('refresh')+'Sync now</button><button class="btn" data-act="od-report">What do you see?</button>':'')+'</div>'+
         '<p class="hint" style="margin-top:12px">Portraits folder: <b>'+esc(p.portraitFolder?p.portraitFolder.name:'not chosen')+'</b>. Name each image after the character, for example Danielle Stewart.jpg.</p><div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn" data-act="od-pick-portraits">'+ic('folder')+(p.portraitFolder?'Change folder':'Choose folder')+'</button></div>';
     }
     h+='<div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn danger" data-act="od-signout">Sign out and clear this device</button></div>';
@@ -3158,7 +3261,21 @@ function odSettings(){
   }
   return h+'</div>';
 }
+var _af=A['add-files'],_afo=A['add-folder'];
 Object.assign(A,{
+  'add-files':function(el){if(OD.acct)odFilesOpen();else if(S.mode==='od'){toast('Not signed in to OneDrive. Open Settings and sign in.');_af(el)}else _af(el)},
+  'add-folder':function(el){if(OD.acct)odFilesOpen();else _afo(el)},
+  'odf-open':function(el){var m=S.modal,f=m.folders[+el.dataset.i];if(!f)return;m.stack.push(f);odFilesList()},
+  'odf-up':function(){var m=S.modal;if(m.stack.length>1){m.stack.pop();odFilesList()}},
+  'odf-all':function(){var m=S.modal,all=Object.keys(m.sel).length===m.files.length;m.sel={};if(!all)m.files.forEach(function(f,i){m.sel[i]=1});holKeep()},
+  'odf-local':function(){closeModal();_af()},
+  'odf-go':function(){var m=S.modal,l=m.files.filter(function(f,i){return m.sel[i]});if(l.length)odFilesGet(l,odCur(m).name)},
+  'odf-folder':async function(){
+    var m=S.modal,cur=odCur(m);odBusy('Looking in '+cur.name+'.');
+    try{var l=await odScan(cur);if(!l.length){closeModal();toast('No Word files in that folder.');return}await odFilesGet(l,cur.name)}
+    catch(e){closeModal();toast('Could not read that folder.')}
+  },
+  'odf-sync':function(){var m=S.modal,cur=odCur(m),p=proj();if(!p)return;p.odFolder={id:cur.id,name:cur.name,webUrl:cur.webUrl||'',drive:cur.drive||''};if(cur.webUrl)p.folderUrl=cur.webUrl;save('projects',p,true);closeModal();odSyncNow()},
   'od-signin':async function(){
     if(!OD.app){S.modal={type:'settings'};renderModal();return}
     try{await OD.app.loginRedirect({scopes:OD.scopes})}
@@ -3195,11 +3312,12 @@ Object.assign(A,{
       odPortraits(p).then(function(n){render();toast(n?n+' portrait'+(n>1?'s':'')+' matched.':'No images matched your character names. Name each file like the character, for example Danielle Stewart.jpg.')}).catch(function(){toast('Could not read the portraits folder.')});
       return;
     }
-    p.odFolder={id:cur.id,name:cur.name,webUrl:cur.webUrl||''};
+    p.odFolder={id:cur.id,name:cur.name,webUrl:cur.webUrl||'',drive:cur.drive||''};
     if(cur.webUrl)p.folderUrl=cur.webUrl;
     save('projects',p,true);closeModal();odSyncNow();
   },
   'od-sync':function(){odSyncNow()},
+  'od-report':async function(){var p=proj();if(!p||!p.odFolder)return;odBusy('Looking in OneDrive.');try{await odCheck(p);S.modal={type:'odrep'};renderModal();render()}catch(e){closeModal();toast('Could not read the folder. Check your connection and try again.')}},
   'od-refresh':async function(el){
     var d=byId('documents',el.dataset.id),p=proj();if(!d||!d.file||!d.file.od)return;
     odBusy('Downloading.');
