@@ -8,11 +8,11 @@
      3.  Light (soft cream)
      4.  Vaporwave
      5.  Pastel (80s magical girl)
-     6.  Carnival (ringmaster)
+     6.  Carnival (underground cyber-cabaret)
      7.  Maximal (tacky shocking light)
-     8.  GITS (Ghost in the Shell 1995)
-     9.  Stained Glass (luminous cathedral)
-     10. Art Deco (the Great Gatsby)
+     8.  GITS (Ghost in the Shell - Neon City variant)
+     9.  Stained Glass (Ghost in the Shell - Luminous Cathedral variant)
+     10. Nouveau (Mucha lithograph)
      11. Theme transitions
      12. App rules (unchanged from the original <style> block)
 
@@ -252,59 +252,63 @@
 }
 
 /* ============================================================
-   5. CARNIVAL — the ringmaster
+   5. CARNIVAL — the underground cyber-cabaret
+   ============================================================
+   Reimagined after the vibrant live performance image: stark
+   blacks, hot magenta stage lights, icy cyan rim lights, and
+   the stark white of ruffled collars.
    ============================================================ */
 [data-theme="carnival"] {
-    --bg:#181719; --surface:#242225; --surface-2:#302d30;
-    --line:#625c60; --line-strong:#413d40;
-    --fg:#eee9e5; --fg-2:#aaa3a0; --fg-3:#777174;
+    --bg:#060608; --surface:#101014; --surface-2:#1a1a22;
+    --line:#3b2b4d; --line-strong:#5d4275;
+    --fg:#fcfcfc; --fg-2:#b8b0c9; --fg-3:#7a6f8c;
 
-    --accent:#b51f2d; --accent-fg:#ffffff; --accent-soft:rgba(181,31,45,0.16);
-    --info:#ddd7d0; --info-soft:rgba(221,215,208,0.14); --info-hover:rgba(221,215,208,0.26);
-    --danger:#d12d3c; --danger-soft:rgba(209,45,60,0.16); --danger-hover:rgba(209,45,60,0.28);
-    --warning:#c39b55; --warning-soft:rgba(195,155,85,0.16); --warning-hover:rgba(195,155,85,0.28);
+    --accent:#ff007f; --accent-fg:#ffffff; --accent-soft:rgba(255,0,127,0.15);
+    --info:#00e5ff; --info-soft:rgba(0,229,255,0.14); --info-hover:rgba(0,229,255,0.28);
+    --danger:#e60033; --danger-soft:rgba(230,0,51,0.16); --danger-hover:rgba(230,0,51,0.28);
+    --warning:#f2ce42; --warning-soft:rgba(242,206,66,0.16); --warning-hover:rgba(242,206,66,0.28);
 
-    --ok:#87927f; --bad:#d12d3c;
-    --st-idea:#777174; --st-outlined:#aaa29d; --st-draft:#bda064;
-    --st-revised:#c52c3b; --st-final:#87927f;
-    --scrim:rgba(0,0,0,0.78);
-    --v-au:#929a9e; --v-alt:#aaa29d;
-    --r-a:#c52c3b; --r-b:#929a9e; --r-c:#87927f;
-    --r-d:#bda064; --r-e:#aaa29d; --r-f:#bd4548;
+    --ok:#00ffcc; --bad:#e60033;
+    --st-idea:#7a6f8c; --st-outlined:#b8b0c9; --st-draft:#f2ce42;
+    --st-revised:#ff007f; --st-final:#00ffcc;
+    --scrim:rgba(0,0,0,0.85);
+    --v-au:#00e5ff; --v-alt:#ff007f;
+    --r-a:#ff007f; --r-b:#00e5ff; --r-c:#00ffcc;
+    --r-d:#f2ce42; --r-e:#b8b0c9; --r-f:#e60033;
     color-scheme:dark;
 
-    --overlay:rgba(0,0,0,0.78);
-    --overlay-light:rgba(0,0,0,0.68);
-    --radius:10px;
-    --shadow:0 4px 14px rgba(0,0,0,0.65), 0 0 18px rgba(181,31,45,0.08);
+    --overlay:rgba(0,0,0,0.85);
+    --overlay-light:rgba(0,0,0,0.70);
+    --radius:4px;
+    --shadow:0 4px 20px rgba(255,0,127,0.15), 0 0 0 1px var(--line-strong);
     --scrollbar-track:var(--bg);
     --scrollbar-thumb:var(--line);
 
-    --graph-node-accent-fill:#b51f2d;   --graph-node-accent-stroke:#7f1721;
-    --graph-node-info-fill:#ddd7d0;     --graph-node-info-stroke:#a49d96;
-    --graph-node-status-deceased:#4a4649;
-    --graph-node-status-instructor:#d2ccc7;
-    --graph-node-status-senior:#c49a58;
-    --graph-node-status-junior:#aaa5a1;
-    --graph-node-status-rookie:#92998e;
-    --graph-node-status-student:#c62b39;
-    --graph-node-status-support:#a89591;
-    --graph-node-status-civilian:#777174;
-    --graph-node-status-other:#777174;
+    --graph-node-accent-fill:#ff007f;   --graph-node-accent-stroke:#060608;
+    --graph-node-info-fill:#00e5ff;     --graph-node-info-stroke:#060608;
+    --graph-node-status-deceased:#3b2b4d;
+    --graph-node-status-instructor:#b8b0c9;
+    --graph-node-status-senior:#f2ce42;
+    --graph-node-status-junior:#00e5ff;
+    --graph-node-status-rookie:#00ffcc;
+    --graph-node-status-student:#ff007f;
+    --graph-node-status-support:#e60033;
+    --graph-node-status-civilian:#7a6f8c;
+    --graph-node-status-other:#7a6f8c;
 
-    --magic-earth:#806c5c;  --magic-water:#737e84; --magic-fire:#c43a32;
-    --magic-air:#c9c5c0;    --magic-metal:#a5a4a2; --magic-wood:#6f7c68;
-    --magic-blood:#b51f2d;  --magic-bone:#ddd5ca;  --magic-mind:#81757d;
-    --magic-morphic:#777e76;--magic-life:#788c73;  --magic-death:#595359;
-    --magic-space:#747b82;  --magic-time:#b89a61;  --magic-dimension:#83787f;
-    --magic-void:#090909;   --magic-reality:#c32b39;--magic-transference:#a85f55;
+    --magic-earth:#806c5c;  --magic-water:#00e5ff; --magic-fire:#e60033;
+    --magic-air:#fcfcfc;    --magic-metal:#b8b0c9; --magic-wood:#00ffcc;
+    --magic-blood:#ff007f;  --magic-bone:#fcfcfc;  --magic-mind:#ff007f;
+    --magic-morphic:#00ffcc;--magic-life:#00e5ff;  --magic-death:#3b2b4d;
+    --magic-space:#00e5ff;  --magic-time:#f2ce42;  --magic-dimension:#b8b0c9;
+    --magic-void:#060608;   --magic-reality:#ff007f;--magic-transference:#e60033;
 
-    --relationship-familial:#87927f;    --relationship-professional:#bda064;
-    --relationship-romantic:#c52c3b;    --relationship-friendship:#929a9e;
-    --relationship-mentor:#aaa29d;      --relationship-rivalry:#bd4548;
-    --relationship-alliance:#858d83;    --relationship-other:#777174;
+    --relationship-familial:#00ffcc;    --relationship-professional:#f2ce42;
+    --relationship-romantic:#ff007f;    --relationship-friendship:#00e5ff;
+    --relationship-mentor:#b8b0c9;      --relationship-rivalry:#e60033;
+    --relationship-alliance:#00ffcc;    --relationship-other:#7a6f8c;
 
-    --chip-bg-subtle:rgba(238,233,229,0.08);
+    --chip-bg-subtle:rgba(255,0,127,0.08);
 }
 
 /* ============================================================
@@ -364,171 +368,182 @@
 }
 
 /* ============================================================
-   7. GITS — Ghost in the Shell 1995
+   7. GITS — Ghost in the Shell (Neon City variant)
+   ============================================================
+   Reimagined after the vibrant poster: stark blacks pierced by
+   hot pinks, electric cyans, and warning-sign reds.
    ============================================================ */
 [data-theme="gits"] {
-    --bg:#04101a; --surface:#091a2a; --surface-2:#0e243b;
-    --line:#00f0ff; --line-strong:#1d3a5e;
-    --fg:#ffffff; --fg-2:#7da5c4; --fg-3:#5a7a9e;
+    --bg:#07080c; --surface:#10131c; --surface-2:#181d2b;
+    --line:#2d3b55; --line-strong:#4a608a;
+    --fg:#f2f7ff; --fg-2:#8ba3c7; --fg-3:#5e7699;
 
-    --accent:#00f0ff; --accent-fg:#04101a; --accent-soft:rgba(0,240,255,0.12);
-    --info:#ff00a8; --info-soft:rgba(255,0,168,0.14); --info-hover:rgba(255,0,168,0.28);
-    --danger:#ff2038; --danger-soft:rgba(255,32,56,0.15); --danger-hover:rgba(255,32,56,0.30);
-    --warning:#f2b738; --warning-soft:rgba(242,183,56,0.15); --warning-hover:rgba(242,183,56,0.30);
+    --accent:#ff1a8c; --accent-fg:#07080c; --accent-soft:rgba(255,26,140,0.15);
+    --info:#00e5ff; --info-soft:rgba(0,229,255,0.14); --info-hover:rgba(0,229,255,0.28);
+    --danger:#ff2a2a; --danger-soft:rgba(255,42,42,0.15); --danger-hover:rgba(255,42,42,0.30);
+    --warning:#f2d130; --warning-soft:rgba(242,209,48,0.15); --warning-hover:rgba(242,209,48,0.30);
 
-    --ok:#32c8a2; --bad:#ff2038;
-    --st-idea:#5a7a9e; --st-outlined:#ff00a8; --st-draft:#f2b738;
-    --st-revised:#00f0ff; --st-final:#32c8a2;
+    --ok:#00ffb2; --bad:#ff2a2a;
+    --st-idea:#5e7699; --st-outlined:#ff1a8c; --st-draft:#f2d130;
+    --st-revised:#00e5ff; --st-final:#00ffb2;
     --scrim:rgba(0,0,0,0.85);
-    --v-au:#00f0ff; --v-alt:#ff00a8;
-    --r-a:#ff2038; --r-b:#00f0ff; --r-c:#32c8a2;
-    --r-d:#f2b738; --r-e:#ff00a8; --r-f:#ff7755;
+    --v-au:#00e5ff; --v-alt:#ff1a8c;
+    --r-a:#ff2a2a; --r-b:#00e5ff; --r-c:#00ffb2;
+    --r-d:#f2d130; --r-e:#ff1a8c; --r-f:#ff6b4a;
     color-scheme:dark;
 
     --overlay:rgba(0,0,0,0.85);
     --overlay-light:rgba(0,0,0,0.70);
-    --radius:0px;
-    --shadow:0 4px 20px rgba(0,240,255,0.15), 0 0 0 1px var(--line-strong);
+    --radius:2px;
+    --shadow:0 4px 20px rgba(0,229,255,0.12), inset 0 0 0 1px var(--line-strong);
     --scrollbar-track:var(--bg);
-    --scrollbar-thumb:var(--line);
+    --scrollbar-thumb:var(--line-strong);
 
-    --graph-node-accent-fill:#00f0ff;   --graph-node-accent-stroke:#04101a;
-    --graph-node-info-fill:#ff00a8;     --graph-node-info-stroke:#04101a;
+    --graph-node-accent-fill:#ff1a8c;   --graph-node-accent-stroke:#07080c;
+    --graph-node-info-fill:#00e5ff;     --graph-node-info-stroke:#07080c;
     --graph-node-status-deceased:#3b4e64;
-    --graph-node-status-instructor:#ff00a8;
-    --graph-node-status-senior:#f2b738;
-    --graph-node-status-junior:#00f0ff;
-    --graph-node-status-rookie:#32c8a2;
-    --graph-node-status-student:#7da5c4;
-    --graph-node-status-support:#ff2038;
-    --graph-node-status-civilian:#5a7a9e;
-    --graph-node-status-other:#5a7a9e;
+    --graph-node-status-instructor:#ff1a8c;
+    --graph-node-status-senior:#f2d130;
+    --graph-node-status-junior:#00e5ff;
+    --graph-node-status-rookie:#00ffb2;
+    --graph-node-status-student:#8ba3c7;
+    --graph-node-status-support:#ff2a2a;
+    --graph-node-status-civilian:#5e7699;
+    --graph-node-status-other:#5e7699;
 
-    --magic-earth:#6b4e3d;  --magic-water:#00f0ff; --magic-fire:#ff2038;
-    --magic-air:#ffffff;    --magic-metal:#a0b8d0; --magic-wood:#32c8a2;
-    --magic-blood:#ff2038;  --magic-bone:#ffffff;  --magic-mind:#ff00a8;
-    --magic-morphic:#32c8a2;--magic-life:#00f0ff;  --magic-death:#3b4e64;
-    --magic-space:#00f0ff;  --magic-time:#f2b738;  --magic-dimension:#ff00a8;
-    --magic-void:#000000;   --magic-reality:#ff2038;--magic-transference:#ff7755;
+    --magic-earth:#6b4e3d;  --magic-water:#00e5ff; --magic-fire:#ff2a2a;
+    --magic-air:#f2f7ff;    --magic-metal:#a0b8d0; --magic-wood:#00ffb2;
+    --magic-blood:#ff1a8c;  --magic-bone:#f2f7ff;  --magic-mind:#ff1a8c;
+    --magic-morphic:#00ffb2;--magic-life:#00e5ff;  --magic-death:#3b4e64;
+    --magic-space:#00e5ff;  --magic-time:#f2d130;  --magic-dimension:#ff1a8c;
+    --magic-void:#000000;   --magic-reality:#ff2a2a;--magic-transference:#ff6b4a;
 
-    --relationship-familial:#32c8a2;    --relationship-professional:#f2b738;
-    --relationship-romantic:#ff2038;    --relationship-friendship:#00f0ff;
-    --relationship-mentor:#ff00a8;      --relationship-rivalry:#ff7755;
-    --relationship-alliance:#7da5c4;    --relationship-other:#5a7a9e;
+    --relationship-familial:#00ffb2;    --relationship-professional:#f2d130;
+    --relationship-romantic:#ff1a8c;    --relationship-friendship:#00e5ff;
+    --relationship-mentor:#ff1a8c;      --relationship-rivalry:#ff6b4a;
+    --relationship-alliance:#8ba3c7;    --relationship-other:#5e7699;
 
-    --chip-bg-subtle:rgba(0,240,255,0.08);
+    --chip-bg-subtle:rgba(0,229,255,0.08);
 }
 
 /* ============================================================
-   8. STAINED GLASS — luminous cathedral
+   8. STAINED GLASS — luminous cathedral (GITS 1995 variant)
+   ============================================================
+   Reimagined after the Ghost in the Shell poster: a figure
+   dissolving into data, cyan and magenta glass set in a
+   lattice of cold blue.
    ============================================================ */
 [data-theme="stained-glass"] {
-    --bg:#f2f7fd; --surface:#ffffff; --surface-2:#e6eef8;
-    --line:#2c2c2c; --line-strong:#5d6e80;
-    --fg:#1a1e24; --fg-2:#5d6e80; --fg-3:#8a96a3;
+    --bg:#0a1520; --surface:#0e1d2e; --surface-2:#132a42;
+    --line:#1d4a6e; --line-strong:#3a7fa8;
+    --fg:#eaf6ff; --fg-2:#8fb8d4; --fg-3:#5a8aa8;
 
-    --accent:#e31837; --accent-fg:#ffffff; --accent-soft:rgba(227,24,55,0.10);
-    --info:#0066cc; --info-soft:rgba(0,102,204,0.10); --info-hover:rgba(0,102,204,0.20);
-    --danger:#990000; --danger-soft:rgba(153,0,0,0.10); --danger-hover:rgba(153,0,0,0.20);
-    --warning:#d48806; --warning-soft:rgba(212,136,6,0.12); --warning-hover:rgba(212,136,6,0.24);
+    --accent:#5ee8ff; --accent-fg:#04101a; --accent-soft:rgba(94,232,255,0.12);
+    --info:#ff4fa8; --info-soft:rgba(255,79,168,0.14); --info-hover:rgba(255,79,168,0.28);
+    --danger:#ff3d6e; --danger-soft:rgba(255,61,110,0.15); --danger-hover:rgba(255,61,110,0.30);
+    --warning:#ffd166; --warning-soft:rgba(255,209,102,0.15); --warning-hover:rgba(255,209,102,0.30);
 
-    --ok:#2e7d32; --bad:#990000;
-    --st-idea:#8a96a3; --st-outlined:#6a1b9a; --st-draft:#d48806;
-    --st-revised:#e31837; --st-final:#2e7d32;
-    --scrim:rgba(44,44,44,0.5);
-    --v-au:#0066cc; --v-alt:#6a1b9a;
-    --r-a:#e31837; --r-b:#0066cc; --r-c:#2e7d32;
-    --r-d:#d48806; --r-e:#6a1b9a; --r-f:#d84315;
-    color-scheme:light;
+    --ok:#3dffc0; --bad:#ff3d6e;
+    --st-idea:#5a8aa8; --st-outlined:#c77dff; --st-draft:#ffd166;
+    --st-revised:#ff4fa8; --st-final:#3dffc0;
+    --scrim:rgba(4,10,18,0.88);
+    --v-au:#5ee8ff; --v-alt:#c77dff;
+    --r-a:#ff4fa8; --r-b:#5ee8ff; --r-c:#3dffc0;
+    --r-d:#ffd166; --r-e:#c77dff; --r-f:#ff8a5c;
+    color-scheme:dark;
 
-    --overlay:rgba(44,44,44,0.5);
-    --overlay-light:rgba(44,44,44,0.3);
+    --overlay:rgba(4,10,18,0.88);
+    --overlay-light:rgba(4,10,18,0.68);
     --radius:4px;
-    --shadow:0 4px 15px rgba(44,44,44,0.08), inset 0 0 10px rgba(255,255,255,0.5);
+    --shadow:0 4px 15px rgba(94,232,255,0.10), inset 0 0 20px rgba(94,232,255,0.04);
     --scrollbar-track:var(--bg);
-    --scrollbar-thumb:var(--line);
+    --scrollbar-thumb:var(--line-strong);
 
-    --graph-node-accent-fill:#e31837;   --graph-node-accent-stroke:#2c2c2c;
-    --graph-node-info-fill:#0066cc;     --graph-node-info-stroke:#2c2c2c;
-    --graph-node-status-deceased:#a0a0a0;
-    --graph-node-status-instructor:#6a1b9a;
-    --graph-node-status-senior:#d48806;
-    --graph-node-status-junior:#0066cc;
-    --graph-node-status-rookie:#2e7d32;
-    --graph-node-status-student:#e31837;
-    --graph-node-status-support:#d84315;
-    --graph-node-status-civilian:#5d6e80;
-    --graph-node-status-other:#a0a0a0;
+    --graph-node-accent-fill:#5ee8ff;   --graph-node-accent-stroke:#0a1520;
+    --graph-node-info-fill:#ff4fa8;     --graph-node-info-stroke:#0a1520;
+    --graph-node-status-deceased:#3a5a72;
+    --graph-node-status-instructor:#c77dff;
+    --graph-node-status-senior:#ffd166;
+    --graph-node-status-junior:#5ee8ff;
+    --graph-node-status-rookie:#3dffc0;
+    --graph-node-status-student:#ff4fa8;
+    --graph-node-status-support:#ff8a5c;
+    --graph-node-status-civilian:#8fb8d4;
+    --graph-node-status-other:#5a8aa8;
 
-    --magic-earth:#6b4e3d;  --magic-water:#0066cc; --magic-fire:#e31837;
-    --magic-air:#87ceeb;    --magic-metal:#9e9e9e; --magic-wood:#2e7d32;
-    --magic-blood:#990000;  --magic-bone:#e0dac5;  --magic-mind:#6a1b9a;
-    --magic-morphic:#00897b;--magic-life:#2e7d32;  --magic-death:#2c2c2c;
-    --magic-space:#0066cc;  --magic-time:#d48806;  --magic-dimension:#6a1b9a;
-    --magic-void:#000000;   --magic-reality:#e31837;--magic-transference:#d84315;
+    --magic-earth:#8a6a4a;  --magic-water:#5ee8ff; --magic-fire:#ff3d6e;
+    --magic-air:#eaf6ff;    --magic-metal:#a0b8d0; --magic-wood:#3dffc0;
+    --magic-blood:#ff4fa8;  --magic-bone:#eaf6ff;  --magic-mind:#c77dff;
+    --magic-morphic:#3dffc0;--magic-life:#5ee8ff;  --magic-death:#3a5a72;
+    --magic-space:#5ee8ff;  --magic-time:#ffd166;  --magic-dimension:#c77dff;
+    --magic-void:#04101a;   --magic-reality:#ff4fa8;--magic-transference:#ff8a5c;
 
-    --relationship-familial:#2e7d32;    --relationship-professional:#d48806;
-    --relationship-romantic:#e31837;    --relationship-friendship:#0066cc;
-    --relationship-mentor:#6a1b9a;      --relationship-rivalry:#d84315;
-    --relationship-alliance:#00897b;    --relationship-other:#5d6e80;
+    --relationship-familial:#3dffc0;    --relationship-professional:#ffd166;
+    --relationship-romantic:#ff4fa8;    --relationship-friendship:#5ee8ff;
+    --relationship-mentor:#c77dff;      --relationship-rivalry:#ff8a5c;
+    --relationship-alliance:#3dffc0;    --relationship-other:#8fb8d4;
 
-    --chip-bg-subtle:rgba(44,44,44,0.05);
+    --chip-bg-subtle:rgba(94,232,255,0.08);
 }
 
 /* ============================================================
-   9. ART DECO — the Great Gatsby
+   9. NOUVEAU — the Mucha lithograph
+   ============================================================
+   Inspired by Alphonse Mucha's vintage posters: warm cream
+   paper, muted sage, dusty rose, terracotta orange, and
+   rich sepia ink with organic, arched frames.
    ============================================================ */
-[data-theme="art-deco"] {
-    --bg:#f4f0e6; --surface:#ffffff; --surface-2:#f0ebd8;
-    --line:#b8975a; --line-strong:#d1c2a5;
-    --fg:#1c1e21; --fg-2:#7d7768; --fg-3:#a39c8b;
+[data-theme="nouveau"] {
+    --bg:#f4ebd8; --surface:#fbf6eb; --surface-2:#ebdcc6;
+    --line:#c6a88e; --line-strong:#9a6a4d;
+    --fg:#3b2b24; --fg-2:#735a4d; --fg-3:#9d8577;
 
-    --accent:#0b6c46; --accent-fg:#ffffff; --accent-soft:rgba(11,108,70,0.10);
-    --info:#b8975a; --info-soft:rgba(184,151,90,0.15); --info-hover:rgba(184,151,90,0.25);
-    --danger:#8c1c1c; --danger-soft:rgba(140,28,28,0.10); --danger-hover:rgba(140,28,28,0.20);
-    --warning:#a67c00; --warning-soft:rgba(166,124,0,0.12); --warning-hover:rgba(166,124,0,0.24);
+    --accent:#c45c34; --accent-fg:#ffffff; --accent-soft:rgba(196,92,52,0.12);
+    --info:#6b8c7b; --info-soft:rgba(107,140,123,0.14); --info-hover:rgba(107,140,123,0.24);
+    --danger:#9b3e31; --danger-soft:rgba(155,62,49,0.12); --danger-hover:rgba(155,62,49,0.22);
+    --warning:#b08c42; --warning-soft:rgba(176,140,66,0.14); --warning-hover:rgba(176,140,66,0.26);
 
-    --ok:#4a9e7b; --bad:#8c1c1c;
-    --st-idea:#a39c8b; --st-outlined:#6a1b9a; --st-draft:#b8975a;
-    --st-revised:#0b6c46; --st-final:#4a9e7b;
-    --scrim:rgba(28,30,33,0.6);
-    --v-au:#4a8f9e; --v-alt:#6a1b9a;
-    --r-a:#0b6c46; --r-b:#4a8f9e; --r-c:#4a9e7b;
-    --r-d:#b8975a; --r-e:#6a1b9a; --r-f:#8c1c1c;
+    --ok:#6b8c7b; --bad:#9b3e31;
+    --st-idea:#9d8577; --st-outlined:#8a5c6b; --st-draft:#b08c42;
+    --st-revised:#c45c34; --st-final:#6b8c7b;
+    --scrim:rgba(59,43,36,0.6);
+    --v-au:#8a5c6b; --v-alt:#6b8c7b;
+    --r-a:#c45c34; --r-b:#6b8c7b; --r-c:#8a5c6b;
+    --r-d:#b08c42; --r-e:#9b3e31; --r-f:#d98c6b;
     color-scheme:light;
 
-    --overlay:rgba(28,30,33,0.6);
-    --overlay-light:rgba(28,30,33,0.4);
-    --radius:0px;
-    --shadow:0 10px 25px rgba(28,30,33,0.08), 0 0 0 1px var(--line);
+    --overlay:rgba(59,43,36,0.6);
+    --overlay-light:rgba(59,43,36,0.4);
+    --radius:12px;
+    --shadow:0 10px 30px rgba(59,43,36,0.08), 0 0 0 1px var(--line);
     --scrollbar-track:var(--bg);
     --scrollbar-thumb:var(--line);
 
-    --graph-node-accent-fill:#0b6c46;   --graph-node-accent-stroke:#b8975a;
-    --graph-node-info-fill:#b8975a;     --graph-node-info-stroke:#0b6c46;
-    --graph-node-status-deceased:#a0a0a0;
-    --graph-node-status-instructor:#6a1b9a;
-    --graph-node-status-senior:#b8975a;
-    --graph-node-status-junior:#0b6c46;
-    --graph-node-status-rookie:#4a9e7b;
-    --graph-node-status-student:#1c1e21;
-    --graph-node-status-support:#8c1c1c;
-    --graph-node-status-civilian:#7d7768;
-    --graph-node-status-other:#7d7768;
+    --graph-node-accent-fill:#c45c34;   --graph-node-accent-stroke:#9a6a4d;
+    --graph-node-info-fill:#6b8c7b;     --graph-node-info-stroke:#4a6657;
+    --graph-node-status-deceased:#9d8577;
+    --graph-node-status-instructor:#8a5c6b;
+    --graph-node-status-senior:#b08c42;
+    --graph-node-status-junior:#6b8c7b;
+    --graph-node-status-rookie:#8faf9f;
+    --graph-node-status-student:#c45c34;
+    --graph-node-status-support:#9b3e31;
+    --graph-node-status-civilian:#735a4d;
+    --graph-node-status-other:#9d8577;
 
-    --magic-earth:#6b4e3d;  --magic-water:#4a8f9e; --magic-fire:#8c1c1c;
-    --magic-air:#e8e0d5;    --magic-metal:#b8975a; --magic-wood:#0b6c46;
-    --magic-blood:#6b1414;  --magic-bone:#f4f0e6;  --magic-mind:#6a1b9a;
-    --magic-morphic:#4a9e7b;--magic-life:#0b6c46;  --magic-death:#1c1e21;
-    --magic-space:#4a8f9e;  --magic-time:#b8975a;  --magic-dimension:#6a1b9a;
-    --magic-void:#000000;   --magic-reality:#8c1c1c;--magic-transference:#a67c00;
+    --magic-earth:#8a6a4a;  --magic-water:#6b8c7b; --magic-fire:#c45c34;
+    --magic-air:#f4ebd8;    --magic-metal:#9d8577; --magic-wood:#8faf9f;
+    --magic-blood:#9b3e31;  --magic-bone:#fbf6eb;  --magic-mind:#8a5c6b;
+    --magic-morphic:#8faf9f;--magic-life:#6b8c7b;  --magic-death:#3b2b24;
+    --magic-space:#735a4d;  --magic-time:#b08c42;  --magic-dimension:#8a5c6b;
+    --magic-void:#2a1f1a;   --magic-reality:#c45c34;--magic-transference:#d98c6b;
 
-    --relationship-familial:#0b6c46;    --relationship-professional:#b8975a;
-    --relationship-romantic:#8c1c1c;    --relationship-friendship:#4a8f9e;
-    --relationship-mentor:#6a1b9a;      --relationship-rivalry:#a67c00;
-    --relationship-alliance:#4a9e7b;    --relationship-other:#7d7768;
+    --relationship-familial:#6b8c7b;    --relationship-professional:#b08c42;
+    --relationship-romantic:#c45c34;    --relationship-friendship:#8a5c6b;
+    --relationship-mentor:#8faf9f;      --relationship-rivalry:#9b3e31;
+    --relationship-alliance:#6b8c7b;    --relationship-other:#9d8577;
 
-    --chip-bg-subtle:rgba(28,30,33,0.05);
+    --chip-bg-subtle:rgba(59,43,36,0.06);
 }
 
 /* ============================================================
@@ -871,21 +886,39 @@ textarea.in{min-height:88px;resize:vertical;line-height:1.5}
 
 [data-theme="carnival"] body{
   background:
-    repeating-linear-gradient(105deg,
-      rgba(245,241,235,0.055) 0,
-      rgba(245,241,235,0.055) 22px,
-      rgba(181,31,45,0.055) 22px,
-      rgba(181,31,45,0.055) 44px),
-    radial-gradient(circle at 50% 0%, rgba(181,31,45,0.12), transparent 42%),
-    var(--bg);
+    radial-gradient(circle at 20% 0%, rgba(255,0,127,0.15) 0%, transparent 40%),
+    radial-gradient(circle at 100% 50%, rgba(0,229,255,0.08) 0%, transparent 50%),
+    linear-gradient(to bottom, #060608 0%, #0a0a0f 100%);
   background-attachment: fixed;
 }
 [data-theme="carnival"] h1,
 [data-theme="carnival"] h2,
 [data-theme="carnival"] h3,
 [data-theme="carnival"] h4{
-  color:#eee9e5;
-  text-shadow: 2px 2px 0 #7f1721, 0 0 8px rgba(181,31,45,0.25);
+  color: #ffffff;
+  font-family: 'Instrument Sans', system-ui, sans-serif;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  text-shadow: 
+    0 0 5px rgba(255,0,127,0.8),
+    0 0 15px rgba(255,0,127,0.4),
+    2px 2px 0px #000000;
+}
+[data-theme="carnival"] .list,
+[data-theme="carnival"] .detail,
+[data-theme="carnival"] .sheet{
+  border-radius: 2px;
+  border: 1px solid var(--line-strong);
+  box-shadow: 
+    0 0 15px rgba(255,0,127,0.1), 
+    inset 0 0 10px rgba(0,0,0,0.5);
+  background: rgba(16, 16, 20, 0.85);
+  backdrop-filter: blur(8px);
+}
+[data-theme="carnival"] .btn.primary {
+  box-shadow: 0 0 12px rgba(255,0,127,0.5);
+  border: 1px solid #ff4da6;
 }
 
 [data-theme="maximal"] body{
@@ -913,30 +946,48 @@ textarea.in{min-height:88px;resize:vertical;line-height:1.5}
 
 [data-theme="gits"] body{
   background:
-    linear-gradient(rgba(0,240,255,0.04) 1px, transparent 1px),
-    radial-gradient(circle at 50% 0%, #0a2540 0%, var(--bg) 100%);
-  background-size: 100% 4px, 100% 100%;
+    radial-gradient(circle at 50% 30%, rgba(0,229,255,0.12) 0%, transparent 50%),
+    radial-gradient(circle at 90% 50%, rgba(255,26,140,0.1) 0%, transparent 40%),
+    linear-gradient(90deg, rgba(255,42,42,0.08) 0%, transparent 15%),
+    linear-gradient(to bottom, #07080c 0%, #0a0e17 100%);
   background-attachment: fixed;
 }
 [data-theme="gits"] h1,
 [data-theme="gits"] h2,
 [data-theme="gits"] h3,
 [data-theme="gits"] h4{
-  color: var(--accent);
-  text-shadow: 0 0 8px rgba(0,240,255,0.4);
+  color: #ffffff;
   font-family: var(--f-mono);
-  letter-spacing: 0.05em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
+  text-shadow: 
+    -2px 0 0 rgba(0,229,255,0.7), 
+     2px 0 0 rgba(255,26,140,0.7),
+     0 0 10px rgba(0,229,255,0.3);
 }
 [data-theme="gits"] .list,
 [data-theme="gits"] .detail,
-[data-theme="gits"] .sheet{ border-radius:0 }
+[data-theme="gits"] .sheet{
+  border-radius: 0;
+  border: 2px solid var(--line-strong);
+  box-shadow: 
+    0 0 0 1px #07080c,
+    inset 0 0 15px rgba(0,229,255,0.05),
+    4px 4px 0px rgba(0,229,255,0.2);
+}
 
 [data-theme="stained-glass"] body{
   background:
-    linear-gradient(135deg, rgba(227,24,55,0.04) 0%, transparent 40%),
-    linear-gradient(225deg, rgba(0,102,204,0.04) 0%, transparent 40%),
-    radial-gradient(circle at 50% 50%, #ffffff 0%, var(--bg) 100%);
+    repeating-linear-gradient(90deg,
+      rgba(94,232,255,0.03) 0, rgba(94,232,255,0.03) 1px,
+      transparent 1px, transparent 48px),
+    repeating-linear-gradient(0deg,
+      rgba(94,232,255,0.03) 0, rgba(94,232,255,0.03) 1px,
+      transparent 1px, transparent 48px),
+    radial-gradient(ellipse at 50% 30%, rgba(255,79,168,0.14) 0%, transparent 45%),
+    radial-gradient(ellipse at 50% 0%, rgba(94,232,255,0.10) 0%, transparent 50%),
+    linear-gradient(to bottom, transparent 60%, rgba(4,10,18,0.9) 100%),
+    var(--bg);
   background-attachment: fixed;
 }
 [data-theme="stained-glass"] h1,
@@ -944,38 +995,68 @@ textarea.in{min-height:88px;resize:vertical;line-height:1.5}
 [data-theme="stained-glass"] h3,
 [data-theme="stained-glass"] h4{
   color: var(--fg);
-  text-shadow: 0 0 15px rgba(255,255,255,1);
-  font-weight: 700;
+  text-shadow:
+    0 0 8px rgba(94,232,255,0.5),
+    0 0 24px rgba(255,79,168,0.15);
+  font-weight: 600;
   letter-spacing: 0.02em;
 }
 [data-theme="stained-glass"] .list,
 [data-theme="stained-glass"] .detail,
 [data-theme="stained-glass"] .sheet{
-  border: 3px solid var(--line);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.1), inset 0 0 20px rgba(0,102,204,0.05);
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+  box-shadow:
+    0 0 0 1px rgba(94,232,255,0.10),
+    0 10px 40px rgba(0,0,0,0.5),
+    inset 0 0 40px rgba(94,232,255,0.03);
+  outline: 1px solid rgba(94,232,255,0.06);
+  outline-offset: -5px;
+}
+[data-theme="stained-glass"] .detail{
+  background: rgba(14,29,46,0.85);
+  backdrop-filter: blur(4px);
 }
 
-[data-theme="art-deco"] body{
+[data-theme="nouveau"] body{
   background:
-    linear-gradient(to right, rgba(184,151,90,0.04) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(184,151,90,0.04) 1px, transparent 1px),
+    radial-gradient(circle at 50% 30%, rgba(196,92,52,0.05) 0%, transparent 50%),
+    radial-gradient(circle at 0% 100%, rgba(107,140,123,0.08) 0%, transparent 40%),
+    radial-gradient(circle at 100% 0%, rgba(107,140,123,0.08) 0%, transparent 40%),
     var(--bg);
-  background-size: 40px 40px, 40px 40px, 100% 100%;
   background-attachment: fixed;
 }
-[data-theme="art-deco"] h1,
-[data-theme="art-deco"] h2,
-[data-theme="art-deco"] h3,
-[data-theme="art-deco"] h4{
+[data-theme="nouveau"] h1,
+[data-theme="nouveau"] h2,
+[data-theme="nouveau"] h3,
+[data-theme="nouveau"] h4{
   color: var(--fg);
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-  font-weight: 900;
+  font-family: 'Newsreader', Georgia, serif;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-shadow: 1px 1px 0 rgba(251,246,235,0.8);
 }
-[data-theme="art-deco"] .list,
-[data-theme="art-deco"] .detail,
-[data-theme="art-deco"] .sheet{
-  border-radius:0;
-  border: 2px solid var(--line);
-  box-shadow: 0 20px 40px rgba(28,30,33,0.15);
+[data-theme="nouveau"] .list,
+[data-theme="nouveau"] .detail,
+[data-theme="nouveau"] .sheet{
+  border-radius: 12px;
+  border: 2px solid var(--line-strong);
+  box-shadow: 
+    0 4px 20px rgba(59,43,36,0.06), 
+    inset 0 0 0 4px var(--surface),
+    inset 0 0 0 5px var(--line);
+}
+[data-theme="nouveau"] .detail-in {
+  position: relative;
+}
+[data-theme="nouveau"] .detail-in::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 50%; transform: translateX(-50%);
+  width: 60%; height: 40px;
+  border: 2px solid var(--line-strong);
+  border-bottom: none;
+  border-radius: 40px 40px 0 0;
+  pointer-events: none;
+  opacity: 0.5;
 }
