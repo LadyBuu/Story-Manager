@@ -3,18 +3,17 @@
    ============================================================
 
    Structure:
-     1.  Token aliases  — Story Organiser names  →  Hollow Blades names
-     2.  Base tokens (dark, default)
-     3.  Light (soft cream)
-     4.  Vaporwave
-     5.  Pastel (80s magical girl)
-     6.  Carnival (underground cyber-cabaret)
-     7.  Maximal (tacky shocking light)
-     8.  GITS (Ghost in the Shell - Neon City variant)
-     9.  Stained Glass (Ghost in the Shell - Luminous Cathedral variant)
-     10. Nouveau (Mucha lithograph)
-     11. Theme transitions
-     12. App rules (unchanged from the original <style> block)
+     1.  Base tokens (dark, default)
+     2.  Light (soft cream)
+     3.  Vaporwave
+     4.  Pastel (80s magical girl)
+     5.  Carnival (underground cyber-cabaret)
+     6.  Maximal (tacky shocking light)
+     7.  GITS (Ghost in the Shell - Neon City variant)
+     8.  Stained Glass (Ghost in the Shell - Luminous Cathedral variant)
+     9.  Nouveau (Mucha lithograph) — connected via data-theme="art-deco"
+     10. Theme transitions
+     11. App rules
 
    THEME MECHANISM
      `data-theme="<name>"` on <html> activates a theme.
@@ -51,32 +50,6 @@
     --f-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
     color-scheme:dark;
 
-    /* ---- domain colour tokens (from Hollow Blades) ---- */
-    --graph-node-accent-fill:#c9809a;      --graph-node-accent-stroke:#a35c73;
-    --graph-node-info-fill:#7fa3d1;        --graph-node-info-stroke:#5a7dab;
-
-    --graph-node-status-deceased:#8a7c83;
-    --graph-node-status-instructor:#9d93bd;
-    --graph-node-status-senior:#d1a35f;
-    --graph-node-status-junior:#7fa3d1;
-    --graph-node-status-rookie:#8fb59a;
-    --graph-node-status-student:#c9809a;
-    --graph-node-status-support:#d18f7f;
-    --graph-node-status-civilian:#8a7c83;
-    --graph-node-status-other:#8a7c83;
-
-    --magic-earth:#a07f5c;  --magic-water:#7fa3d1;  --magic-fire:#d18f7f;
-    --magic-air:#a9c4dc;    --magic-metal:#ad9fa5;  --magic-wood:#8fb59a;
-    --magic-blood:#c9809a;  --magic-bone:#efe6e8;   --magic-mind:#9d93bd;
-    --magic-morphic:#a9c4dc;--magic-life:#8fb59a;   --magic-death:#4a3c43;
-    --magic-space:#7fa3d1;  --magic-time:#d1a35f;   --magic-dimension:#a995d1;
-    --magic-void:#151214;   --magic-reality:#c9809a;--magic-transference:#d18f7f;
-
-    --relationship-familial:#8fb59a;     --relationship-professional:#d1a35f;
-    --relationship-romantic:#c9809a;     --relationship-friendship:#7fa3d1;
-    --relationship-mentor:#a995d1;       --relationship-rivalry:#d18f7f;
-    --relationship-alliance:#8fb59a;     --relationship-other:#8a7c83;
-
     --chip-bg-subtle:rgba(255,255,255,0.05);
 
     /* ---- tokens the rest of the app already uses ---- */
@@ -112,30 +85,6 @@
     --scrollbar-track:var(--bg);
     --scrollbar-thumb:var(--line);
 
-    --graph-node-accent-fill:#6f9b28;   --graph-node-accent-stroke:#4d7218;
-    --graph-node-info-fill:#3a7ba7;     --graph-node-info-stroke:#2a5c80;
-    --graph-node-status-deceased:#8a8a8a;
-    --graph-node-status-instructor:#7a4090;
-    --graph-node-status-senior:#9c7a1e;
-    --graph-node-status-junior:#2d6fa8;
-    --graph-node-status-rookie:#1e8b4a;
-    --graph-node-status-student:#5a8a1a;
-    --graph-node-status-support:#c25e0e;
-    --graph-node-status-civilian:#5a6a6c;
-    --graph-node-status-other:#5a6a6c;
-
-    --magic-earth:#6B5638;  --magic-water:#2d7ab5; --magic-fire:#C25E0E;
-    --magic-air:#5B8AA0;    --magic-metal:#6A7A7B; --magic-wood:#1F8B4A;
-    --magic-blood:#9C2A1E;  --magic-bone:#9A9170;  --magic-mind:#6E2F8A;
-    --magic-morphic:#128C72;--magic-life:#1E9E4F;  --magic-death:#3A5068;
-    --magic-space:#2172A8;  --magic-time:#C47810;  --magic-dimension:#7A4090;
-    --magic-void:#38384D;   --magic-reality:#C49A0A;--magic-transference:#B83830;
-
-    --relationship-familial:#5a8a1a;    --relationship-professional:#9c7a1e;
-    --relationship-romantic:#b32b22;    --relationship-friendship:#2d6fa8;
-    --relationship-mentor:#7a4090;      --relationship-rivalry:#c25e0e;
-    --relationship-alliance:#1e8b4a;    --relationship-other:#5a6a6c;
-
     --chip-bg-subtle:rgba(0,0,0,0.05);
 }
 
@@ -168,30 +117,6 @@
     --scrollbar-track:var(--bg);
     --scrollbar-thumb:#40316f;
 
-    --graph-node-accent-fill:#ff4fd8;   --graph-node-accent-stroke:#b92e9c;
-    --graph-node-info-fill:#35e7ff;     --graph-node-info-stroke:#209cb0;
-    --graph-node-status-deceased:#625b78;
-    --graph-node-status-instructor:#c77dff;
-    --graph-node-status-senior:#ffd166;
-    --graph-node-status-junior:#35e7ff;
-    --graph-node-status-rookie:#61ffb0;
-    --graph-node-status-student:#ff4fd8;
-    --graph-node-status-support:#ff9f68;
-    --graph-node-status-civilian:#a89ac7;
-    --graph-node-status-other:#a89ac7;
-
-    --magic-earth:#b58a68;  --magic-water:#35e7ff; --magic-fire:#ff754f;
-    --magic-air:#a9ecff;    --magic-metal:#b7c8d6; --magic-wood:#61ffb0;
-    --magic-blood:#ff557f;  --magic-bone:#eee6d8;  --magic-mind:#c77dff;
-    --magic-morphic:#54f5d0;--magic-life:#61ffb0;  --magic-death:#625b78;
-    --magic-space:#35e7ff;  --magic-time:#ffd166;  --magic-dimension:#c77dff;
-    --magic-void:#100b24;   --magic-reality:#ff4fd8;--magic-transference:#ff557f;
-
-    --relationship-familial:#61ffb0;    --relationship-professional:#ffd166;
-    --relationship-romantic:#ff557f;    --relationship-friendship:#35e7ff;
-    --relationship-mentor:#c77dff;      --relationship-rivalry:#ff9f68;
-    --relationship-alliance:#54f5d0;    --relationship-other:#a89ac7;
-
     --chip-bg-subtle:rgba(255,255,255,0.07);
 }
 
@@ -223,30 +148,6 @@
     --shadow:0 4px 16px rgba(153,86,119,0.16), 0 0 24px rgba(237,114,170,0.10);
     --scrollbar-track:var(--bg);
     --scrollbar-thumb:var(--line);
-
-    --graph-node-accent-fill:#ed72aa;   --graph-node-accent-stroke:#c9538a;
-    --graph-node-info-fill:#79c9df;     --graph-node-info-stroke:#57a5bb;
-    --graph-node-status-deceased:#a994b2;
-    --graph-node-status-instructor:#a982d6;
-    --graph-node-status-senior:#d6a84f;
-    --graph-node-status-junior:#72bad0;
-    --graph-node-status-rookie:#76b99f;
-    --graph-node-status-student:#ed72aa;
-    --graph-node-status-support:#d991ad;
-    --graph-node-status-civilian:#9f8ca1;
-    --graph-node-status-other:#9f8ca1;
-
-    --magic-earth:#b98c72;  --magic-water:#73c8e5; --magic-fire:#e99a72;
-    --magic-air:#b9dfe8;    --magic-metal:#9eabbc; --magic-wood:#86b99a;
-    --magic-blood:#d86f83;  --magic-bone:#e6d7c3;  --magic-mind:#ad8bd0;
-    --magic-morphic:#82bda9;--magic-life:#82bd88;  --magic-death:#83728f;
-    --magic-space:#73c8df;  --magic-time:#d6b45c;  --magic-dimension:#a889cf;
-    --magic-void:#75657e;   --magic-reality:#e36fa6;--magic-transference:#d88978;
-
-    --relationship-familial:#82bda9;    --relationship-professional:#d5b35c;
-    --relationship-romantic:#df7698;    --relationship-friendship:#76bfd6;
-    --relationship-mentor:#a68bc9;      --relationship-rivalry:#d99678;
-    --relationship-alliance:#82bda9;    --relationship-other:#9e8b9b;
 
     --chip-bg-subtle:rgba(237,114,170,0.10);
 }
@@ -284,30 +185,6 @@
     --scrollbar-track:var(--bg);
     --scrollbar-thumb:var(--line);
 
-    --graph-node-accent-fill:#ff007f;   --graph-node-accent-stroke:#060608;
-    --graph-node-info-fill:#00e5ff;     --graph-node-info-stroke:#060608;
-    --graph-node-status-deceased:#3b2b4d;
-    --graph-node-status-instructor:#b8b0c9;
-    --graph-node-status-senior:#f2ce42;
-    --graph-node-status-junior:#00e5ff;
-    --graph-node-status-rookie:#00ffcc;
-    --graph-node-status-student:#ff007f;
-    --graph-node-status-support:#e60033;
-    --graph-node-status-civilian:#7a6f8c;
-    --graph-node-status-other:#7a6f8c;
-
-    --magic-earth:#806c5c;  --magic-water:#00e5ff; --magic-fire:#e60033;
-    --magic-air:#fcfcfc;    --magic-metal:#b8b0c9; --magic-wood:#00ffcc;
-    --magic-blood:#ff007f;  --magic-bone:#fcfcfc;  --magic-mind:#ff007f;
-    --magic-morphic:#00ffcc;--magic-life:#00e5ff;  --magic-death:#3b2b4d;
-    --magic-space:#00e5ff;  --magic-time:#f2ce42;  --magic-dimension:#b8b0c9;
-    --magic-void:#060608;   --magic-reality:#ff007f;--magic-transference:#e60033;
-
-    --relationship-familial:#00ffcc;    --relationship-professional:#f2ce42;
-    --relationship-romantic:#ff007f;    --relationship-friendship:#00e5ff;
-    --relationship-mentor:#b8b0c9;      --relationship-rivalry:#e60033;
-    --relationship-alliance:#00ffcc;    --relationship-other:#7a6f8c;
-
     --chip-bg-subtle:rgba(255,0,127,0.08);
 }
 
@@ -339,30 +216,6 @@
     --shadow:4px 4px 0 #00e5ff, 0 0 20px rgba(255,46,166,0.4);
     --scrollbar-track:var(--bg);
     --scrollbar-thumb:var(--line);
-
-    --graph-node-accent-fill:#ff2ea6;   --graph-node-accent-stroke:#1a0033;
-    --graph-node-info-fill:#00e5ff;     --graph-node-info-stroke:#1a0033;
-    --graph-node-status-deceased:#b8a0c8;
-    --graph-node-status-instructor:#7a3fa8;
-    --graph-node-status-senior:#ffea00;
-    --graph-node-status-junior:#00e5ff;
-    --graph-node-status-rookie:#ff0066;
-    --graph-node-status-student:#ff2ea6;
-    --graph-node-status-support:#ff9900;
-    --graph-node-status-civilian:#1a0033;
-    --graph-node-status-other:#7a3fa8;
-
-    --magic-earth:#b8a0c8; --magic-water:#00e5ff; --magic-fire:#ff0066;
-    --magic-air:#e6fffb;   --magic-metal:#7a3fa8; --magic-wood:#00a89a;
-    --magic-blood:#ff2ea6; --magic-bone:#fff0fb;  --magic-mind:#1a0033;
-    --magic-morphic:#00e5ff;--magic-life:#ffea00; --magic-death:#7a3fa8;
-    --magic-space:#00e5ff; --magic-time:#ffea00;  --magic-dimension:#ff2ea6;
-    --magic-void:#1a0033;  --magic-reality:#ff0066;--magic-transference:#7a3fa8;
-
-    --relationship-familial:#ffea00;    --relationship-professional:#7a3fa8;
-    --relationship-romantic:#ff0066;    --relationship-friendship:#00e5ff;
-    --relationship-mentor:#ff2ea6;      --relationship-rivalry:#1a0033;
-    --relationship-alliance:#00a89a;    --relationship-other:#b8a0c8;
 
     --chip-bg-subtle:rgba(255,46,166,0.08);
 }
@@ -398,30 +251,6 @@
     --shadow:0 4px 20px rgba(0,229,255,0.12), inset 0 0 0 1px var(--line-strong);
     --scrollbar-track:var(--bg);
     --scrollbar-thumb:var(--line-strong);
-
-    --graph-node-accent-fill:#ff1a8c;   --graph-node-accent-stroke:#07080c;
-    --graph-node-info-fill:#00e5ff;     --graph-node-info-stroke:#07080c;
-    --graph-node-status-deceased:#3b4e64;
-    --graph-node-status-instructor:#ff1a8c;
-    --graph-node-status-senior:#f2d130;
-    --graph-node-status-junior:#00e5ff;
-    --graph-node-status-rookie:#00ffb2;
-    --graph-node-status-student:#8ba3c7;
-    --graph-node-status-support:#ff2a2a;
-    --graph-node-status-civilian:#5e7699;
-    --graph-node-status-other:#5e7699;
-
-    --magic-earth:#6b4e3d;  --magic-water:#00e5ff; --magic-fire:#ff2a2a;
-    --magic-air:#f2f7ff;    --magic-metal:#a0b8d0; --magic-wood:#00ffb2;
-    --magic-blood:#ff1a8c;  --magic-bone:#f2f7ff;  --magic-mind:#ff1a8c;
-    --magic-morphic:#00ffb2;--magic-life:#00e5ff;  --magic-death:#3b4e64;
-    --magic-space:#00e5ff;  --magic-time:#f2d130;  --magic-dimension:#ff1a8c;
-    --magic-void:#000000;   --magic-reality:#ff2a2a;--magic-transference:#ff6b4a;
-
-    --relationship-familial:#00ffb2;    --relationship-professional:#f2d130;
-    --relationship-romantic:#ff1a8c;    --relationship-friendship:#00e5ff;
-    --relationship-mentor:#ff1a8c;      --relationship-rivalry:#ff6b4a;
-    --relationship-alliance:#8ba3c7;    --relationship-other:#5e7699;
 
     --chip-bg-subtle:rgba(0,229,255,0.08);
 }
@@ -459,41 +288,18 @@
     --scrollbar-track:var(--bg);
     --scrollbar-thumb:var(--line-strong);
 
-    --graph-node-accent-fill:#5ee8ff;   --graph-node-accent-stroke:#0a1520;
-    --graph-node-info-fill:#ff4fa8;     --graph-node-info-stroke:#0a1520;
-    --graph-node-status-deceased:#3a5a72;
-    --graph-node-status-instructor:#c77dff;
-    --graph-node-status-senior:#ffd166;
-    --graph-node-status-junior:#5ee8ff;
-    --graph-node-status-rookie:#3dffc0;
-    --graph-node-status-student:#ff4fa8;
-    --graph-node-status-support:#ff8a5c;
-    --graph-node-status-civilian:#8fb8d4;
-    --graph-node-status-other:#5a8aa8;
-
-    --magic-earth:#8a6a4a;  --magic-water:#5ee8ff; --magic-fire:#ff3d6e;
-    --magic-air:#eaf6ff;    --magic-metal:#a0b8d0; --magic-wood:#3dffc0;
-    --magic-blood:#ff4fa8;  --magic-bone:#eaf6ff;  --magic-mind:#c77dff;
-    --magic-morphic:#3dffc0;--magic-life:#5ee8ff;  --magic-death:#3a5a72;
-    --magic-space:#5ee8ff;  --magic-time:#ffd166;  --magic-dimension:#c77dff;
-    --magic-void:#04101a;   --magic-reality:#ff4fa8;--magic-transference:#ff8a5c;
-
-    --relationship-familial:#3dffc0;    --relationship-professional:#ffd166;
-    --relationship-romantic:#ff4fa8;    --relationship-friendship:#5ee8ff;
-    --relationship-mentor:#c77dff;      --relationship-rivalry:#ff8a5c;
-    --relationship-alliance:#3dffc0;    --relationship-other:#8fb8d4;
-
     --chip-bg-subtle:rgba(94,232,255,0.08);
 }
 
 /* ============================================================
-   9. NOUVEAU — the Mucha lithograph
+   9. NOUVEAU (formerly Art Deco) — the Mucha lithograph
    ============================================================
-   Inspired by Alphonse Mucha's vintage posters: warm cream
-   paper, muted sage, dusty rose, terracotta orange, and
-   rich sepia ink with organic, arched frames.
+   Connected to the HTML via data-theme="art-deco" to maintain
+   compatibility, but fully reimagined as Alphonse Mucha's 
+   Art Nouveau: warm cream paper, muted sage, dusty rose, 
+   terracotta orange, and rich sepia ink.
    ============================================================ */
-[data-theme="nouveau"] {
+[data-theme="art-deco"] {
     --bg:#f4ebd8; --surface:#fbf6eb; --surface-2:#ebdcc6;
     --line:#c6a88e; --line-strong:#9a6a4d;
     --fg:#3b2b24; --fg-2:#735a4d; --fg-3:#9d8577;
@@ -518,30 +324,6 @@
     --shadow:0 10px 30px rgba(59,43,36,0.08), 0 0 0 1px var(--line);
     --scrollbar-track:var(--bg);
     --scrollbar-thumb:var(--line);
-
-    --graph-node-accent-fill:#c45c34;   --graph-node-accent-stroke:#9a6a4d;
-    --graph-node-info-fill:#6b8c7b;     --graph-node-info-stroke:#4a6657;
-    --graph-node-status-deceased:#9d8577;
-    --graph-node-status-instructor:#8a5c6b;
-    --graph-node-status-senior:#b08c42;
-    --graph-node-status-junior:#6b8c7b;
-    --graph-node-status-rookie:#8faf9f;
-    --graph-node-status-student:#c45c34;
-    --graph-node-status-support:#9b3e31;
-    --graph-node-status-civilian:#735a4d;
-    --graph-node-status-other:#9d8577;
-
-    --magic-earth:#8a6a4a;  --magic-water:#6b8c7b; --magic-fire:#c45c34;
-    --magic-air:#f4ebd8;    --magic-metal:#9d8577; --magic-wood:#8faf9f;
-    --magic-blood:#9b3e31;  --magic-bone:#fbf6eb;  --magic-mind:#8a5c6b;
-    --magic-morphic:#8faf9f;--magic-life:#6b8c7b;  --magic-death:#3b2b24;
-    --magic-space:#735a4d;  --magic-time:#b08c42;  --magic-dimension:#8a5c6b;
-    --magic-void:#2a1f1a;   --magic-reality:#c45c34;--magic-transference:#d98c6b;
-
-    --relationship-familial:#6b8c7b;    --relationship-professional:#b08c42;
-    --relationship-romantic:#c45c34;    --relationship-friendship:#8a5c6b;
-    --relationship-mentor:#8faf9f;      --relationship-rivalry:#9b3e31;
-    --relationship-alliance:#6b8c7b;    --relationship-other:#9d8577;
 
     --chip-bg-subtle:rgba(59,43,36,0.06);
 }
@@ -570,11 +352,7 @@ button, input, select, textarea, a,
 }
 
 /* ============================================================
-   11. APP RULES (verbatim from the original <style> block)
-   ============================================================
-   Everything below is the untouched Story Organiser styling.
-   It reads the canonical tokens above; no rule here references
-   the Hollow Blades vocabulary directly.
+   11. APP RULES
    ============================================================ */
 
 *{box-sizing:border-box}
@@ -851,7 +629,9 @@ textarea.in{min-height:88px;resize:vertical;line-height:1.5}
 .chg{font:500 11px var(--f-mono);color:var(--st-draft)}
 .banner .btn{margin-left:8px}
 
-/* ---- theme-specific backdrops (from Hollow Blades) ---- */
+/* ============================================================
+   THEME-SPECIFIC BACKDROPS & OVERRIDES
+   ============================================================ */
 
 [data-theme="vaporwave"] body{
   background:
@@ -1018,7 +798,7 @@ textarea.in{min-height:88px;resize:vertical;line-height:1.5}
   backdrop-filter: blur(4px);
 }
 
-[data-theme="nouveau"] body{
+[data-theme="art-deco"] body{
   background:
     radial-gradient(circle at 50% 30%, rgba(196,92,52,0.05) 0%, transparent 50%),
     radial-gradient(circle at 0% 100%, rgba(107,140,123,0.08) 0%, transparent 40%),
@@ -1026,19 +806,19 @@ textarea.in{min-height:88px;resize:vertical;line-height:1.5}
     var(--bg);
   background-attachment: fixed;
 }
-[data-theme="nouveau"] h1,
-[data-theme="nouveau"] h2,
-[data-theme="nouveau"] h3,
-[data-theme="nouveau"] h4{
+[data-theme="art-deco"] h1,
+[data-theme="art-deco"] h2,
+[data-theme="art-deco"] h3,
+[data-theme="art-deco"] h4{
   color: var(--fg);
   font-family: 'Newsreader', Georgia, serif;
   font-weight: 500;
   letter-spacing: 0.02em;
   text-shadow: 1px 1px 0 rgba(251,246,235,0.8);
 }
-[data-theme="nouveau"] .list,
-[data-theme="nouveau"] .detail,
-[data-theme="nouveau"] .sheet{
+[data-theme="art-deco"] .list,
+[data-theme="art-deco"] .detail,
+[data-theme="art-deco"] .sheet{
   border-radius: 12px;
   border: 2px solid var(--line-strong);
   box-shadow: 
@@ -1046,10 +826,10 @@ textarea.in{min-height:88px;resize:vertical;line-height:1.5}
     inset 0 0 0 4px var(--surface),
     inset 0 0 0 5px var(--line);
 }
-[data-theme="nouveau"] .detail-in {
+[data-theme="art-deco"] .detail-in {
   position: relative;
 }
-[data-theme="nouveau"] .detail-in::before {
+[data-theme="art-deco"] .detail-in::before {
   content: '';
   position: absolute;
   top: 0; left: 50%; transform: translateX(-50%);
