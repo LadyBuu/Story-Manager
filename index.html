@@ -923,7 +923,8 @@ function settingsModal(){
     ['system','System'],['light','Light'],['dark','Dark'],
     ['vaporwave','Vaporwave'],['pastel','Pastel'],['carnival','Carnival'],
     ['maximal','Maximal'],['gits','GITS'],['stained-glass','Stained Glass'],
-    ['art-deco','Art Deco']
+    ['nouveau','Nouveau'],['ukiyo-e','Ukiyo-e'],['nature','Nature'],
+    ['kmt','KMT'],['gaslight','Gaslight'],['grotesque','Grotesque']
   ];
   h+='<div class="sec"><h3>Theme</h3><div class="seg" role="group" aria-label="Theme" style="flex-wrap:wrap">'+THEMES.map(function(v){return '<button data-act="theme" data-v="'+v[0]+'" aria-pressed="'+(t===v[0])+'">'+v[1]+'</button>'}).join('')+'</div></div>';
   if(p){
