@@ -3,7 +3,7 @@
    ============================================================
 
    ARCHITECTURE:
-     Layer 1: Foundation Tokens (base + 18 themes)
+     Layer 1: Foundation Tokens (base + 22 themes)
      Layer 2: Theme Art Direction (typography, backgrounds)
      Layer 3: Component Overrides (thematic component styling)
      Layer 4: Accessibility & Responsive
@@ -531,6 +531,176 @@
     --f-mono: 'Courier New', Courier, monospace;
 }
 
+/* --- 19. Brutalist (Confrontational Architecture) --- */
+[data-theme="brutalist"] {
+    --bg:#E6E6E6; 
+    --surface:#FFFFFF; 
+    --surface-2:#D0D0D0; 
+    --line:#000000; 
+    --line-strong:#000000;
+    --fg:#050505; 
+    --fg-2:#333333; 
+    --fg-3:#666666;
+    --accent:#FF3300; 
+    --accent-fg:#000000; 
+    --accent-soft:rgba(255,51,0,0.15);
+    --info:#000000; 
+    --info-soft:rgba(0,0,0,0.08); 
+    --info-hover:rgba(0,0,0,0.15);
+    --danger:#CC0000; 
+    --danger-soft:rgba(204,0,0,0.15); 
+    --danger-hover:rgba(204,0,0,0.25);
+    --warning:#FF3300; 
+    --warning-soft:rgba(255,51,0,0.15); 
+    --warning-hover:rgba(255,51,0,0.25);
+    --ok:#006600; --bad:#CC0000;
+    --st-idea:#666666; --st-outlined:#333333; --st-draft:#FF3300;
+    --st-revised:#CC0000; --st-final:#006600;
+    --scrim:rgba(0,0,0,0.85);
+    --overlay:rgba(0,0,0,0.85);
+    --overlay-light:rgba(0,0,0,0.65);
+    --v-au:#000000; --v-alt:#666666;
+    --r-a:#FF3300; --r-b:#000000; --r-c:#006600;
+    --r-d:#CC0000; --r-e:#333333; --r-f:#666666;
+    color-scheme:light;
+    --radius:0px; 
+    --shadow: 8px 8px 0px #000000;
+    --shadow-sm: 3px 3px 0px #000000;
+    --shadow-lg: 12px 12px 0px #000000;
+    --scrollbar-track:var(--bg);
+    --scrollbar-thumb:var(--line);
+    --chip-bg-subtle:rgba(0,0,0,0.08);
+    --f-display:'Arial Black', 'Impact', sans-serif;
+    --f-body:'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+/* --- 20. Orchestrion Guts (Mechanical) --- */
+[data-theme="orchestrion"] {
+    --bg:#1F1410; 
+    --surface:#2E1F18; 
+    --surface-2:#3D2A20;
+    --line:#7A5520; 
+    --line-strong:#C48E3A; 
+    --fg:#EAD8C0; 
+    --fg-2:#BCA283; 
+    --fg-3:#8A7055; 
+    --accent:#A82C2C; 
+    --accent-fg:#FFFFFF; 
+    --accent-soft:rgba(168,44,44,0.20);
+    --info:#5B8C8A; 
+    --info-soft:rgba(91,140,138,0.20); 
+    --info-hover:rgba(91,140,138,0.35);
+    --danger:#D93838; 
+    --danger-soft:rgba(217,56,56,0.20); 
+    --danger-hover:rgba(217,56,56,0.35);
+    --warning:#D4A35F; 
+    --warning-soft:rgba(212,163,95,0.20); 
+    --warning-hover:rgba(212,163,95,0.35);
+    --ok:#6B8C5A; --bad:#D93838;
+    --st-idea:#8A7055; --st-outlined:#5B8C8A; --st-draft:#D4A35F;
+    --st-revised:#A82C2C; --st-final:#6B8C5A;
+    --scrim:rgba(15,10,8,0.90);
+    --overlay:rgba(15,10,8,0.90);
+    --overlay-light:rgba(15,10,8,0.70);
+    --v-au:#5B8C8A; --v-alt:#D4A35F;
+    --r-a:#A82C2C; --r-b:#5B8C8A; --r-c:#6B8C5A;
+    --r-d:#D4A35F; --r-e:#BCA283; --r-f:#D93838;
+    color-scheme:dark;
+    --radius:2px; 
+    --shadow: 2px 2px 0px #110A07, inset 0 1px 0px rgba(255,255,255,0.1); 
+    --shadow-in: inset 0 2px 4px #000000, 0 1px 0px rgba(255,255,255,0.05); 
+    --scrollbar-track:var(--bg);
+    --scrollbar-thumb:var(--line-strong);
+    --chip-bg-subtle:rgba(196,142,58,0.1);
+    --f-display:'Oswald', 'Arial Narrow', sans-serif;
+    --f-body:'Courier New', Courier, monospace;
+    --f-mono:'Courier New', Courier, monospace;
+}
+
+/* --- 21. Rococo (French Salon Opulence) --- */
+[data-theme="rococo"] {
+    --bg:#E8F0F2; 
+    --surface:#FFF9F9; 
+    --surface-2:#F2E8E8; 
+    --gold:#D4AF37;
+    --line:#E0D0C0; 
+    --line-strong:#B89025; 
+    --fg:#3A4245; 
+    --fg-2:#6E7A7D; 
+    --fg-3:#8A9A9D; 
+    --accent:#527F96; 
+    --accent-fg:#FFFFFF; 
+    --accent-soft:rgba(82,127,150,0.15);
+    --info:#7CA5B8; 
+    --info-soft:rgba(124,165,184,0.20); 
+    --info-hover:rgba(124,165,184,0.35);
+    --danger:#C25959; 
+    --danger-soft:rgba(194,89,89,0.15); 
+    --danger-hover:rgba(194,89,89,0.25);
+    --warning:#C49A45; 
+    --warning-soft:rgba(196,154,69,0.15); 
+    --warning-hover:rgba(196,154,69,0.25);
+    --ok:#7A9B6E; --bad:#C25959;
+    --st-idea:#8A9A9D; --st-outlined:#527F96; --st-draft:#E5A9B8;
+    --st-revised:#C25959; --st-final:#7A9B6E;
+    --scrim:rgba(58,66,69,0.75);
+    --overlay:rgba(58,66,69,0.75);
+    --overlay-light:rgba(58,66,69,0.55);
+    --v-au:#527F96; --v-alt:#E5A9B8;
+    --r-a:#527F96; --r-b:#E5A9B8; --r-c:#7A9B6E;
+    --r-d:#C49A45; --r-e:#8A9A9D; --r-f:#C25959;
+    color-scheme:light;
+    --radius:24px; 
+    --shadow: 0 10px 25px rgba(184,144,37,0.15), 0 0 0 1px rgba(212,175,55,0.3);
+    --scrollbar-track:var(--bg);
+    --scrollbar-thumb:var(--line);
+    --chip-bg-subtle:rgba(212,175,55,0.1);
+    --f-display:'Playfair Display', 'Newsreader', Georgia, serif;
+    --f-body:'Newsreader', Georgia, serif;
+    --f-mono:'Inter', system-ui, sans-serif; 
+}
+
+/* --- 22. Nautical Tile (Portuguese Azulejo) --- */
+[data-theme="nautical-tile"] {
+    --bg:#E4EAF0; 
+    --surface:#FFFFFF; 
+    --surface-2:#F0F4F8; 
+    --line:#1A3B6B; 
+    --line-strong:#0D2342; 
+    --fg:#0D2342; 
+    --fg-2:#3B5B82; 
+    --fg-3:#5A7A9E; 
+    --accent:#1F4A8A; 
+    --accent-fg:#FFFFFF; 
+    --accent-soft:rgba(31,74,138,0.15);
+    --info:#7AA6D0; 
+    --info-soft:rgba(122,166,208,0.20); 
+    --info-hover:rgba(122,166,208,0.35);
+    --danger:#A62C2C; 
+    --danger-soft:rgba(166,44,44,0.15); 
+    --danger-hover:rgba(166,44,44,0.25);
+    --warning:#C49A45; 
+    --warning-soft:rgba(196,154,69,0.15); 
+    --warning-hover:rgba(196,154,69,0.25);
+    --ok:#2C6B4A; --bad:#A62C2C;
+    --st-idea:#5A7A9E; --st-outlined:#3B5B82; --st-draft:#C49A45;
+    --st-revised:#A62C2C; --st-final:#2C6B4A;
+    --scrim:rgba(13,35,66,0.75);
+    --overlay:rgba(13,35,66,0.75);
+    --overlay-light:rgba(13,35,66,0.55);
+    --v-au:#1F4A8A; --v-alt:#7AA6D0;
+    --r-a:#1F4A8A; --r-b:#7AA6D0; --r-c:#2C6B4A;
+    --r-d:#C49A45; --r-e:#3B5B82; --r-f:#A62C2C;
+    color-scheme:light;
+    --radius:2px; 
+    --shadow: 2px 2px 0px rgba(13,35,66,0.15);
+    --scrollbar-track:var(--bg);
+    --scrollbar-thumb:var(--line);
+    --chip-bg-subtle:rgba(31,74,138,0.08);
+    --f-display:'Playfair Display', 'Newsreader', Georgia, serif;
+    --f-body:'Newsreader', Georgia, serif;
+}
+
 /* ============================================================
    LAYER 2: THEME ART DIRECTION
    ============================================================ */
@@ -694,6 +864,39 @@ html[data-theme="ukiyo-e"] body {
   background-size: 100% 100%, 100% 100%, 5px 5px, 100% 100%;
   background-attachment: fixed;
 }
+/* Brutalist */
+[data-theme="brutalist"] body {
+  background:
+    repeating-linear-gradient(90deg, rgba(0,0,0,0.03) 0, rgba(0,0,0,0.03) 1px, transparent 1px, transparent 4px),
+    repeating-linear-gradient(0deg, rgba(0,0,0,0.03) 0, rgba(0,0,0,0.03) 1px, transparent 1px, transparent 4px),
+    var(--bg);
+  background-attachment: fixed;
+}
+/* Orchestrion */
+[data-theme="orchestrion"] body {
+  background:
+    repeating-linear-gradient(90deg, rgba(196,142,58,0.03) 0, rgba(196,142,58,0.03) 1px, transparent 1px, transparent 12px),
+    repeating-linear-gradient(0deg, rgba(0,0,0,0.1) 0, rgba(0,0,0,0.1) 2px, transparent 2px, transparent 8px),
+    var(--bg);
+  background-attachment: fixed;
+}
+/* Rococo */
+[data-theme="rococo"] body {
+  background:
+    radial-gradient(circle at 10% 10%, var(--info-soft) 0%, transparent 40%),
+    radial-gradient(circle at 90% 90%, var(--accent-soft) 0%, transparent 40%),
+    radial-gradient(circle at 50% 50%, var(--surface) 0%, var(--bg) 100%);
+  background-attachment: fixed;
+}
+/* Nautical Tile */
+[data-theme="nautical-tile"] body {
+  background:
+    linear-gradient(to right, rgba(13,35,66,0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(13,35,66,0.06) 1px, transparent 1px),
+    var(--bg);
+  background-size: 80px 80px; 
+  background-attachment: fixed;
+}
 
 /* Scoped Heading Art Direction */
 [data-theme="vaporwave"] h1, [data-theme="vaporwave"] h2, [data-theme="vaporwave"] h3 { text-shadow: 0 0 7px rgba(255,79,216,0.42); }
@@ -714,6 +917,13 @@ html[data-theme="ukiyo-e"] body {
 [data-theme="choc-cake"] h1, [data-theme="choc-cake"] h2, [data-theme="choc-cake"] h3 { font-family: var(--f-display); color: var(--fg); text-transform: uppercase; letter-spacing: 0.1em; text-shadow: 2px 2px 0px var(--line-strong); }
 [data-theme="dada"] h1, [data-theme="dada"] h2 { font-family: var(--f-display); font-weight: 900; text-transform: uppercase; letter-spacing: -0.02em; text-shadow: 2px 2px 0 var(--accent), -1px -1px 0 var(--info); transform: rotate(-1.5deg) translateX(-4px); display: inline-block; }
 [data-theme="dada"] h3 { font-family: var(--f-body); font-weight: 700; text-transform: uppercase; text-decoration: underline; text-underline-offset: 4px; }
+[data-theme="brutalist"] h1, [data-theme="brutalist"] h2 { font-family: var(--f-display); font-weight: 900; text-transform: uppercase; letter-spacing: -0.04em; line-height: 0.9; font-size: 32px; }
+[data-theme="brutalist"] h3 { font-family: var(--f-display); font-size: 14px; text-transform: uppercase; letter-spacing: 0.1em; border-bottom: 4px solid var(--line-strong); padding-bottom: 4px; }
+[data-theme="orchestrion"] h1, [data-theme="orchestrion"] h2 { font-family: var(--f-display); text-transform: uppercase; letter-spacing: 0.05em; color: var(--line-strong); border-bottom: 2px solid var(--accent); padding-bottom: 4px; }
+[data-theme="orchestrion"] h3 { font-family: var(--f-body); font-weight: 700; text-transform: uppercase; font-size: 11px; color: var(--info); }
+[data-theme="rococo"] h1, [data-theme="rococo"] h2, [data-theme="rococo"] h3 { font-family: var(--f-display); font-weight: 400; color: var(--fg); letter-spacing: 0.02em; text-shadow: 1px 1px 0px var(--gold); }
+[data-theme="rococo"] h1 { font-style: italic; font-size: 28px; }
+[data-theme="nautical-tile"] h1, [data-theme="nautical-tile"] h2, [data-theme="nautical-tile"] h3 { font-family: var(--f-display); color: var(--line); font-weight: 700; letter-spacing: 0.02em; }
 
 /* ============================================================
    LAYER 3: COMPONENT OVERRIDES
@@ -818,6 +1028,59 @@ html[data-theme="ukiyo-e"] .lk { border-bottom: 1px solid var(--line-strong); }
 [data-theme="dada"] .chip { border-radius: 0; background: var(--info); border: 1px solid var(--line-strong); color: var(--line-strong); font-family: var(--f-mono); font-weight: bold; text-transform: uppercase; transform: rotate(-2deg); }
 [data-theme="dada"] .banner { border: 2px dashed var(--danger); background: var(--danger-soft); font-weight: bold; transform: rotate(-0.5deg); }
 
+/* --- Brutalist --- */
+[data-theme="brutalist"] .list, [data-theme="brutalist"] .detail { border: 4px solid var(--line-strong); box-shadow: var(--shadow); }
+[data-theme="brutalist"] .sheet { border: 4px solid var(--line-strong); box-shadow: var(--shadow-lg); }
+[data-theme="brutalist"] .lhead { display: block; }
+[data-theme="brutalist"] .ltitle { margin-bottom: 12px; }
+[data-theme="brutalist"] .row { border-bottom: 3px solid var(--line-strong); padding: 16px 8px; }
+[data-theme="brutalist"] .row.sel { background: var(--accent); color: var(--accent-fg); background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(0,0,0,0.1) 10px, rgba(0,0,0,0.1) 20px); }
+[data-theme="brutalist"] .row.sel * { color: var(--accent-fg) !important; }
+[data-theme="brutalist"] .btn { border: 3px solid var(--line-strong); box-shadow: var(--shadow-sm); font-family: var(--f-display); text-transform: uppercase; }
+[data-theme="brutalist"] .btn:active { transform: translate(3px, 3px); box-shadow: 0px 0px 0px var(--line-strong); }
+[data-theme="brutalist"] .btn.primary { background: var(--accent); color: var(--accent-fg); }
+[data-theme="brutalist"] .in { border: 3px solid var(--line-strong); box-shadow: inset 4px 4px 0 var(--surface-2); font-weight: 700; }
+[data-theme="brutalist"] .in:focus { border-color: var(--accent); background: #FFFFFF; }
+[data-theme="brutalist"] .nav { border-bottom: 2px solid var(--line-strong); border-radius: 0; padding: 12px 8px; font-family: var(--f-display); text-transform: uppercase; font-size: 16px; }
+[data-theme="brutalist"] .nav[aria-current="page"] { background: var(--accent); color: var(--accent-fg); border-left: 8px solid var(--line-strong); }
+
+/* --- Orchestrion --- */
+[data-theme="orchestrion"] .list, [data-theme="orchestrion"] .detail, [data-theme="orchestrion"] .sheet { border: 2px solid var(--line); border-radius: 2px; background: var(--surface); box-shadow: var(--shadow), inset 0 0 0 1px var(--line-strong); position: relative; }
+[data-theme="orchestrion"] .detail::before, [data-theme="orchestrion"] .detail::after { content: ''; position: absolute; width: 12px; height: 12px; border: 2px solid var(--line-strong); pointer-events: none; }
+[data-theme="orchestrion"] .detail::before { top: 4px; left: 4px; border-right: none; border-bottom: none; }
+[data-theme="orchestrion"] .detail::after { bottom: 4px; right: 4px; border-left: none; border-top: none; }
+[data-theme="orchestrion"] .row { border-bottom: 1px solid var(--line); padding: 14px 12px; }
+[data-theme="orchestrion"] .row.sel { background: var(--accent); color: var(--accent-fg); border-left: 6px solid var(--line-strong); }
+[data-theme="orchestrion"] .btn { font-family: var(--f-display); text-transform: uppercase; font-size: 14px; border: 2px solid var(--line-strong); background: var(--surface-2); color: var(--line-strong); box-shadow: var(--shadow); transition: background-color 0.1s ease, transform 0.1s ease; }
+[data-theme="orchestrion"] .btn:active { transform: translateY(2px); box-shadow: none; background: var(--bg); }
+[data-theme="orchestrion"] .btn.primary { background: var(--accent); color: #FFFFFF; border-color: var(--accent); }
+[data-theme="orchestrion"] .in { border-radius: 0; background: var(--bg); border: 1px solid var(--line); color: var(--fg); font-family: var(--f-mono); box-shadow: var(--shadow-in); }
+[data-theme="orchestrion"] .in:focus { outline: none; border-color: var(--info); box-shadow: var(--shadow-in), 0 0 0 2px var(--info-soft); }
+[data-theme="orchestrion"] .sbar { background: var(--bg); border: 1px solid var(--line); box-shadow: var(--shadow-in); height: 12px; }
+[data-theme="orchestrion"] .sbar i { background: var(--info); background-image: repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(0,0,0,0.5) 2px, rgba(0,0,0,0.5) 4px); }
+[data-theme="orchestrion"] .lab, [data-theme="orchestrion"] .meta dt { font-family: var(--f-body); font-size: 10px; text-transform: uppercase; color: var(--fg-2); border-bottom: 1px solid var(--line); padding-bottom: 2px; margin-bottom: 4px; }
+
+/* --- Rococo --- */
+[data-theme="rococo"] .list, [data-theme="rococo"] .detail, [data-theme="rococo"] .sheet { border-radius: var(--radius); background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); }
+[data-theme="rococo"] .lhead { position: relative; padding: 24px 16px 16px; border-bottom: 2px solid var(--gold); border-radius: 50% 50% 0 0 / 20px 20px 0 0; }
+[data-theme="rococo"] .lhead::before { content: '❦'; position: absolute; top: -12px; left: 50%; transform: translateX(-50%); color: var(--gold); font-size: 24px; background: var(--surface); padding: 0 8px; }
+[data-theme="rococo"] .row { border-bottom: 1px solid var(--line); border-radius: 12px; margin: 4px 8px; padding: 12px; }
+[data-theme="rococo"] .row.sel { background: var(--accent-soft); border: 1px solid var(--gold); border-left: 4px solid var(--gold); }
+[data-theme="rococo"] .btn { border-radius: 999px; background: var(--surface); color: var(--fg-2); border: 1px solid var(--gold); box-shadow: 0 2px 5px rgba(184,144,37,0.2); font-family: var(--f-display); }
+[data-theme="rococo"] .btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+[data-theme="rococo"] .lab, [data-theme="rococo"] .meta dt, [data-theme="rococo"] .ktag { font-family: var(--f-mono); text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em; color: var(--fg-2); }
+
+/* --- Nautical Tile --- */
+[data-theme="nautical-tile"] .list, [data-theme="nautical-tile"] .detail { border-radius: 2px; background: var(--surface); border: 3px solid var(--line); box-shadow: var(--shadow); outline: 2px solid var(--surface); outline-offset: -6px; }
+[data-theme="nautical-tile"] .sheet { border-radius: 0; background: var(--surface); border: 4px solid var(--line-strong); box-shadow: var(--shadow), inset 0 0 0 2px var(--surface), inset 0 0 0 4px var(--info); }
+[data-theme="nautical-tile"] .lhead { border-bottom: 2px solid var(--line); padding-bottom: 12px; margin-bottom: 12px; background-image: repeating-linear-gradient(90deg, var(--info) 0, var(--info) 4px, transparent 4px, transparent 8px); background-position: bottom; background-size: 100% 4px; background-repeat: no-repeat; }
+[data-theme="nautical-tile"] .row.sel { background: var(--accent); color: var(--accent-fg); border: 2px solid var(--line-strong); }
+[data-theme="nautical-tile"] .btn { border-radius: 0; background: var(--surface); color: var(--line); border: 2px solid var(--line); font-family: var(--f-display); box-shadow: var(--shadow); }
+[data-theme="nautical-tile"] .btn.primary { background: var(--line); color: var(--surface); }
+[data-theme="nautical-tile"] .dbar { background: var(--surface-2); border: 1px solid var(--info); padding: 8px; background-image: radial-gradient(circle at 50% 50%, transparent 40%, var(--info-soft) 40%, var(--info-soft) 45%, transparent 45%); background-size: 32px 32px; background-position: right center; background-repeat: no-repeat; }
+[data-theme="nautical-tile"] .in { border-radius: 0; background: var(--surface); border: 2px solid var(--info); color: var(--line-strong); }
+[data-theme="nautical-tile"] .in:focus { outline: none; border-color: var(--line); }
+
 /* --- Shared Theme Focus --- */
 [data-theme="gaslight"] .btn:focus-visible, [data-theme="gaslight"] .in:focus-visible, [data-theme="grotesque"] .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 [data-theme="grotesque"] .in:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; box-shadow: none; }
@@ -826,6 +1089,10 @@ html[data-theme="ukiyo-e"] .lk { border-bottom: 1px solid var(--line-strong); }
 [data-theme="discowing"] .btn:focus-visible, [data-theme="discowing"] .in:focus-visible { outline: 3px dashed var(--danger); outline-offset: 3px; }
 [data-theme="choc-cake"] .btn:focus-visible, [data-theme="choc-cake"] .in:focus-visible { outline: 3px solid var(--warning); outline-offset: 2px; }
 [data-theme="dada"] .btn:focus-visible, [data-theme="dada"] .in:focus-visible { outline: 3px solid var(--danger); outline-offset: 3px; transform: scale(1.02); }
+[data-theme="brutalist"] .btn:focus-visible, [data-theme="brutalist"] .in:focus-visible, [data-theme="brutalist"] .nav:focus-visible { outline: 4px solid var(--accent); outline-offset: 4px; }
+[data-theme="orchestrion"] .btn:focus-visible, [data-theme="orchestrion"] .in:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+[data-theme="rococo"] .btn:focus-visible, [data-theme="rococo"] .in:focus-visible, [data-theme="rococo"] .nav:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+[data-theme="nautical-tile"] .btn:focus-visible, [data-theme="nautical-tile"] .in:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* ============================================================
    LAYER 4: ACCESSIBILITY & RESPONSIVE
@@ -833,7 +1100,7 @@ html[data-theme="ukiyo-e"] .lk { border-bottom: 1px solid var(--line-strong); }
 
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
-    [data-theme="nature"] .btn.primary, [data-theme="nature"] .in, [data-theme="gaslight"] .btn.primary, [data-theme="gaslight"] .in, [data-theme="gaslight"] .row, [data-theme="grotesque"] .btn.primary, [data-theme="grotesque"] .in, [data-theme="grotesque"] .row { transition: none; }
+    [data-theme="nature"] .btn.primary, [data-theme="nature"] .in, [data-theme="gaslight"] .btn.primary, [data-theme="gaslight"] .in, [data-theme="gaslight"] .row, [data-theme="grotesque"] .btn.primary, [data-theme="grotesque"] .in, [data-theme="grotesque"] .row, [data-theme="orchestrion"] .btn, [data-theme="rococo"] .btn { transition: none; }
 }
 
 @media (max-width: 959px) {
