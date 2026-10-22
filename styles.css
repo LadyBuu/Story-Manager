@@ -2,41 +2,29 @@
    Story Organiser — styles.css
    ============================================================
 
-   Structure:
-     1.  Base tokens (dark, default)
-     2.  Light (soft cream)
-     3.  Vaporwave
-     4.  Pastel (80s magical girl)
-     5.  Carnival (underground cyber-cabaret)
-     6.  Maximal (tacky shocking light)
-     7.  GITS (Ghost in the Shell - Neon City variant)
-     8.  Stained Glass (Ghost in the Shell - Luminous Cathedral variant)
-     9.  Nouveau (Mucha lithograph) — connected via data-theme="art-deco"
-     10. Theme transitions
-     11. App rules
+   ARCHITECTURE:
+     Layer 1: Foundation Tokens (base + themes)
+     Layer 2: Theme Art Direction (typography, backgrounds)
+     Layer 3: Component Overrides (thematic component styling)
+     Layer 4: Accessibility & Responsive (contrast, motion)
+     Layer 5: Core App Rules
 
    THEME MECHANISM
      `data-theme="<name>"` on <html> activates a theme.
      Absence of the attribute (or `system`) follows the OS
      prefers-color-scheme — dark by default.
-
-   TOKEN ALIASING
-     The original app used --bg/--surface/--fg/--line/--ok/--bad.
-     The themes below use --bg/--panel/--text/--border/etc. Rather
-     than rewrite every rule, each theme block sets BOTH sets of
-     names. The aliases at the bottom of each theme are the only
-     place the two vocabularies meet; every rule elsewhere in the
-     file speaks the original Story Organiser vocabulary.
    ============================================================ */
 
 /* ============================================================
-   1. BASE TOKENS — DARK (DEFAULT)
+   LAYER 1: FOUNDATION TOKENS
    ============================================================ */
+
+/* --- 1. Default Dark (Refined luminance) --- */
 :root {
-    /* ---- canonical Story Organiser tokens ---- */
-    --bg:#151214; --surface:#1d1719; --surface-2:#261e22;
-    --line:#33292e; --line-strong:#4a3c43;
-    --fg:#efe6e8; --fg-2:#ad9fa5; --fg-3:#8a7c83;
+    /* Luminance separation: bg is darkest, surface-2 is lightest */
+    --bg:#100e11; --surface:#181519; --surface-2:#242026;
+    --line:#362f37; --line-strong:#544a56;
+    --fg:#efe6e8; --fg-2:#bfb2b8; --fg-3:#8a7c83;
     --accent:#c9809a; --accent-fg:#1a1013; --accent-soft:rgba(201,128,154,.15);
     --ok:#8fb59a; --bad:#d9808a;
     --st-idea:#8a7c83; --st-outlined:#9d93bd; --st-draft:#d1a35f;
@@ -49,10 +37,7 @@
     --f-body:'Instrument Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
     --f-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
     color-scheme:dark;
-
     --chip-bg-subtle:rgba(255,255,255,0.05);
-
-    /* ---- tokens the rest of the app already uses ---- */
     --overlay:var(--scrim);
     --overlay-light:rgba(8,4,6,.4);
     --radius:10px;
@@ -61,9 +46,7 @@
     --scrollbar-thumb:var(--line);
 }
 
-/* ============================================================
-   2. LIGHT — soft cream
-   ============================================================ */
+/* --- 2. Light --- */
 [data-theme="light"] {
     --bg:#ece9df; --surface:#f7f4ec; --surface-2:#e3e0d3;
     --line:#c8c3b0; --line-strong:#a9a48f;
@@ -77,30 +60,24 @@
     --r-a:#b32b22; --r-b:#2d6fa8; --r-c:#3f7a55;
     --r-d:#9c7a1e; --r-e:#6f5aa6; --r-f:#c25e0e;
     color-scheme:light;
-
     --overlay:rgba(30,45,20,.55);
     --overlay-light:rgba(30,45,20,.4);
     --radius:10px;
     --shadow:0 4px 20px rgba(30,45,20,.10);
     --scrollbar-track:var(--bg);
     --scrollbar-thumb:var(--line);
-
     --chip-bg-subtle:rgba(0,0,0,0.05);
 }
 
-/* ============================================================
-   3. VAPORWAVE — neon pink + electric cyan
-   ============================================================ */
+/* --- 3. Vaporwave (Darkened surfaces for readability) --- */
 [data-theme="vaporwave"] {
-    --bg:#100b24; --surface:#171238; --surface-2:#1d1747;
+    --bg:#100b24; --surface:#14102e; --surface-2:#1d1747;
     --line:#40316f; --line-strong:#564185;
-    --fg:#f4e9ff; --fg-2:#a89ac7; --fg-3:#7d6fa0;
-
+    --fg:#f4e9ff; --fg-2:#b8a9d4; --fg-3:#8a7c9e;
     --accent:#ff4fd8; --accent-fg:#100b24; --accent-soft:rgba(255,79,216,0.15);
     --info:#35e7ff; --info-soft:rgba(53,231,255,0.14); --info-hover:rgba(53,231,255,0.25);
     --danger:#ff557f; --danger-soft:rgba(255,85,127,0.14); --danger-hover:rgba(255,85,127,0.25);
     --warning:#ffd166; --warning-soft:rgba(255,209,102,0.14); --warning-hover:rgba(255,209,102,0.25);
-
     --ok:#61ffb0; --bad:#ff557f;
     --st-idea:#7d6fa0; --st-outlined:#c77dff; --st-draft:#ffd166;
     --st-revised:#ff4fd8; --st-final:#61ffb0;
@@ -109,228 +86,390 @@
     --r-a:#ff4fd8; --r-b:#35e7ff; --r-c:#61ffb0;
     --r-d:#ffd166; --r-e:#c77dff; --r-f:#ff9f68;
     color-scheme:dark;
-
     --overlay:rgba(7,4,18,0.88);
     --overlay-light:rgba(7,4,18,0.68);
     --radius:10px;
-    --shadow:0 4px 24px rgba(0,0,0,0.45), 0 0 45px rgba(255,79,216,0.06);
+    --shadow:0 4px 24px rgba(0,0,0,0.45);
     --scrollbar-track:var(--bg);
     --scrollbar-thumb:#40316f;
-
     --chip-bg-subtle:rgba(255,255,255,0.07);
 }
 
-/* ============================================================
-   4. PASTEL — 80s magical girl
-   ============================================================ */
+/* --- 4. Pastel (Contrast audited) --- */
 [data-theme="pastel"] {
     --bg:#fff1f7; --surface:#fff8fb; --surface-2:#fce5f0;
     --line:#e7a9c4; --line-strong:#d18eab;
-    --fg:#4f3850; --fg-2:#987b91; --fg-3:#b298ab;
-
+    --fg:#4f3850; --fg-2:#7a5a71; --fg-3:#947a8b;
     --accent:#ed72aa; --accent-fg:#ffffff; --accent-soft:rgba(237,114,170,0.16);
     --info:#79c9df; --info-soft:rgba(121,201,223,0.16); --info-hover:rgba(121,201,223,0.28);
     --danger:#e87591; --danger-soft:rgba(232,117,145,0.16); --danger-hover:rgba(232,117,145,0.28);
     --warning:#d9a84a; --warning-soft:rgba(217,168,74,0.16); --warning-hover:rgba(217,168,74,0.28);
-
     --ok:#82bda9; --bad:#e87591;
-    --st-idea:#b298ab; --st-outlined:#a68bc9; --st-draft:#d5b35c;
+    --st-idea:#947a8b; --st-outlined:#a68bc9; --st-draft:#d5b35c;
     --st-revised:#ed72aa; --st-final:#82bda9;
     --scrim:rgba(92,50,78,0.28);
     --v-au:#76bfd6; --v-alt:#a68bc9;
     --r-a:#ed72aa; --r-b:#76bfd6; --r-c:#82bda9;
     --r-d:#d5b35c; --r-e:#a68bc9; --r-f:#d99678;
     color-scheme:light;
-
     --overlay:rgba(92,50,78,0.28);
     --overlay-light:rgba(92,50,78,0.20);
     --radius:10px;
-    --shadow:0 4px 16px rgba(153,86,119,0.16), 0 0 24px rgba(237,114,170,0.10);
+    --shadow:0 4px 16px rgba(153,86,119,0.16);
     --scrollbar-track:var(--bg);
     --scrollbar-thumb:var(--line);
-
     --chip-bg-subtle:rgba(237,114,170,0.10);
 }
 
-/* ============================================================
-   5. CARNIVAL — the underground cyber-cabaret
-   ============================================================
-   Reimagined after the vibrant live performance image: stark
-   blacks, hot magenta stage lights, icy cyan rim lights, and
-   the stark white of ruffled collars.
-   ============================================================ */
+/* --- 5. Carnival (Reduced mobile blur, selective drama) --- */
 [data-theme="carnival"] {
     --bg:#060608; --surface:#101014; --surface-2:#1a1a22;
     --line:#3b2b4d; --line-strong:#5d4275;
-    --fg:#fcfcfc; --fg-2:#b8b0c9; --fg-3:#7a6f8c;
-
+    --fg:#fcfcfc; --fg-2:#c4bcd4; --fg-3:#8a7f9c;
     --accent:#ff007f; --accent-fg:#ffffff; --accent-soft:rgba(255,0,127,0.15);
     --info:#00e5ff; --info-soft:rgba(0,229,255,0.14); --info-hover:rgba(0,229,255,0.28);
     --danger:#e60033; --danger-soft:rgba(230,0,51,0.16); --danger-hover:rgba(230,0,51,0.28);
     --warning:#f2ce42; --warning-soft:rgba(242,206,66,0.16); --warning-hover:rgba(242,206,66,0.28);
-
     --ok:#00ffcc; --bad:#e60033;
-    --st-idea:#7a6f8c; --st-outlined:#b8b0c9; --st-draft:#f2ce42;
+    --st-idea:#8a7f9c; --st-outlined:#c4bcd4; --st-draft:#f2ce42;
     --st-revised:#ff007f; --st-final:#00ffcc;
     --scrim:rgba(0,0,0,0.85);
     --v-au:#00e5ff; --v-alt:#ff007f;
     --r-a:#ff007f; --r-b:#00e5ff; --r-c:#00ffcc;
-    --r-d:#f2ce42; --r-e:#b8b0c9; --r-f:#e60033;
+    --r-d:#f2ce42; --r-e:#c4bcd4; --r-f:#e60033;
     color-scheme:dark;
-
     --overlay:rgba(0,0,0,0.85);
     --overlay-light:rgba(0,0,0,0.70);
     --radius:4px;
-    --shadow:0 4px 20px rgba(255,0,127,0.15), 0 0 0 1px var(--line-strong);
+    --shadow:0 4px 20px rgba(0,0,0,0.6), 0 0 0 1px var(--line-strong);
     --scrollbar-track:var(--bg);
     --scrollbar-thumb:var(--line);
-
     --chip-bg-subtle:rgba(255,0,127,0.08);
 }
 
-/* ============================================================
-   6. MAXIMAL — tacky shocking light
-   ============================================================ */
+/* --- 6. Maximal (Composed excess) --- */
 [data-theme="maximal"] {
     --bg:#fff0fb; --surface:#ffffff; --surface-2:#e6fffb;
     --line:#ff2ea6; --line-strong:#1a0033;
-    --fg:#1a0033; --fg-2:#7a3fa8; --fg-3:#b8a0c8;
-
+    --fg:#1a0033; --fg-2:#5a2f88; --fg-3:#8a6aa8;
     --accent:#ff2ea6; --accent-fg:#ffffff; --accent-soft:rgba(255,46,166,0.15);
     --info:#00e5ff; --info-soft:rgba(0,229,255,0.18); --info-hover:rgba(0,229,255,0.30);
     --danger:#ff0066; --danger-soft:rgba(255,0,102,0.15); --danger-hover:rgba(255,0,102,0.25);
     --warning:#ffea00; --warning-soft:rgba(255,234,0,0.25); --warning-hover:rgba(255,234,0,0.35);
-
     --ok:#00a89a; --bad:#ff0066;
-    --st-idea:#b8a0c8; --st-outlined:#7a3fa8; --st-draft:#ff9900;
+    --st-idea:#8a6aa8; --st-outlined:#7a3fa8; --st-draft:#ff9900;
     --st-revised:#ff2ea6; --st-final:#00a89a;
     --scrim:rgba(26,0,51,0.6);
     --v-au:#00e5ff; --v-alt:#7a3fa8;
     --r-a:#ff2ea6; --r-b:#00e5ff; --r-c:#00a89a;
     --r-d:#ffea00; --r-e:#7a3fa8; --r-f:#ff9900;
     color-scheme:light;
-
     --overlay:rgba(26,0,51,0.6);
     --overlay-light:rgba(26,0,51,0.4);
     --radius:8px;
     --shadow:4px 4px 0 #00e5ff, 0 0 20px rgba(255,46,166,0.4);
     --scrollbar-track:var(--bg);
     --scrollbar-thumb:var(--line);
-
     --chip-bg-subtle:rgba(255,46,166,0.08);
 }
 
-/* ============================================================
-   7. GITS — Ghost in the Shell (Neon City variant)
-   ============================================================
-   Reimagined after the vibrant poster: stark blacks pierced by
-   hot pinks, electric cyans, and warning-sign reds.
-   ============================================================ */
+/* --- 7. GITS (Neon City variant) --- */
 [data-theme="gits"] {
     --bg:#07080c; --surface:#10131c; --surface-2:#181d2b;
     --line:#2d3b55; --line-strong:#4a608a;
-    --fg:#f2f7ff; --fg-2:#8ba3c7; --fg-3:#5e7699;
-
+    --fg:#f2f7ff; --fg-2:#9bb3d4; --fg-3:#6e86a9;
     --accent:#ff1a8c; --accent-fg:#07080c; --accent-soft:rgba(255,26,140,0.15);
     --info:#00e5ff; --info-soft:rgba(0,229,255,0.14); --info-hover:rgba(0,229,255,0.28);
     --danger:#ff2a2a; --danger-soft:rgba(255,42,42,0.15); --danger-hover:rgba(255,42,42,0.30);
     --warning:#f2d130; --warning-soft:rgba(242,209,48,0.15); --warning-hover:rgba(242,209,48,0.30);
-
     --ok:#00ffb2; --bad:#ff2a2a;
-    --st-idea:#5e7699; --st-outlined:#ff1a8c; --st-draft:#f2d130;
+    --st-idea:#6e86a9; --st-outlined:#ff1a8c; --st-draft:#f2d130;
     --st-revised:#00e5ff; --st-final:#00ffb2;
     --scrim:rgba(0,0,0,0.85);
     --v-au:#00e5ff; --v-alt:#ff1a8c;
     --r-a:#ff2a2a; --r-b:#00e5ff; --r-c:#00ffb2;
     --r-d:#f2d130; --r-e:#ff1a8c; --r-f:#ff6b4a;
     color-scheme:dark;
-
     --overlay:rgba(0,0,0,0.85);
     --overlay-light:rgba(0,0,0,0.70);
     --radius:2px;
     --shadow:0 4px 20px rgba(0,229,255,0.12), inset 0 0 0 1px var(--line-strong);
     --scrollbar-track:var(--bg);
     --scrollbar-thumb:var(--line-strong);
-
     --chip-bg-subtle:rgba(0,229,255,0.08);
 }
 
-/* ============================================================
-   8. STAINED GLASS — luminous cathedral (GITS 1995 variant)
-   ============================================================
-   Reimagined after the Ghost in the Shell poster: a figure
-   dissolving into data, cyan and magenta glass set in a
-   lattice of cold blue.
-   ============================================================ */
+/* --- 8. Stained Glass (Surface clarity) --- */
 [data-theme="stained-glass"] {
     --bg:#0a1520; --surface:#0e1d2e; --surface-2:#132a42;
     --line:#1d4a6e; --line-strong:#3a7fa8;
-    --fg:#eaf6ff; --fg-2:#8fb8d4; --fg-3:#5a8aa8;
-
+    --fg:#eaf6ff; --fg-2:#9fc4de; --fg-3:#6e9cb8;
     --accent:#5ee8ff; --accent-fg:#04101a; --accent-soft:rgba(94,232,255,0.12);
     --info:#ff4fa8; --info-soft:rgba(255,79,168,0.14); --info-hover:rgba(255,79,168,0.28);
     --danger:#ff3d6e; --danger-soft:rgba(255,61,110,0.15); --danger-hover:rgba(255,61,110,0.30);
     --warning:#ffd166; --warning-soft:rgba(255,209,102,0.15); --warning-hover:rgba(255,209,102,0.30);
-
     --ok:#3dffc0; --bad:#ff3d6e;
-    --st-idea:#5a8aa8; --st-outlined:#c77dff; --st-draft:#ffd166;
+    --st-idea:#6e9cb8; --st-outlined:#c77dff; --st-draft:#ffd166;
     --st-revised:#ff4fa8; --st-final:#3dffc0;
     --scrim:rgba(4,10,18,0.88);
     --v-au:#5ee8ff; --v-alt:#c77dff;
     --r-a:#ff4fa8; --r-b:#5ee8ff; --r-c:#3dffc0;
     --r-d:#ffd166; --r-e:#c77dff; --r-f:#ff8a5c;
     color-scheme:dark;
-
     --overlay:rgba(4,10,18,0.88);
     --overlay-light:rgba(4,10,18,0.68);
     --radius:4px;
-    --shadow:0 4px 15px rgba(94,232,255,0.10), inset 0 0 20px rgba(94,232,255,0.04);
+    --shadow:0 4px 15px rgba(0,0,0,0.4);
     --scrollbar-track:var(--bg);
     --scrollbar-thumb:var(--line-strong);
-
     --chip-bg-subtle:rgba(94,232,255,0.08);
 }
 
-/* ============================================================
-   9. NOUVEAU (formerly Art Deco) — the Mucha lithograph
-   ============================================================
-   Connected to the HTML via data-theme="art-deco" to maintain
-   compatibility, but fully reimagined as Alphonse Mucha's 
-   Art Nouveau: warm cream paper, muted sage, dusty rose, 
-   terracotta orange, and rich sepia ink.
-   ============================================================ */
-[data-theme="art-deco"] {
+/* --- 9. Nouveau (Mucha lithograph) --- */
+[data-theme="nouveau"] {
     --bg:#f4ebd8; --surface:#fbf6eb; --surface-2:#ebdcc6;
     --line:#c6a88e; --line-strong:#9a6a4d;
-    --fg:#3b2b24; --fg-2:#735a4d; --fg-3:#9d8577;
-
+    --fg:#3b2b24; --fg-2:#6b5244; --fg-3:#947a6b;
     --accent:#c45c34; --accent-fg:#ffffff; --accent-soft:rgba(196,92,52,0.12);
     --info:#6b8c7b; --info-soft:rgba(107,140,123,0.14); --info-hover:rgba(107,140,123,0.24);
     --danger:#9b3e31; --danger-soft:rgba(155,62,49,0.12); --danger-hover:rgba(155,62,49,0.22);
     --warning:#b08c42; --warning-soft:rgba(176,140,66,0.14); --warning-hover:rgba(176,140,66,0.26);
-
     --ok:#6b8c7b; --bad:#9b3e31;
-    --st-idea:#9d8577; --st-outlined:#8a5c6b; --st-draft:#b08c42;
+    --st-idea:#947a6b; --st-outlined:#8a5c6b; --st-draft:#b08c42;
     --st-revised:#c45c34; --st-final:#6b8c7b;
     --scrim:rgba(59,43,36,0.6);
     --v-au:#8a5c6b; --v-alt:#6b8c7b;
     --r-a:#c45c34; --r-b:#6b8c7b; --r-c:#8a5c6b;
     --r-d:#b08c42; --r-e:#9b3e31; --r-f:#d98c6b;
     color-scheme:light;
-
     --overlay:rgba(59,43,36,0.6);
     --overlay-light:rgba(59,43,36,0.4);
     --radius:12px;
     --shadow:0 10px 30px rgba(59,43,36,0.08), 0 0 0 1px var(--line);
     --scrollbar-track:var(--bg);
     --scrollbar-thumb:var(--line);
-
     --chip-bg-subtle:rgba(59,43,36,0.06);
 }
 
+/* --- 10. Ukiyo-e (Great Wave) --- */
+[data-theme="ukiyo-e"] {
+    --bg:#F4EAD5; --surface:#F9F6EE; --surface-2:#E8E0D0;
+    --line:#292D30; --line-strong:#292D30;
+    --fg:#292D30; --fg-2:#5A5D60; --fg-3:#8E9295;
+    --accent:#234F70; --accent-fg:#F4EAD5; --accent-soft:rgba(35,79,112,0.12);
+    --info:#78917B; --info-soft:rgba(120,145,123,0.14); --info-hover:rgba(120,145,123,0.24);
+    --danger:#B83A32; --danger-soft:rgba(184,58,50,0.12); --danger-hover:rgba(184,58,50,0.22);
+    --warning:#D1A35F; --warning-soft:rgba(209,163,95,0.14); --warning-hover:rgba(209,163,95,0.26);
+    --ukiyo-seal:#B83A32;
+    --ok:#78917B; --bad:#B83A32;
+    --st-idea:#8E9295; --st-outlined:#234F70; --st-draft:#D1A35F;
+    --st-revised:#B83A32; --st-final:#78917B;
+    --scrim:rgba(41,45,48,0.6);
+    --v-au:#234F70; --v-alt:#78917B;
+    --r-a:#234F70; --r-b:#78917B; --r-c:#B83A32;
+    --r-d:#D1A35F; --r-e:#5A5D60; --r-f:#B83A32;
+    color-scheme:light;
+    --overlay:rgba(41,45,48,0.6);
+    --overlay-light:rgba(41,45,48,0.4);
+    --radius:0px;
+    --shadow:2px 2px 0 var(--line);
+    --scrollbar-track:var(--bg);
+    --scrollbar-thumb:var(--line);
+    --chip-bg-subtle:rgba(41,45,48,0.06);
+}
+
+/* --- 11. Nature (Monet's Water Lilies) --- */
+[data-theme="nature"] {
+    /* Soft mist, water, and deep pond */
+    --bg:#DDE8D8; --surface:#EBF2E9; --surface-2:#D3E0D6;
+    --line:#9FB3A8; --line-strong:#6F8C81;
+    
+    /* Deep water foliage for legibility */
+    --fg:#2C3D37; --fg-2:#4B615A; --fg-3:#6F867D;
+    
+    /* Lily pink */
+    --accent:#C982A0; --accent-fg:#ffffff; --accent-soft:rgba(201,130,160,0.15);
+    
+    /* Lavender and Pond Water */
+    --info:#B5AED0; --info-soft:rgba(181,174,208,0.20); --info-hover:rgba(181,174,208,0.30);
+    --danger:#B34442; --danger-soft:rgba(179,68,66,0.12); --danger-hover:rgba(179,68,66,0.22);
+    --warning:#C49A45; --warning-soft:rgba(196,154,69,0.14); --warning-hover:rgba(196,154,69,0.26);
+
+    --ok:#5B8C74; --bad:#B34442;
+    --st-idea:#6F867D; --st-outlined:#B5AED0; --st-draft:#C49A45;
+    --st-revised:#C982A0; --st-final:#5B8C74;
+    
+    --scrim:rgba(44,61,55,0.6);
+    --v-au:#B5AED0; --v-alt:#5B8C74;
+    --r-a:#C982A0; --r-b:#B5AED0; --r-c:#5B8C74;
+    --r-d:#C49A45; --r-e:#6F867D; --r-f:#B34442;
+    
+    color-scheme:light;
+    --overlay:rgba(44,61,55,0.6);
+    --overlay-light:rgba(44,61,55,0.4);
+    
+    /* Soft, organic, rounded edges like lily pads */
+    --radius:16px; 
+    --shadow:0 8px 28px rgba(49, 79, 76, 0.08);
+    --scrollbar-track:var(--bg);
+    --scrollbar-thumb:var(--line);
+    --chip-bg-subtle:rgba(44,61,55,0.06);
+}
+
+/* --- 12. KMT (Kyuuyaku Megami Tensei) --- */
+[data-theme="kmt"] {
+    /* Dungeon black */
+    --bg:#000000; --surface:#0a0a0a; --surface-2:#141414;
+    
+    /* Stone grey: darker for standard, lighter for active */
+    --line:#4a4a4a; --line-strong:#888888;
+    
+    /* Stark white and stone grey text */
+    --fg:#ffffff; --fg-2:#cccccc; --fg-3:#888888;
+    
+    /* Demon crimson (Primary Actions) vs. Danger Red (Errors) */
+    --accent:#A30000; --accent-fg:#ffffff; --accent-soft:rgba(163,0,0,0.20);
+    --danger:#FF0000; --danger-soft:rgba(255,0,0,0.15); --danger-hover:rgba(255,0,0,0.25);
+    
+    /* Neutral info, rare old gold for warnings */
+    --info:#aaaaaa; --info-soft:rgba(170,170,170,0.15); --info-hover:rgba(170,170,170,0.25);
+    --warning:#B89900; --warning-soft:rgba(184,153,0,0.15); --warning-hover:rgba(184,153,0,0.25);
+
+    /* Darkened green to prevent terminal glare, preserving semantics */
+    --ok:#006600; --bad:#FF0000;
+    --st-idea:#888888; --st-outlined:#cccccc; --st-draft:#B89900;
+    --st-revised:#A30000; --st-final:#006600;
+    
+    --scrim:rgba(0,0,0,0.90);
+    --v-au:#cccccc; --v-alt:#888888;
+    --r-a:#A30000; --r-b:#888888; --r-c:#006600;
+    --r-d:#B89900; --r-e:#cccccc; --r-f:#FF0000;
+    
+    color-scheme:dark;
+    --overlay:rgba(0,0,0,0.90);
+    --overlay-light:rgba(0,0,0,0.70);
+    
+    /* Hard-edged, stone-like geometry */
+    --radius:0px; 
+    --shadow:0 0 0 1px var(--line), 0 4px 0 rgba(0,0,0,1);
+    --scrollbar-track:var(--bg);
+    --scrollbar-thumb:var(--line-strong);
+    --chip-bg-subtle:rgba(255,255,255,0.10);
+    
+    /* Monospace everywhere to enforce the RPG menu system feel */
+    --f-body:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
+    --f-display:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
+}
+
+/* --- 13. Gaslight (Gotham by Gaslight) --- */
+[data-theme="gaslight"] {
+    /* Sooty sky and aged parchment */
+    --bg:#1A1A22; --surface:#25242B; --surface-2:#32313A;
+    
+    /* Muted, inked linework */
+    --line:#4A4855; --line-strong:#6B6878;
+    
+    /* Parchment text vs. shadowy secondary text */
+    --fg:#E8E2D4; --fg-2:#ABA294; --fg-3:#7B7469;
+    
+    /* The Gaslight Yellow */
+    --accent:#D4B56C; --accent-fg:#1A1A22; --accent-soft:rgba(212,181,108,0.15);
+    
+    /* Dedicated shadow token for the brass glow to avoid hardcoding */
+    --accent-shadow:rgba(212,181,108,0.25);
+    
+    /* Victorian Crimson and Deep Blue */
+    --info:#5A7B8C; --info-soft:rgba(90,123,140,0.14); --info-hover:rgba(90,123,140,0.24);
+    --danger:#A63C30; --danger-soft:rgba(166,60,48,0.15); --danger-hover:rgba(166,60,48,0.25);
+    --warning:#C49A45; --warning-soft:rgba(196,154,69,0.15); --warning-hover:rgba(196,154,69,0.25);
+
+    --ok:#5B8C6A; --bad:#A63C30;
+    --st-idea:#7B7469; --st-outlined:#5A7B8C; --st-draft:#C49A45;
+    --st-revised:#D4B56C; --st-final:#5B8C6A;
+    
+    --scrim:rgba(26,26,34,0.85);
+    --v-au:#5A7B8C; --v-alt:#6B6878;
+    --r-a:#A63C30; --r-b:#5A7B8C; --r-c:#5B8C6A;
+    --r-d:#C49A45; --r-e:#D4B56C; --r-f:#6B6878;
+    
+    color-scheme:dark;
+    --overlay:rgba(26,26,34,0.85);
+    --overlay-light:rgba(26,26,34,0.65);
+    
+    /* Sharp, slightly vintage corners */
+    --radius:4px; 
+    /* Softened shadow to prevent black voids in 3-panel layouts */
+    --shadow:0 4px 16px rgba(0,0,0,0.35); 
+    --scrollbar-track:var(--bg);
+    --scrollbar-thumb:var(--line);
+    --chip-bg-subtle:rgba(232,226,212,0.05);
+}
+
+/* --- 14. Grotesque (Anatomical Horror) --- */
+[data-theme="grotesque"] {
+    /* The deep, swallowing void */
+    --bg:#0d0a0a; --surface:#151111; --surface-2:#1f1818;
+    
+    /* Desiccated tissue and shadow lines */
+    --line:#382626; --line-strong:#5e3b3b;
+    
+    /* Pale bone and ghostly skin for text */
+    --fg:#e8dfd3; --fg-2:#b8a89c; --fg-3:#8a7a6e;
+    
+    /* Concentrated, venous blood for primary actions */
+    --accent:#7A2424; 
+    --accent-hover:#963030; 
+    --accent-fg:#f4ebe1; 
+    --accent-soft:rgba(122,36,36,0.18);
+    --accent-shadow:rgba(122,36,36,0.35);
+    
+    /* Sickly yellow-green and bruised purple for secondary accents */
+    --info:#4a6b55; /* Decayed leaf */
+    --info-soft:rgba(74,107,85,0.14); 
+    --info-hover:rgba(74,107,85,0.24);
+    
+    --warning:#b88d5a; /* Dried sinew */
+    --warning-soft:rgba(184,141,90,0.15); 
+    --warning-hover:rgba(184,141,90,0.25);
+
+    /* Bright arterial crimson strictly for destructive actions */
+    --danger:#D93025; 
+    --danger-soft:rgba(217,48,37,0.15); 
+    --danger-hover:rgba(217,48,37,0.25);
+
+    --ok:#4a6b55; --bad:#D93025;
+    --st-idea:#8a7a6e; --st-outlined:#5A4B6B; /* Bruised purple */
+    --st-draft:#b88d5a; --st-revised:#7A2424; --st-final:#4a6b55;
+    
+    --scrim:rgba(13,10,10,0.90);
+    --v-au:#4a6b55; --v-alt:#5A4B6B;
+    --r-a:#7A2424; --r-b:#4a6b55; --r-c:#b88d5a;
+    --r-d:#b88d5a; --r-e:#8a7a6e; --r-f:#D93025;
+    
+    color-scheme:dark;
+    --overlay:rgba(13,10,10,0.90);
+    --overlay-light:rgba(13,10,10,0.70);
+    
+    /* Organic, unsettling geometry */
+    --radius:6px; 
+    /* Deep recessed shadows for anatomical depth */
+    --shadow:0 10px 30px rgba(0,0,0,0.8), inset 0 0 0 1px #050303;
+    
+    /* The pale bone inputs */
+    --input-bg:#DCD3C7;
+    --input-fg:#1a1515;
+    --input-border:#8a7a6e;
+    
+    --scrollbar-track:var(--bg);
+    --scrollbar-thumb:var(--line);
+    --chip-bg-subtle:rgba(232,223,211,0.05);
+}
+
 /* ============================================================
-   10. THEME TRANSITIONS
+   LAYER 2: THEME ART DIRECTION
    ============================================================ */
+
+/* --- Transitions --- */
 html, body {
     transition: background-color .25s ease, color .25s ease;
 }
@@ -342,6 +481,470 @@ button, input, select, textarea, a,
     transition: background-color .2s ease, border-color .2s ease,
                 color .2s ease, box-shadow .2s ease;
 }
+
+/* --- Theme-Specific Backdrops & Headings --- */
+
+/* Vaporwave */
+[data-theme="vaporwave"] body {
+  background:
+    radial-gradient(circle at 8% 5%, rgba(255,79,216,0.15) 0%, transparent 32%),
+    radial-gradient(circle at 92% 18%, rgba(53,231,255,0.12) 0%, transparent 34%),
+    radial-gradient(circle at 50% 110%, rgba(120,72,220,0.12) 0%, transparent 42%),
+    var(--bg);
+  background-attachment: fixed;
+}
+
+/* Pastel */
+[data-theme="pastel"] body {
+  background:
+    radial-gradient(circle at 15% 10%, rgba(255,182,213,0.55) 0%, transparent 34%),
+    radial-gradient(circle at 85% 15%, rgba(177,225,239,0.45) 0%, transparent 32%),
+    radial-gradient(circle at 50% 100%, rgba(211,181,235,0.35) 0%, transparent 38%),
+    var(--bg);
+  background-attachment: fixed;
+}
+
+/* Carnival */
+[data-theme="carnival"] body {
+  background:
+    radial-gradient(circle at 20% 0%, rgba(255,0,127,0.10) 0%, transparent 40%),
+    radial-gradient(circle at 100% 50%, rgba(0,229,255,0.06) 0%, transparent 50%),
+    linear-gradient(to bottom, #060608 0%, #0a0a0f 100%);
+  background-attachment: fixed;
+}
+
+/* Maximal */
+[data-theme="maximal"] body {
+  background:
+    radial-gradient(600px 400px at 0% 0%, #ffd6f5 0%, transparent 60%),
+    radial-gradient(700px 500px at 100% 10%, #d6fff7 0%, transparent 55%),
+    radial-gradient(600px 400px at 50% 100%, #fff6a8 0%, transparent 55%),
+    repeating-linear-gradient(45deg, #fff0fb 0 20px, #ffe0f5 20px 40px);
+  background-attachment: fixed;
+}
+
+/* GITS */
+[data-theme="gits"] body {
+  background:
+    radial-gradient(circle at 50% 30%, rgba(0,229,255,0.10) 0%, transparent 50%),
+    radial-gradient(circle at 90% 50%, rgba(255,26,140,0.08) 0%, transparent 40%),
+    linear-gradient(90deg, rgba(255,42,42,0.06) 0%, transparent 15%),
+    linear-gradient(to bottom, #07080c 0%, #0a0e17 100%);
+  background-attachment: fixed;
+}
+
+/* Stained Glass */
+[data-theme="stained-glass"] body {
+  background:
+    repeating-linear-gradient(90deg, rgba(94,232,255,0.02) 0, rgba(94,232,255,0.02) 1px, transparent 1px, transparent 48px),
+    repeating-linear-gradient(0deg, rgba(94,232,255,0.02) 0, rgba(94,232,255,0.02) 1px, transparent 1px, transparent 48px),
+    radial-gradient(ellipse at 50% 30%, rgba(255,79,168,0.10) 0%, transparent 45%),
+    radial-gradient(ellipse at 50% 0%, rgba(94,232,255,0.08) 0%, transparent 50%),
+    linear-gradient(to bottom, transparent 60%, rgba(4,10,18,0.9) 100%),
+    var(--bg);
+  background-attachment: fixed;
+}
+
+/* Nouveau */
+[data-theme="nouveau"] body {
+  background:
+    radial-gradient(circle at 50% 30%, rgba(196,92,52,0.05) 0%, transparent 50%),
+    radial-gradient(circle at 0% 100%, rgba(107,140,123,0.08) 0%, transparent 40%),
+    radial-gradient(circle at 100% 0%, rgba(107,140,123,0.08) 0%, transparent 40%),
+    var(--bg);
+  background-attachment: fixed;
+}
+
+/* Ukiyo-e */
+html[data-theme="ukiyo-e"] body {
+  background:
+    linear-gradient(to bottom, rgba(217,108,92,0.15) 0%, transparent 40%),
+    linear-gradient(to bottom, transparent 70%, rgba(35,79,112,0.1) 100%),
+    var(--bg);
+  background-attachment: fixed;
+}
+
+/* Nature (Impressionist Water Lilies) */
+[data-theme="nature"] body {
+  background:
+    radial-gradient(ellipse at 15% 15%, rgba(201, 130, 160, 0.16), transparent 38%),
+    radial-gradient(ellipse at 82% 24%, rgba(181, 174, 208, 0.20), transparent 42%),
+    radial-gradient(ellipse at 60% 85%, rgba(120, 155, 145, 0.20), transparent 48%),
+    var(--bg);
+  background-attachment: fixed;
+}
+
+/* KMT */
+[data-theme="kmt"] body {
+  background:
+    linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px),
+    linear-gradient(to top, #3a0000 0%, #000000 40%),
+    var(--bg);
+  background-size: 40px 40px, 40px 40px, 100% 100%, 100% 100%;
+  background-position: center top;
+  background-attachment: fixed;
+}
+
+/* Gaslight */
+[data-theme="gaslight"] body {
+  background:
+    radial-gradient(circle at 20% 10%, rgba(232,226,212,0.08) 0%, transparent 40%),
+    radial-gradient(circle at 80% 90%, var(--accent-soft) 0%, transparent 50%),
+    var(--bg);
+  background-attachment: fixed;
+}
+
+/* Grotesque */
+[data-theme="grotesque"] body {
+  background:
+    radial-gradient(circle at 50% 10%, rgba(232,223,211,0.05) 0%, transparent 40%),
+    radial-gradient(circle at 20% 40%, rgba(90,75,107,0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 60%, rgba(122,36,36,0.08) 0%, transparent 50%),
+    radial-gradient(circle at 10% 80%, rgba(74,107,85,0.06) 0%, transparent 40%),
+    var(--bg);
+  background-attachment: fixed;
+}
+
+/* Scoped Heading Art Direction */
+[data-theme="vaporwave"] h1, [data-theme="vaporwave"] h2, [data-theme="vaporwave"] h3 { text-shadow: 0 0 7px rgba(255,79,216,0.42); }
+[data-theme="pastel"] h1, [data-theme="pastel"] h2, [data-theme="pastel"] h3 { text-shadow: 1px 1px 0 rgba(255,255,255,0.9); }
+[data-theme="carnival"] h1, [data-theme="carnival"] h2, [data-theme="carnival"] h3 { 
+    font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em;
+    text-shadow: 0 0 5px rgba(255,0,127,0.8), 2px 2px 0px #000000; 
+}
+[data-theme="maximal"] h1, [data-theme="maximal"] h2, [data-theme="maximal"] h3 { text-shadow: 2px 2px 0 #fff, 3px 3px 0 var(--accent); font-weight: 900; }
+[data-theme="gits"] h1, [data-theme="gits"] h2, [data-theme="gits"] h3 { 
+    font-family: var(--f-mono); letter-spacing: 0.1em; text-transform: uppercase;
+    text-shadow: -2px 0 0 rgba(0,229,255,0.7), 2px 0 0 rgba(255,26,140,0.7), 0 0 10px rgba(0,229,255,0.3); 
+}
+[data-theme="stained-glass"] h1, [data-theme="stained-glass"] h2, [data-theme="stained-glass"] h3 { 
+    text-shadow: 0 0 8px rgba(94,232,255,0.5), 0 0 24px rgba(255,79,168,0.15); 
+}
+[data-theme="nouveau"] h1, [data-theme="nouveau"] h2, [data-theme="nouveau"] h3 { 
+    font-family: 'Newsreader', Georgia, serif; font-weight: 500; letter-spacing: 0.02em; 
+}
+[data-theme="ukiyo-e"] h1, [data-theme="ukiyo-e"] h2, [data-theme="ukiyo-e"] h3 { 
+    font-family: 'Newsreader', Georgia, serif; font-weight: 700; letter-spacing: 0.03em; 
+}
+[data-theme="nature"] h1, [data-theme="nature"] h2, [data-theme="nature"] h3 {
+  font-family: 'Newsreader', Georgia, serif; font-weight: 500; letter-spacing: 0.01em; color: var(--fg);
+}
+[data-theme="kmt"] h1, [data-theme="kmt"] h2, [data-theme="kmt"] h3 {
+  font-family: var(--f-display); font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.1em; color: var(--fg); text-shadow: 2px 2px 0px #000000;
+}
+[data-theme="gaslight"] h1, [data-theme="gaslight"] h2, [data-theme="gaslight"] h3 {
+  font-family: 'Newsreader', Georgia, serif; font-weight: 700;
+  letter-spacing: 0.02em; color: var(--accent); text-shadow: 0 0 12px var(--accent-soft);
+}
+[data-theme="grotesque"] h1, [data-theme="grotesque"] h2, [data-theme="grotesque"] h3 {
+  font-family: 'Newsreader', Georgia, serif; font-weight: 600;
+  letter-spacing: 0.02em; color: var(--fg); text-shadow: 0 0 10px rgba(122,36,36,0.3);
+}
+
+/* ============================================================
+   LAYER 3: COMPONENT OVERRIDES
+   ============================================================ */
+
+/* --- Nouveau Component Overrides --- */
+[data-theme="nouveau"] .list,
+[data-theme="nouveau"] .detail,
+[data-theme="nouveau"] .sheet {
+  border-radius: 12px;
+  border: 2px solid var(--line-strong);
+  box-shadow: 
+    0 4px 20px rgba(59,43,36,0.06), 
+    inset 0 0 0 4px var(--surface),
+    inset 0 0 0 5px var(--line);
+}
+[data-theme="nouveau"] .sec {
+  border-top: 2px solid var(--line-strong);
+  border-radius: 40px 40px 0 0;
+  padding-top: 20px;
+  margin-top: 20px;
+}
+
+/* --- Ukiyo-e Component Overrides --- */
+html[data-theme="ukiyo-e"] .list,
+html[data-theme="ukiyo-e"] .detail,
+html[data-theme="ukiyo-e"] .sheet {
+  border-radius: 0;
+  border: 2px solid var(--line);
+  box-shadow: 4px 4px 0 rgba(41,45,48,0.15);
+  background: var(--surface);
+}
+html[data-theme="ukiyo-e"] .title-in {
+  border-bottom: 2px solid var(--line);
+  border-radius: 0;
+}
+html[data-theme="ukiyo-e"] .title-in::after {
+  content: '';
+  display: inline-block;
+  width: 18px; height: 18px;
+  background-color: var(--ukiyo-seal);
+  border-radius: 2px;
+  margin-left: 12px;
+  vertical-align: middle;
+  box-shadow: inset 0 0 0 2px var(--surface), inset 0 0 0 3px var(--ukiyo-seal);
+  pointer-events: none;
+}
+html[data-theme="ukiyo-e"] .btn.primary {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border: 2px solid var(--line);
+  border-radius: 0;
+  box-shadow: 2px 2px 0 var(--line);
+  transform: translate(-1px, -1px);
+}
+html[data-theme="ukiyo-e"] .btn.primary:hover {
+  transform: translate(0, 0);
+  box-shadow: none;
+}
+html[data-theme="ukiyo-e"] .chip {
+  border-radius: 0;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+html[data-theme="ukiyo-e"] .grp {
+  border-bottom: 1px solid var(--line);
+  border-top: 1px solid var(--line);
+}
+html[data-theme="ukiyo-e"] .lk {
+  border-bottom: 1px solid var(--line-strong);
+}
+
+/* --- Nature Component Overrides --- */
+[data-theme="nature"] .list,
+[data-theme="nature"] .detail,
+[data-theme="nature"] .sheet {
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow:
+    0 8px 28px rgba(49, 79, 76, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15); 
+}
+[data-theme="nature"] .btn.primary {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border: 1px solid transparent;
+  border-radius: 24px;
+  box-shadow: 0 4px 14px rgba(201, 130, 160, 0.22);
+  transition: background-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+}
+[data-theme="nature"] .btn.primary:hover {
+  box-shadow: 0 6px 18px rgba(201, 130, 160, 0.30);
+  transform: translateY(-1px);
+}
+[data-theme="nature"] .chip {
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--fg-2);
+}
+[data-theme="nature"] .in {
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  transition: background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+[data-theme="nature"] .in:focus {
+  background: var(--surface);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* --- KMT Component Overrides --- */
+[data-theme="kmt"] .list,
+[data-theme="kmt"] .detail,
+[data-theme="kmt"] .sheet {
+  border-radius: 0;
+  background: var(--surface);
+  border: 2px solid var(--line-strong);
+  box-shadow: 
+    inset 0 0 0 1px #000, 
+    0 0 0 2px var(--line);
+}
+[data-theme="kmt"] .row {
+  border-bottom: 1px solid #222;
+  font-family: var(--f-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+[data-theme="kmt"] .row:hover {
+  background: #1a0000;
+  color: var(--fg);
+}
+[data-theme="kmt"] .row.sel {
+  background: var(--accent);
+  color: var(--fg);
+}
+[data-theme="kmt"] .btn {
+  border-radius: 0;
+  border: 2px solid var(--line-strong);
+  background: #000;
+  color: var(--fg);
+  font-family: var(--f-mono);
+  text-transform: uppercase;
+  font-weight: 700;
+}
+[data-theme="kmt"] .btn:hover {
+  border-color: var(--fg);
+  background: #111;
+}
+[data-theme="kmt"] .btn.primary {
+  background: var(--accent);
+  border-color: #ff4444;
+}
+[data-theme="kmt"] .btn.primary:hover {
+  background: #cc0000;
+}
+[data-theme="kmt"] .in {
+  border-radius: 0;
+  background: #000;
+  border: 2px solid var(--line-strong);
+  color: var(--fg);
+  font-family: var(--f-mono);
+}
+[data-theme="kmt"] .in:focus {
+  outline: none;
+  border-color: var(--fg);
+  box-shadow: 0 0 8px rgba(255,255,255,0.3);
+}
+[data-theme="kmt"] .chip {
+  border-radius: 0;
+  background: #111;
+  border: 1px solid var(--line-strong);
+  color: var(--fg-2);
+  font-family: var(--f-mono);
+  text-transform: uppercase;
+}
+
+/* --- Gaslight Component Overrides --- */
+[data-theme="gaslight"] .list,
+[data-theme="gaslight"] .detail,
+[data-theme="gaslight"] .sheet {
+  border-radius: 4px;
+  background: var(--surface);
+  border: 2px solid var(--line-strong);
+  box-shadow: 
+    0 8px 24px rgba(0,0,0,0.45),
+    inset 0 0 0 1px var(--line);
+}
+[data-theme="gaslight"] .row {
+  border-left: 3px solid transparent;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+[data-theme="gaslight"] .row.sel {
+  background: var(--accent-soft);
+  border-left-color: var(--accent);
+}
+[data-theme="gaslight"] .btn.primary {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  font-weight: 600;
+  box-shadow: 0 2px 8px var(--accent-shadow);
+  transition: background-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+}
+[data-theme="gaslight"] .btn.primary:hover {
+  box-shadow: 0 4px 12px var(--accent-shadow);
+  transform: translateY(-1px);
+}
+[data-theme="gaslight"] .in {
+  border-radius: 4px;
+  background: #2C2A31;
+  border: 1px solid var(--line);
+  color: var(--fg);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+[data-theme="gaslight"] .in:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+[data-theme="gaslight"] .chip {
+  border-radius: 2px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--fg-2);
+  transition: border-color 0.2s ease;
+}
+
+/* --- Grotesque Component Overrides --- */
+[data-theme="grotesque"] .list,
+[data-theme="grotesque"] .detail,
+[data-theme="grotesque"] .sheet {
+  border-radius: 6px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  box-shadow: var(--shadow);
+}
+[data-theme="grotesque"] .btn.primary {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border: 1px solid #4a1414;
+  border-radius: 6px;
+  font-weight: 600;
+  box-shadow: 0 2px 8px var(--accent-shadow);
+  transition: background-color 0.25s ease, box-shadow 0.25s ease;
+}
+[data-theme="grotesque"] .btn.primary:hover {
+  background: var(--accent-hover);
+  box-shadow: 0 4px 12px var(--accent-shadow);
+}
+[data-theme="grotesque"] .in {
+  border-radius: 6px;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  color: var(--input-fg);
+  font-weight: 500;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+[data-theme="grotesque"] .in:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 2px var(--accent-soft);
+}
+[data-theme="grotesque"] .row {
+  border-left: 3px solid transparent;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+[data-theme="grotesque"] .row.sel {
+  background: var(--accent-soft);
+  border-left-color: var(--accent);
+}
+[data-theme="grotesque"] .chip {
+  border-radius: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  color: var(--fg-2);
+}
+
+/* --- Shared Theme Focus & Motion Overrides --- */
+[data-theme="gaslight"] .btn:focus-visible,
+[data-theme="gaslight"] .in:focus-visible,
+[data-theme="grotesque"] .btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+[data-theme="grotesque"] .in:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  box-shadow: none; 
+}
+[data-theme="nature"] .btn.primary:focus-visible,
+[data-theme="nature"] .in:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* ============================================================
+   LAYER 4: ACCESSIBILITY & RESPONSIVE
+   ============================================================ */
+
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
         transition-duration: .01ms !important;
@@ -349,12 +952,31 @@ button, input, select, textarea, a,
         animation-iteration-count: 1 !important;
         scroll-behavior: auto !important;
     }
+    [data-theme="nature"] .btn.primary,
+    [data-theme="nature"] .in,
+    [data-theme="gaslight"] .btn.primary,
+    [data-theme="gaslight"] .in,
+    [data-theme="gaslight"] .row,
+    [data-theme="grotesque"] .btn.primary,
+    [data-theme="grotesque"] .in,
+    [data-theme="grotesque"] .row {
+        transition: none;
+    }
+}
+
+@media (max-width: 959px) {
+  .body { grid-template-columns: minmax(0,1fr); padding-bottom: calc(64px + env(safe-area-inset-bottom,0px)); }
+  .rail { display: none; }
+  .tabs { display: flex; }
+  .detail { display: none; }
+  .app.has-sel .detail { display: block; position: fixed; inset: 0; z-index: 30; border-radius: 0; border: 0; padding-top: env(safe-area-inset-top,0px); padding-bottom: env(safe-area-inset-bottom,0px); }
+  .back { display: inline-flex; }
+  .detail-in { padding-inline: 16px; }
 }
 
 /* ============================================================
-   11. APP RULES
+   LAYER 5: CORE APP RULES
    ============================================================ */
-
 *{box-sizing:border-box}
 html,body{height:100%}
 body{margin:0;padding-block:0;padding-inline:16px;background:var(--bg);color:var(--fg);font:14px/1.5 var(--f-body);-webkit-text-size-adjust:100%}
@@ -554,20 +1176,10 @@ textarea.in{min-height:88px;resize:vertical;line-height:1.5}
   .sheet{border-radius:14px}
   .toast{bottom:24px}
 }
-@media (max-width:959px){
-  .body{grid-template-columns:minmax(0,1fr);padding-bottom:calc(64px + env(safe-area-inset-bottom,0px))}
-  .rail{display:none}
-  .tabs{display:flex}
-  .detail{display:none}
-  .app.has-sel .detail{display:block;position:fixed;inset:0;z-index:30;border-radius:0;border:0;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-  .back{display:inline-flex}
-  .detail-in{padding-inline:16px}
-}
 @media (max-width:420px){
   .relform{grid-template-columns:minmax(0,1fr)}
   .row{padding-right:12px}
 }
-@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 
 .rd-top,.rd-foot{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--surface)}
 .rd-top{border-bottom:1px solid var(--line)}.rd-foot{border-top:1px solid var(--line)}
@@ -628,215 +1240,3 @@ textarea.in{min-height:88px;resize:vertical;line-height:1.5}
 .fpick .btn{justify-content:flex-start;text-align:left}
 .chg{font:500 11px var(--f-mono);color:var(--st-draft)}
 .banner .btn{margin-left:8px}
-
-/* ============================================================
-   THEME-SPECIFIC BACKDROPS & OVERRIDES
-   ============================================================ */
-
-[data-theme="vaporwave"] body{
-  background:
-    radial-gradient(circle at 8% 5%, rgba(255,79,216,0.22) 0%, transparent 32%),
-    radial-gradient(circle at 92% 18%, rgba(53,231,255,0.18) 0%, transparent 34%),
-    radial-gradient(circle at 50% 110%, rgba(120,72,220,0.18) 0%, transparent 42%),
-    var(--bg);
-  background-attachment: fixed;
-}
-[data-theme="vaporwave"] h1,
-[data-theme="vaporwave"] h2,
-[data-theme="vaporwave"] h3,
-[data-theme="vaporwave"] h4{
-  text-shadow: 0 0 7px rgba(255,79,216,0.42), 0 0 18px rgba(53,231,255,0.18);
-}
-
-[data-theme="pastel"] body{
-  background:
-    radial-gradient(circle at 15% 10%, rgba(255,182,213,0.55) 0%, transparent 34%),
-    radial-gradient(circle at 85% 15%, rgba(177,225,239,0.45) 0%, transparent 32%),
-    radial-gradient(circle at 50% 100%, rgba(211,181,235,0.35) 0%, transparent 38%),
-    var(--bg);
-  background-attachment: fixed;
-}
-[data-theme="pastel"] h1,
-[data-theme="pastel"] h2,
-[data-theme="pastel"] h3,
-[data-theme="pastel"] h4{
-  color:#c6538b;
-  text-shadow: 1px 1px 0 rgba(255,255,255,0.9), 0 0 10px rgba(237,114,170,0.18);
-}
-
-[data-theme="carnival"] body{
-  background:
-    radial-gradient(circle at 20% 0%, rgba(255,0,127,0.15) 0%, transparent 40%),
-    radial-gradient(circle at 100% 50%, rgba(0,229,255,0.08) 0%, transparent 50%),
-    linear-gradient(to bottom, #060608 0%, #0a0a0f 100%);
-  background-attachment: fixed;
-}
-[data-theme="carnival"] h1,
-[data-theme="carnival"] h2,
-[data-theme="carnival"] h3,
-[data-theme="carnival"] h4{
-  color: #ffffff;
-  font-family: 'Instrument Sans', system-ui, sans-serif;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  text-shadow: 
-    0 0 5px rgba(255,0,127,0.8),
-    0 0 15px rgba(255,0,127,0.4),
-    2px 2px 0px #000000;
-}
-[data-theme="carnival"] .list,
-[data-theme="carnival"] .detail,
-[data-theme="carnival"] .sheet{
-  border-radius: 2px;
-  border: 1px solid var(--line-strong);
-  box-shadow: 
-    0 0 15px rgba(255,0,127,0.1), 
-    inset 0 0 10px rgba(0,0,0,0.5);
-  background: rgba(16, 16, 20, 0.85);
-  backdrop-filter: blur(8px);
-}
-[data-theme="carnival"] .btn.primary {
-  box-shadow: 0 0 12px rgba(255,0,127,0.5);
-  border: 1px solid #ff4da6;
-}
-
-[data-theme="maximal"] body{
-  background:
-    radial-gradient(600px 400px at 0% 0%, #ffd6f5 0%, transparent 60%),
-    radial-gradient(700px 500px at 100% 10%, #d6fff7 0%, transparent 55%),
-    radial-gradient(600px 400px at 50% 100%, #fff6a8 0%, transparent 55%),
-    repeating-linear-gradient(45deg, #fff0fb 0 20px, #ffe0f5 20px 40px);
-  background-attachment: fixed;
-}
-[data-theme="maximal"] h1,
-[data-theme="maximal"] h2,
-[data-theme="maximal"] h3,
-[data-theme="maximal"] h4{
-  color: var(--fg);
-  text-shadow: 2px 2px 0 #fff, 3px 3px 0 var(--accent);
-  font-weight: 900;
-}
-[data-theme="maximal"] .list,
-[data-theme="maximal"] .detail,
-[data-theme="maximal"] .sheet{
-  border: 3px solid var(--fg);
-  box-shadow: 4px 4px 0 var(--info);
-}
-
-[data-theme="gits"] body{
-  background:
-    radial-gradient(circle at 50% 30%, rgba(0,229,255,0.12) 0%, transparent 50%),
-    radial-gradient(circle at 90% 50%, rgba(255,26,140,0.1) 0%, transparent 40%),
-    linear-gradient(90deg, rgba(255,42,42,0.08) 0%, transparent 15%),
-    linear-gradient(to bottom, #07080c 0%, #0a0e17 100%);
-  background-attachment: fixed;
-}
-[data-theme="gits"] h1,
-[data-theme="gits"] h2,
-[data-theme="gits"] h3,
-[data-theme="gits"] h4{
-  color: #ffffff;
-  font-family: var(--f-mono);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  text-shadow: 
-    -2px 0 0 rgba(0,229,255,0.7), 
-     2px 0 0 rgba(255,26,140,0.7),
-     0 0 10px rgba(0,229,255,0.3);
-}
-[data-theme="gits"] .list,
-[data-theme="gits"] .detail,
-[data-theme="gits"] .sheet{
-  border-radius: 0;
-  border: 2px solid var(--line-strong);
-  box-shadow: 
-    0 0 0 1px #07080c,
-    inset 0 0 15px rgba(0,229,255,0.05),
-    4px 4px 0px rgba(0,229,255,0.2);
-}
-
-[data-theme="stained-glass"] body{
-  background:
-    repeating-linear-gradient(90deg,
-      rgba(94,232,255,0.03) 0, rgba(94,232,255,0.03) 1px,
-      transparent 1px, transparent 48px),
-    repeating-linear-gradient(0deg,
-      rgba(94,232,255,0.03) 0, rgba(94,232,255,0.03) 1px,
-      transparent 1px, transparent 48px),
-    radial-gradient(ellipse at 50% 30%, rgba(255,79,168,0.14) 0%, transparent 45%),
-    radial-gradient(ellipse at 50% 0%, rgba(94,232,255,0.10) 0%, transparent 50%),
-    linear-gradient(to bottom, transparent 60%, rgba(4,10,18,0.9) 100%),
-    var(--bg);
-  background-attachment: fixed;
-}
-[data-theme="stained-glass"] h1,
-[data-theme="stained-glass"] h2,
-[data-theme="stained-glass"] h3,
-[data-theme="stained-glass"] h4{
-  color: var(--fg);
-  text-shadow:
-    0 0 8px rgba(94,232,255,0.5),
-    0 0 24px rgba(255,79,168,0.15);
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-[data-theme="stained-glass"] .list,
-[data-theme="stained-glass"] .detail,
-[data-theme="stained-glass"] .sheet{
-  border: 1px solid var(--line-strong);
-  border-radius: 2px;
-  box-shadow:
-    0 0 0 1px rgba(94,232,255,0.10),
-    0 10px 40px rgba(0,0,0,0.5),
-    inset 0 0 40px rgba(94,232,255,0.03);
-  outline: 1px solid rgba(94,232,255,0.06);
-  outline-offset: -5px;
-}
-[data-theme="stained-glass"] .detail{
-  background: rgba(14,29,46,0.85);
-  backdrop-filter: blur(4px);
-}
-
-[data-theme="art-deco"] body{
-  background:
-    radial-gradient(circle at 50% 30%, rgba(196,92,52,0.05) 0%, transparent 50%),
-    radial-gradient(circle at 0% 100%, rgba(107,140,123,0.08) 0%, transparent 40%),
-    radial-gradient(circle at 100% 0%, rgba(107,140,123,0.08) 0%, transparent 40%),
-    var(--bg);
-  background-attachment: fixed;
-}
-[data-theme="art-deco"] h1,
-[data-theme="art-deco"] h2,
-[data-theme="art-deco"] h3,
-[data-theme="art-deco"] h4{
-  color: var(--fg);
-  font-family: 'Newsreader', Georgia, serif;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  text-shadow: 1px 1px 0 rgba(251,246,235,0.8);
-}
-[data-theme="art-deco"] .list,
-[data-theme="art-deco"] .detail,
-[data-theme="art-deco"] .sheet{
-  border-radius: 12px;
-  border: 2px solid var(--line-strong);
-  box-shadow: 
-    0 4px 20px rgba(59,43,36,0.06), 
-    inset 0 0 0 4px var(--surface),
-    inset 0 0 0 5px var(--line);
-}
-[data-theme="art-deco"] .detail-in {
-  position: relative;
-}
-[data-theme="art-deco"] .detail-in::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 50%; transform: translateX(-50%);
-  width: 60%; height: 40px;
-  border: 2px solid var(--line-strong);
-  border-bottom: none;
-  border-radius: 40px 40px 0 0;
-  pointer-events: none;
-  opacity: 0.5;
-}
