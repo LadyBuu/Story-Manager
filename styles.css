@@ -1104,9 +1104,11 @@ html[data-theme="ukiyo-e"] .lk { border-bottom: 1px solid var(--line-strong); }
 }
 
 @media (max-width: 959px) {
+  /* Fix: Stack layout, hide rail, show list */
   .body { grid-template-columns: minmax(0,1fr); padding-bottom: calc(64px + env(safe-area-inset-bottom,0px)); }
-  .rail { display: none; }
+  .rail { display: none !important; }
   .tabs { display: flex; }
+  .list { display: block !important; }
   .detail { display: none; }
   .app.has-sel .detail { display: block; position: fixed; inset: 0; z-index: 30; border-radius: 0; border: 0; padding-top: env(safe-area-inset-top,0px); padding-bottom: env(safe-area-inset-bottom,0px); }
   .back { display: inline-flex; }
