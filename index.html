@@ -164,6 +164,21 @@ function calHtml(target,pt){
     '<div class="cal-g">'+['Mo','Tu','We','Th','Fr','Sa','Su'].map(function(x){return '<i>'+x+'</i>'}).join('')+cells+'</div>'+
     '<div class="cal-f"><small class="hint">Weekdays follow the modern calendar, counted back for old years.</small><button type="button" class="btn sm" data-act="cal-close">Close</button></div></div>';
 }
+function ordinal(n){var t=n%100;if(t>=11&&t<=13)return n+'th';return n+({1:'st',2:'nd',3:'rd'}[n%10]||'th')}
+function longDate(text){
+  var t=(text||'').trim();if(!t||dateMode()!=='auto')return t;
+  var k=autoKey(t);if(k==null)return t;
+  var y=Math.floor(k/10000),mo=Math.floor(k/100)%100,da=k%100;
+  if(da&&mo)return WEEKDAYS[wdayOf(y,mo,da)]+', '+ordinal(da)+' '+MONTH_NAMES[mo]+' '+y;
+  return (mo?MONTH_NAMES[mo]+' ':'')+y;
+}
+var DHS={v:''};
+function dateHead(hd,heads,cl){
+  if(hd===heads[0])DHS.v='';
+  if(hd.level!==cl||hd.missing||hd.moved)return '';
+  var t=(hd.storyDate||'').trim();if(!t||t===DHS.v)return '';
+  DHS.v=t;return '<div class="dhead">'+esc(longDate(t))+'</div>';
+}
 function dateField(target,text,id){
   var t=(text||'').trim(), pt=dateParts(t), odd=t&&autoKey(t)==null, dy=defYearFor(target);
   return '<div class="dpick" data-dpw="'+target+'"><input class="in dp-d" id="'+id+'" type="number" min="1" max="31" inputmode="numeric" placeholder="Day" aria-label="Day" data-change="dp" value="'+esc(pt.d)+'">'+
@@ -778,13 +793,13 @@ function docCard(d){
     h+='<div class="addrow"><input class="in" id="noteIn-'+kind+'" data-enter="note-add" data-id="'+d.id+'" data-kind="'+kind+'" placeholder="Add a '+kind.toLowerCase()+' note" aria-label="New '+kind.toLowerCase()+' note"><button class="btn" data-act="note-add" data-id="'+d.id+'" data-kind="'+kind+'">Add</button></div>';
   });
   h+='</div>';
-  h+='<div class="sec"><h3>Chapters and structure</h3>'+(heads.length?'<p class="hint" style="margin:0 0 6px">Open any heading to give it a date, POV, characters, locations and tags. The timeline and chapter counts use the headings at level '+cl+'; change that in Settings.</p>'+(chs.length?'<div class="actions" style="justify-content:flex-start;margin:0 0 8px"><button class="btn sm" data-act="spread" data-id="'+d.id+'" data-field="characterIds" data-coll="characters" data-noun="character">'+ic('plus',14)+'Characters in the whole file</button><button class="btn sm" data-act="spread" data-id="'+d.id+'" data-field="locationIds" data-coll="locations" data-noun="location">'+ic('plus',14)+'Locations in the whole file</button></div>':'')+'<div class="ht">'+heads.map(function(hd){
+  h+='<div class="sec"><h3>Chapters and structure</h3>'+(heads.length?'<p class="hint" style="margin:0 0 6px">Open any heading to give it a date, POV, characters, locations and tags. The timeline and chapter counts use the headings at level '+cl+'; change that in Settings.</p>'+(chs.length?'<div class="actions" style="justify-content:flex-start;margin:0 0 8px"><button class="btn sm" data-act="spread" data-id="'+d.id+'" data-field="characterIds" data-coll="characters" data-noun="character">'+ic('plus',14)+'Characters in the whole file</button><button class="btn sm" data-act="spread" data-id="'+d.id+'" data-field="locationIds" data-coll="locations" data-noun="location">'+ic('plus',14)+'Locations in the whole file</button></div>':'')+'<div class="ht">'+heads.map(function(hd){return dateHead(hd,heads,cl)+(function(hd){
     var oc=openByHead[hd.title];
     if(hd.missing)return '<div class="hl moved" style="--lv:'+hd.level+'"><span class="hlab">'+esc(label(hd.level)||('H'+hd.level))+'</span><span class="t" style="text-decoration:none">'+esc(hd.title)+'</span><small>Not found in the file now. Its info is kept.</small><div class="actions" style="justify-content:flex-start;margin:4px 0"><button class="btn sm" data-act="miss-move" data-id="'+d.id+'" data-hid="'+hd.id+'">Move its info to a heading</button><button class="btn sm danger" data-act="miss-drop" data-id="'+d.id+'" data-hid="'+hd.id+'">Discard</button></div></div>';
     if(hd.moved)return '<div class="hl moved" style="--lv:'+hd.level+'"><span class="hlab">'+esc(label(hd.level)||('H'+hd.level))+'</span><span class="t">'+esc(hd.title)+'</span><small>Moved to '+esc(hd.moved.name||'a new file')+'</small></div>';
     if(1)return chapterRow(d,hd,oc);
     return '<div class="hl" style="--lv:'+hd.level+'"><span class="hlab">'+esc(label(hd.level)||('H'+hd.level))+'</span><span class="t">'+esc(hd.title)+'</span>'+(oc?'<span class="nb">'+oc+' open</span>':'')+'</div>';
-  }).join('')+'</div>':'<p class="hint">No headings read yet. Use Heading 1, 2 and 3 styles in Word, then read this file below.</p>')+'</div>';
+  })(hd)}).join('')+'</div>':'<p class="hint">No headings read yet. Use Heading 1, 2 and 3 styles in Word, then read this file below.</p>')+'</div>';
   h+='<div class="sec"><h3>Word file</h3><dl class="meta"><dt>File</dt><dd>'+esc(f.name||'None attached')+'</dd><dt>Headings read</dt><dd>'+fmtDate(f.analysed)+'</dd><dt>Saved in Word</dt><dd>'+fmtDate(f.modified)+'</dd><dt>Length</dt><dd>'+(f.words!=null?fmtN(f.words)+' words':'not counted')+'</dd></dl>'+
     '<button class="btn" data-act="'+(f.od&&OD.acct?'od-refresh':'refresh')+'" data-id="'+d.id+'">'+ic('refresh')+(f.od&&OD.acct?'Refresh from OneDrive':(f.analysed?'Refresh headings':'Read headings from a .docx'))+'</button>'+(chs.length?'<button class="btn" style="margin-left:8px" data-act="ext-open" data-id="'+d.id+'">Extract chapters</button>':'')+
     '<p class="hint" style="margin-top:8px">Pick the file again after you edit it. Only heading text and a word count are saved.</p></div>';
@@ -2347,7 +2362,7 @@ function rdBody(it,paras){
   if(!paras)return null;
   var seg=rdSlice(it.d,it.h,paras);if(!seg)return false;
   var lvl=it.h?it.h.level:0, out='', started=false;
-  var dt=((it.h&&it.h.storyDate)||it.d.storyDate||'').trim();if(dt)out+='<div class="rd-date" role="heading" aria-level="2">'+esc(dt)+'</div>';
+  var dt=((it.h&&it.h.storyDate)||it.d.storyDate||'').trim();if(dt)out+='<div class="rd-date" role="heading" aria-level="2">'+esc(longDate(dt))+'</div>';
   seg.forEach(function(x){
     var t=x.text;
     if(x.lv>0){var n=Math.min(4,Math.max(1,x.lv-lvl+1));if(!lvl)n=Math.min(4,x.lv);out+='<h'+n+'>'+esc(t)+'<button class="rd-c" data-act="read-target" data-t="'+esc(t)+'" aria-label="Comment on '+esc(t)+'">+ note</button></h'+n+'>';started=true;return}
