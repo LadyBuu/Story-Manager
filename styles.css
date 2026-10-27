@@ -1386,3 +1386,16 @@ textarea.in{min-height:88px;resize:vertical;line-height:1.5}
   .back { display: inline-flex; }
   .detail-in { padding-inline: 16px; }
 }
+
+/* date picker */
+.dpick{display:grid;grid-template-columns:76px minmax(0,1fr) 92px auto auto;gap:6px;align-items:center}
+.dpick .in{min-width:0}
+@media(max-width:480px){.dpick{grid-template-columns:64px minmax(0,1fr) 78px}}
+.cal{margin-top:8px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2,transparent);max-width:320px}
+.cal-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.cal-g{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center}
+.cal-g i{font-style:normal;font-size:11px;opacity:.6;padding:2px 0}
+.cal-d{aspect-ratio:1;min-height:34px;border:1px solid transparent;border-radius:8px;background:none;color:inherit;font:inherit}
+.cal-d:hover{border-color:var(--accent)}
+.cal-d.on{background:var(--accent);color:var(--bg,#fff)}
+.cal-f{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px}
