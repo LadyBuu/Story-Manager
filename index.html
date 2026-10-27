@@ -173,11 +173,78 @@ function longDate(text){
   return (mo?MONTH_NAMES[mo]+' ':'')+y;
 }
 var DHS={v:''};
-function dateHead(hd,heads,cl){
+function schedList(){var pr=proj();return (pr&&pr.schedules)||[]}
+function schedFor(canon){return schedList().filter(function(s){return canonDate(s.date)===canon})}
+function parseSchedule(text){
+  var lines=String(text||'').replace(/^\uFEFF/,'').split(/\r?\n/).filter(function(l){return l.trim()});
+  if(lines.length<2)return null;
+  var tok=function(l){var out=[],re=/\S+(?: \S+)*/g,m;l=l.replace(/\t/g,'    ');while((m=re.exec(l)))out.push({t:m[0],s:m.index});return out};
+  var head=tok(lines[0]);if(head.length<2)return null;
+  var starts=head.map(function(x){return x.s}), rows=[];
+  lines.slice(1).forEach(function(l){
+    var raw=l.replace(/\t/g,'    '), ok=true;
+    for(var i=1;i<starts.length;i++){var c=raw.charAt(starts[i]-1);if(c&&c!==' '){ok=false;break}}
+    var cells;
+    if(ok)cells=starts.map(function(st,i){return raw.slice(i===0?0:st,i+1<starts.length?starts[i+1]:undefined).trim()});
+    else{var parts=raw.trim().split(/\s{2,}/);cells=head.map(function(x,i){return parts[i]||''})}
+    rows.push(cells);
+  });
+  return {cols:head.map(function(x){return x.t}),rows:rows};
+}
+function slugOf(s){return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')}
+function schedGuess(name){
+  var base=name.replace(/\.[a-z0-9]+$/i,''), out={title:'',charId:'',y:'',m:'',d:''};
+  var iso=/(\d{4})-(\d{2})-(\d{2})/.exec(base);if(iso){out.y=+iso[1];out.m=+iso[2];out.d=+iso[3]}
+  var cm=/^character-(.+?)-schedule/i.exec(base), slug=cm?cm[1].toLowerCase():'';
+  if(slug){var c=P('characters').find(function(x){return slugOf(x.name)===slug});if(c)out.charId=c.id;out.who=slug.split('-').map(function(w){return w.charAt(0).toUpperCase()+w.slice(1)}).join(' ')}
+  var wk=/week-(\d+)/i.exec(base), dayw=/(monday|tuesday|wednesday|thursday|friday|saturday|sunday)/i.exec(base);
+  out.title=(out.who?out.who+' · ':'')+'Schedule'+(wk?' · week '+wk[1]:'')+(dayw?' · '+dayw[1].charAt(0).toUpperCase()+dayw[1].slice(1).toLowerCase():'');
+  if(!out.who&&!wk&&!dayw)out.title=base.replace(/[-_]+/g,' ');
+  return out;
+}
+function schedTable(s){
+  return '<div class="tblw"><table class="sch"><thead><tr>'+s.cols.map(function(c){return '<th scope="col">'+esc(c)+'</th>'}).join('')+'</tr></thead><tbody>'+
+    s.rows.map(function(r){return '<tr>'+r.map(function(c,i){return i===0?'<th scope="row">'+esc(c)+'</th>':'<td>'+esc(c)+'</td>'}).join('')+'</tr>'}).join('')+'</tbody></table></div>';
+}
+function schedModal(){
+  var m=S.modal, all=schedList().slice().sort(function(a,b){var x=autoKey(a.date),y=autoKey(b.date);return (x==null?1e12:x)-(y==null?1e12:y)});
+  var list=m.date?all.filter(function(s){return canonDate(s.date)===m.date}):all;
+  var title=m.date?'Schedule · '+esc(longDate(m.date)):'Schedules';
+  var body=list.map(function(s){
+    var who=s.charId?nameOf('characters',s.charId):'';
+    return '<div class="sch-card"><div class="sch-h"><div><b>'+esc(s.title||'Schedule')+'</b><small>'+esc(longDate(s.date)||'No date')+(who&&(s.title||'').indexOf(who)<0?' · '+esc(who):'')+'</small></div><button class="btn sm" data-act="sch-del" data-id="'+s.id+'">Delete</button></div>'+schedTable(s)+'</div>';
+  }).join('');
+  return '<h2>'+title+'</h2><div data-hl style="max-height:62vh;overflow:auto">'+(body||'<p class="hint">'+(m.date?'No schedule is attached to this date yet.':'No schedules yet. Import a .txt timetable and attach it to a date.')+'</p>')+'</div>'+
+    '<div class="actions"><button class="btn" data-act="close">Close</button>'+(m.date?'<button class="btn" data-act="sched-all">All schedules</button>':'')+'<button class="btn primary" data-act="sched-import" data-date="'+esc(m.date||'')+'">'+ic('upload')+'Import .txt</button></div>';
+}
+function schImpModal(){
+  var m=S.modal;
+  var items=m.items.map(function(it,i){
+    return '<div class="rd-nt" style="display:block"><label class="chk"><input type="checkbox" id="si-on-'+i+'"'+(it.table?' checked':' disabled')+'><span><b>'+esc(it.file)+'</b><small>'+(it.table?it.table.cols.length-1+' slot'+(it.table.cols.length===2?'':'s')+' · '+it.table.rows.length+' row'+(it.table.rows.length===1?'':'s'):'Could not read a table from this file.')+'</small></span></label>'+
+      (it.table?'<div class="fgrid" style="margin-top:6px"><div class="span2"><label class="lab" for="si-t-'+i+'">Title</label><input class="in" id="si-t-'+i+'" value="'+esc(it.title)+'"></div>'+
+      '<div class="span2"><label class="lab" for="si-c-'+i+'">Character</label><select class="in" id="si-c-'+i+'">'+optList('characters',it.charId,'None')+'</select></div>'+
+      '<div class="span2"><label class="lab" for="si-d-'+i+'">Date</label><div class="dpick"><input class="in" id="si-d-'+i+'" type="number" min="1" max="31" inputmode="numeric" placeholder="Day" aria-label="Day" value="'+esc(it.d)+'"><select class="in" id="si-m-'+i+'" aria-label="Month"><option value="">Month</option>'+MONTH_NAMES.slice(1).map(function(n,j){return '<option value="'+(j+1)+'"'+(it.m===j+1?' selected':'')+'>'+n+'</option>'}).join('')+'</select><input class="in" id="si-y-'+i+'" type="number" min="100" max="9999" inputmode="numeric" placeholder="Year" aria-label="Year" value="'+esc(it.y)+'"></div></div></div>':'')+'</div>';
+  }).join('');
+  return '<h2>Import schedules</h2><p class="hint">Dates are read from the file names. Check them, because the date is what links a schedule to your chapters. Only the table is saved.</p><div data-hl style="max-height:56vh;overflow:auto;border-top:1px solid var(--line)">'+items+'</div>'+
+    '<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn primary" data-act="sch-go">Import</button></div>';
+}
+function readText(f){return new Promise(function(res){var fr=new FileReader();fr.onload=function(){res(String(fr.result||''))};fr.onerror=function(){res('')};fr.readAsText(f)})}
+async function schedFiles(files,date){
+  var arr=Array.prototype.slice.call(files||[]);if(!arr.length)return;
+  var items=[];
+  for(var i=0;i<arr.length;i++){
+    var f=arr[i], g=schedGuess(f.name), t=parseSchedule(await readText(f));
+    if(date&&!g.y){var pd=dateParts(date);g.y=pd.y;g.m=pd.m;g.d=pd.d}
+    items.push({file:f.name,title:g.title,charId:g.charId,y:g.y,m:g.m,d:g.d,table:t});
+  }
+  S.modal={type:'schimp',items:items,date:date||''};renderModal();
+}
+function dateHead(hd,heads,cl,d){
   if(hd===heads[0])DHS.v='';
-  if(hd.level!==cl||hd.missing||hd.moved)return '';
+  if(hd.level!==cl||hd.missing||hd.moved||chapVariant(d,hd)==='trashed')return '';
   var t=(hd.storyDate||'').trim();if(!t||t===DHS.v)return '';
-  DHS.v=t;return '<div class="dhead">'+esc(longDate(t))+'</div>';
+  DHS.v=t;var cn=canonDate(t)||t, n=schedFor(cn).length;
+  return '<button type="button" class="dhead" data-act="sched-open" data-date="'+esc(cn)+'" aria-label="Schedule for '+esc(longDate(t))+'">'+esc(longDate(t))+(n?' <span class="dh-s">· schedule'+(n>1?'s '+n:'')+'</span>':'')+'</button>';
 }
 function dateField(target,text,id){
   var t=(text||'').trim(), pt=dateParts(t), odd=t&&autoKey(t)==null, dy=defYearFor(target);
@@ -720,7 +787,8 @@ function chapterRow(d,hd,oc){
   var sum=[hd.storyDate,pv&&('POV '+pv),n&&(n+' character'+(n>1?'s':'')),ak&&hd.arcId&&('Arc '+ak),hd.variant&&variantLabel(hd.variant),(hd.tags||[]).length&&(hd.tags||[]).map(function(t){return '#'+t}).join(' '),cw!=null&&(fmtN(cw)+' words')].filter(Boolean).join(' · ');
   var unread=dateMode()==='auto'&&(hd.storyDate||'').trim()&&autoKey(hd.storyDate)==null;
   function add(field,coll,noun){return '<button class="btn sm" data-act="chap-pick" data-id="'+d.id+'" data-hid="'+hd.id+'" data-field="'+field+'" data-coll="'+coll+'" data-noun="'+noun+'">'+ic('plus',14)+'Add</button>'}
-  return '<details class="chap" style="margin-left:'+Math.min(Math.max(hd.level-1,0),4)*10+'px" data-hid="'+hd.id+'"'+(S.chapOpen&&S.chapOpen[hd.id]?' open':'')+'><summary><span class="hlab">'+esc(label(hd.level)||('H'+hd.level))+'</span><span class="t">'+esc(hd.title)+'</span>'+(oc?'<span class="nb">'+oc+' open</span>':'')+(sum?'<small>'+esc(sum)+'</small>':'')+'</summary><div class="chapbody">'+
+  var trashed=chapVariant(d,hd)==='trashed';
+  return '<details class="chap'+(trashed?' trash':'')+'" style="margin-left:'+Math.min(Math.max(hd.level-1,0),4)*10+'px" data-hid="'+hd.id+'"'+(S.chapOpen&&S.chapOpen[hd.id]?' open':'')+'><summary><span class="hlab">'+esc(label(hd.level)||('H'+hd.level))+'</span><span class="t">'+esc(hd.title)+'</span>'+(trashed?'<span class="trash-pill">Trashed</span>':'')+(oc?'<span class="nb">'+oc+' open</span>':'')+(sum?'<small>'+esc(sum)+'</small>':'')+'</summary><div class="chapbody">'+
     '<div class="fgrid"><div class="span2"><label class="lab" for="chd-'+hd.id+'">Story date</label>'+(dateMode()==='auto'?dateField('c:'+d.id+':'+hd.id,hd.storyDate,'chd-'+hd.id)+'<small class="hint" id="dh-'+hd.id+'" style="display:block;margin-top:4px">'+esc(dateHint(hd.storyDate))+'</small>':'<input class="in" id="chd-'+hd.id+'" data-chap="'+k+'storyDate" value="'+esc(hd.storyDate||'')+'" placeholder="Any label, for example Year 3, spring" aria-describedby="dh-'+hd.id+'"><small class="hint" id="dh-'+hd.id+'" style="display:block;margin-top:4px">'+esc(dateHint(hd.storyDate))+'</small>')+'</div>'+
     (dateMode()==='manual'?'<div><label class="lab" for="chk-'+hd.id+'">Sort number</label><input class="in" id="chk-'+hd.id+'" type="number" inputmode="decimal" data-chap="'+k+'dateKey" value="'+esc(hd.dateKey==null?'':hd.dateKey)+'" placeholder="For example story day 340"></div>':'')+
     (unread?'<p class="hint span2" style="margin:0">That date is not one I can sort, so this chapter follows its file. Write it like 12 August 1248, or switch to sort numbers in Settings.</p>':'')+
@@ -793,7 +861,7 @@ function docCard(d){
     h+='<div class="addrow"><input class="in" id="noteIn-'+kind+'" data-enter="note-add" data-id="'+d.id+'" data-kind="'+kind+'" placeholder="Add a '+kind.toLowerCase()+' note" aria-label="New '+kind.toLowerCase()+' note"><button class="btn" data-act="note-add" data-id="'+d.id+'" data-kind="'+kind+'">Add</button></div>';
   });
   h+='</div>';
-  h+='<div class="sec"><h3>Chapters and structure</h3>'+(heads.length?'<p class="hint" style="margin:0 0 6px">Open any heading to give it a date, POV, characters, locations and tags. The timeline and chapter counts use the headings at level '+cl+'; change that in Settings.</p>'+(chs.length?'<div class="actions" style="justify-content:flex-start;margin:0 0 8px"><button class="btn sm" data-act="spread" data-id="'+d.id+'" data-field="characterIds" data-coll="characters" data-noun="character">'+ic('plus',14)+'Characters in the whole file</button><button class="btn sm" data-act="spread" data-id="'+d.id+'" data-field="locationIds" data-coll="locations" data-noun="location">'+ic('plus',14)+'Locations in the whole file</button></div>':'')+'<div class="ht">'+heads.map(function(hd){return dateHead(hd,heads,cl)+(function(hd){
+  h+='<div class="sec"><h3>Chapters and structure</h3>'+(heads.length?'<p class="hint" style="margin:0 0 6px">Open any heading to give it a date, POV, characters, locations and tags. The timeline and chapter counts use the headings at level '+cl+'; change that in Settings.</p>'+(chs.length?'<div class="actions" style="justify-content:flex-start;margin:0 0 8px"><button class="btn sm" data-act="spread" data-id="'+d.id+'" data-field="characterIds" data-coll="characters" data-noun="character">'+ic('plus',14)+'Characters in the whole file</button><button class="btn sm" data-act="spread" data-id="'+d.id+'" data-field="locationIds" data-coll="locations" data-noun="location">'+ic('plus',14)+'Locations in the whole file</button></div>':'')+'<div class="ht">'+heads.map(function(hd){return dateHead(hd,heads,cl,d)+(function(hd){
     var oc=openByHead[hd.title];
     if(hd.missing)return '<div class="hl moved" style="--lv:'+hd.level+'"><span class="hlab">'+esc(label(hd.level)||('H'+hd.level))+'</span><span class="t" style="text-decoration:none">'+esc(hd.title)+'</span><small>Not found in the file now. Its info is kept.</small><div class="actions" style="justify-content:flex-start;margin:4px 0"><button class="btn sm" data-act="miss-move" data-id="'+d.id+'" data-hid="'+hd.id+'">Move its info to a heading</button><button class="btn sm danger" data-act="miss-drop" data-id="'+d.id+'" data-hid="'+hd.id+'">Discard</button></div></div>';
     if(hd.moved)return '<div class="hl moved" style="--lv:'+hd.level+'"><span class="hlab">'+esc(label(hd.level)||('H'+hd.level))+'</span><span class="t">'+esc(hd.title)+'</span><small>Moved to '+esc(hd.moved.name||'a new file')+'</small></div>';
@@ -956,6 +1024,8 @@ function renderModal(){
   else if(m.type==='xport')inner=xportModal();
   else if(m.type==='checks')inner=checksModal();
   else if(m.type==='tools')inner=toolsModal();
+  else if(m.type==='sched')inner=schedModal();
+  else if(m.type==='schimp')inner=schImpModal();
   else if(m.type==='revpass')inner=revModal();
   else if(m.type==='missmove'){
     var md=byId('documents',m.id), mh=md&&(md.headings||[]).find(function(x){return x.id===m.hid});
@@ -1823,6 +1893,28 @@ clear:function(el){
 'cal-close':function(){S.cal=null;render()},
 'cal-pick':function(el){var c=S.cal;if(!c)return;dpSet(el.dataset.t,el.dataset.d+' '+MONTH_NAMES[c.m]+' '+c.y);S.cal=null;render()},
 'dp-clear':function(el){dpSet(el.dataset.t,'');render()},
+'sched-all':function(){S.modal={type:'sched',date:''};renderModal()},
+'sched-open':function(el){S.modal={type:'sched',date:el.dataset.date||''};renderModal()},
+'sched-import':function(el){
+  var date=el.dataset.date||'', inp=document.createElement('input');inp.type='file';inp.accept='.txt,text/plain';inp.multiple=true;
+  inp.addEventListener('change',function(){schedFiles(inp.files,date)});inp.click();
+},
+'sch-del':function(el){var pr=proj();if(!pr)return;pr.schedules=(pr.schedules||[]).filter(function(s){return s.id!==el.dataset.id});save('projects',pr);renderModal();render();toast('Schedule deleted.')},
+'sch-go':function(){
+  var m=S.modal,pr=proj();if(!pr)return;var out=[],bad=0;
+  m.items.forEach(function(it,i){
+    var on=document.getElementById('si-on-'+i);if(!it.table||!on||!on.checked)return;
+    var d=parseInt(document.getElementById('si-d-'+i).value,10), mo=parseInt(document.getElementById('si-m-'+i).value,10), y=parseInt(document.getElementById('si-y-'+i).value,10);
+    if(isNaN(y)||y<100){bad++;return}
+    if(isNaN(mo))d=NaN;
+    if(!isNaN(d)){var mx=dim(y,mo);if(d<1)d=1;if(d>mx)d=mx}
+    out.push({id:uid(),title:(document.getElementById('si-t-'+i).value||'').trim()||'Schedule',charId:document.getElementById('si-c-'+i).value,date:(isNaN(d)?'':d+' ')+(isNaN(mo)?'':MONTH_NAMES[mo]+' ')+y,cols:it.table.cols,rows:it.table.rows});
+  });
+  if(bad){toast('Give each ticked schedule a year.');return}
+  if(!out.length){toast('Nothing to import.');return}
+  pr.schedules=(pr.schedules||[]).concat(out);save('projects',pr);
+  S.modal={type:'sched',date:canonDate(out[0].date)||''};renderModal();render();toast(out.length+' schedule'+(out.length===1?'':'s')+' imported.');
+},
 'tools':function(){S.modal={type:'tools'};renderModal()},
 'tool':function(el){var f=el.dataset.do;closeModal();if(A[f])A[f](el)},
 'chk-open':function(){S.modal={type:'checks',show:false};renderModal()},
@@ -2544,7 +2636,7 @@ function toolsModal(){
   var t=function(act,name,sub,extra){return '<button class="tool" data-act="tool" data-do="'+act+'"'+(extra||'')+'><b>'+name+'</b><small>'+sub+'</small></button>'};
   var sec=function(title,btns){btns=btns.filter(Boolean);return btns.length?'<div class="lab" style="margin-top:12px">'+title+'</div><div class="tgrid">'+btns.join('')+'</div>':''};
   return '<h2>Tools</h2><div data-hl style="max-height:62vh;overflow:auto">'+
-    sec('Add',[t('new-doc','Blank document','A document with no Word file yet'),(fine||S.mode==='od')?t('add-folder','Whole folder','Pick a folder of .docx files'):'']) +
+    sec('Add',[t('new-doc','Blank document','A document with no Word file yet'),t('sched-all','Schedules','Timetables attached to dates'),(fine||S.mode==='od')?t('add-folder','Whole folder','Pick a folder of .docx files'):'']) +
     sec('Order',[t('routes','Routes','Add or edit alternate routes')].concat(n?[t('chap-order','Chapter order','Reading order across files'),t('path','Reading path','Follow a route in order')]:[])) +
     sec('Review',n?[t('chk-open','Checks','Dates and POV that do not add up'),t('rev-open','Revision pass'+(rc?' · '+rc:''),'Every open comment, in reading order')]:[]) +
     sec('Output',n?[t('x-open','Export','Headings only, filtered by route, version or tag')]:[]) +
