@@ -145,11 +145,41 @@ function autoKey(text){
   if(mo>12||da>31)return null;
   return y*10000+mo*100+da;
 }
+var MONTH_NAMES=['','January','February','March','April','May','June','July','August','September','October','November','December'];
+function canonDate(text){var k=autoKey(text);if(k==null)return null;var y=Math.floor(k/10000),mo=Math.floor(k/100)%100,da=k%100;return (da?da+' ':'')+(mo?MONTH_NAMES[mo]+' ':'')+y}
+function dateParts(text){var k=autoKey(text);if(k==null)return {d:'',m:'',y:''};return {d:k%100||'',m:Math.floor(k/100)%100||'',y:Math.floor(k/10000)}}
+function dateField(target,text,id){
+  var t=(text||'').trim(), pt=dateParts(t), odd=t&&autoKey(t)==null;
+  return '<div class="dpick" data-dpw="'+target+'"><input class="in dp-d" id="'+id+'" type="number" min="1" max="31" inputmode="numeric" placeholder="Day" aria-label="Day" data-change="dp" value="'+esc(pt.d)+'">'+
+    '<select class="in dp-m" aria-label="Month" data-change="dp"><option value="">Month</option>'+MONTH_NAMES.slice(1).map(function(n,i){return '<option value="'+(i+1)+'"'+(pt.m===i+1?' selected':'')+'>'+n+'</option>'}).join('')+'</select>'+
+    '<input class="in dp-y" type="number" min="100" max="9999" inputmode="numeric" placeholder="Year" aria-label="Year" data-change="dp" value="'+esc(pt.y)+'">'+
+    (t?'<button class="btn sm" type="button" data-act="dp-clear" data-t="'+target+'">Clear</button>':'')+'</div>'+
+    (odd?'<small class="hint" style="display:block;margin-top:4px">Currently “'+esc(t)+'”, which is not a real date. Pick one to replace it.</small>':'');
+}
+function dpSet(target,val){
+  var a=target.split(':'),o;
+  if(a[0]==='c'){var d=byId('documents',a[1]),x=d&&(d.headings||[]).find(function(y){return y.id===a[2]});if(!x)return;x.storyDate=val;save('documents',d)}
+  else if(a[0]==='d'){o=byId('documents',a[1]);if(!o)return;o.storyDate=val;save('documents',o)}
+  else if(a[0]==='e'){o=byId('events',a[1]);if(!o)return;o.dateText=val;save('events',o)}
+}
+function normDates(){
+  var pr=proj();if(!pr||dateMode()!=='auto')return;
+  var docs=P('documents'),evs=P('events');if(!docs.length&&!evs.length)return;
+  S._nd=S._nd||{};if(S._nd[pr.id])return;S._nd[pr.id]=1;
+  withBulk(function(){
+    docs.forEach(function(d){
+      var ch=false,c=canonDate(d.storyDate);if(c&&c!==d.storyDate){d.storyDate=c;ch=true}
+      (d.headings||[]).forEach(function(x){var c2=canonDate(x.storyDate);if(c2&&c2!==x.storyDate){x.storyDate=c2;ch=true}});
+      if(ch)save('documents',d);
+    });
+    evs.forEach(function(e){var c=canonDate(e.dateText);if(c&&c!==e.dateText){e.dateText=c;save('events',e)}});
+  });
+}
 function dateHint(text){
   var t=(text||'').trim();
   if(dateMode()==='manual')return 'Shown as written. Order comes from the sort number.';
-  if(!t)return 'Write it however you like. Real dates such as 12 March 1248 or 1248-03-12 place the scene on the timeline. Anything else is kept as a label.';
-  var k=autoKey(t);if(k==null)return 'Kept as written, but I cannot sort it, so it follows its file. For a made-up calendar use sort numbers in Settings.';
+  if(!t)return 'Pick a year, and a month and day if you know them. For a made-up calendar, switch to sort numbers in Settings.';
+  var k=autoKey(t);if(k==null)return 'Not a real date, so it follows its file. Pick a date to replace it, or use sort numbers in Settings for a made-up calendar.';
   var y=Math.floor(k/10000), mo=Math.floor(k/100)%100, da=k%100, mn=['','January','February','March','April','May','June','July','August','September','October','November','December'];
   return 'Sorts as '+(da?da+' ':'')+(mo?mn[mo]+' ':'')+y+'.';
 }
@@ -392,7 +422,7 @@ document.addEventListener('focusout',function(){
 
 var RDV=0;
 function render(){
-  syncVersions();
+  syncVersions();normDates();
   RDV++;
   if(S.sel&&!selObj())S.sel=null;
   $('#app').classList.toggle('has-sel',!!S.sel);
@@ -657,7 +687,7 @@ function chapterRow(d,hd,oc){
   var unread=dateMode()==='auto'&&(hd.storyDate||'').trim()&&autoKey(hd.storyDate)==null;
   function add(field,coll,noun){return '<button class="btn sm" data-act="chap-pick" data-id="'+d.id+'" data-hid="'+hd.id+'" data-field="'+field+'" data-coll="'+coll+'" data-noun="'+noun+'">'+ic('plus',14)+'Add</button>'}
   return '<details class="chap" style="margin-left:'+Math.min(Math.max(hd.level-1,0),4)*10+'px" data-hid="'+hd.id+'"'+(S.chapOpen&&S.chapOpen[hd.id]?' open':'')+'><summary><span class="hlab">'+esc(label(hd.level)||('H'+hd.level))+'</span><span class="t">'+esc(hd.title)+'</span>'+(oc?'<span class="nb">'+oc+' open</span>':'')+(sum?'<small>'+esc(sum)+'</small>':'')+'</summary><div class="chapbody">'+
-    '<div class="fgrid"><div><label class="lab" for="chd-'+hd.id+'">Story date</label><input class="in" id="chd-'+hd.id+'" data-chap="'+k+'storyDate" value="'+esc(hd.storyDate||'')+'" placeholder="For example 12 March 1248" aria-describedby="dh-'+hd.id+'"><small class="hint" id="dh-'+hd.id+'" style="display:block;margin-top:4px">'+esc(dateHint(hd.storyDate))+'</small></div>'+
+    '<div class="fgrid"><div><label class="lab" for="chd-'+hd.id+'">Story date</label>'+(dateMode()==='auto'?dateField('c:'+d.id+':'+hd.id,hd.storyDate,'chd-'+hd.id)+'<small class="hint" id="dh-'+hd.id+'" style="display:block;margin-top:4px">'+esc(dateHint(hd.storyDate))+'</small>':'<input class="in" id="chd-'+hd.id+'" data-chap="'+k+'storyDate" value="'+esc(hd.storyDate||'')+'" placeholder="Any label, for example Year 3, spring" aria-describedby="dh-'+hd.id+'"><small class="hint" id="dh-'+hd.id+'" style="display:block;margin-top:4px">'+esc(dateHint(hd.storyDate))+'</small>')+'</div>'+
     (dateMode()==='manual'?'<div><label class="lab" for="chk-'+hd.id+'">Sort number</label><input class="in" id="chk-'+hd.id+'" type="number" inputmode="decimal" data-chap="'+k+'dateKey" value="'+esc(hd.dateKey==null?'':hd.dateKey)+'" placeholder="For example story day 340"></div>':'')+
     (unread?'<p class="hint span2" style="margin:0">That date is not one I can sort, so this chapter follows its file. Write it like 12 August 1248, or switch to sort numbers in Settings.</p>':'')+
     (hd.level===chapLvl(d)&&rdPosOf(d,hd)?'<div><label class="lab" for="chr-'+hd.id+'">Reading position</label><input class="in mono" id="chr-'+hd.id+'" type="number" min="1" max="'+RDM.n+'" value="'+rdPosOf(d,hd)+'" data-change="rd-pos" data-id="'+d.id+'" data-hid="'+hd.id+'"></div>':'')+
@@ -699,7 +729,7 @@ function docCard(d){
   h+='<div class="fgrid">'+
     posInput(d,'order','rp-','Reading order',rp,n)+
     posInput(d,'chron','cp-','Story chronology',cp,n)+
-    '<div class="span2"><label class="lab" for="sd-'+d.id+'">Story date</label><input class="in" id="sd-'+d.id+'" data-bind="documents:'+d.id+':storyDate" value="'+esc(d.storyDate||'')+'" placeholder="For example 12 March 1248" aria-describedby="dh-'+d.id+'"><small class="hint" id="dh-'+d.id+'" style="display:block;margin-top:4px">'+esc(dateHint(d.storyDate))+'</small></div>'+
+    '<div class="span2"><label class="lab" for="sd-'+d.id+'">Story date</label>'+(dateMode()==='auto'?dateField('d:'+d.id,d.storyDate,'sd-'+d.id)+'<small class="hint" id="dh-'+d.id+'" style="display:block;margin-top:4px">'+esc(dateHint(d.storyDate))+'</small>':'<input class="in" id="sd-'+d.id+'" data-bind="documents:'+d.id+':storyDate" value="'+esc(d.storyDate||'')+'" placeholder="Any label, for example Year 3, spring" aria-describedby="dh-'+d.id+'"><small class="hint" id="dh-'+d.id+'" style="display:block;margin-top:4px">'+esc(dateHint(d.storyDate))+'</small>')+'</div>'+
     (dateMode()==='manual'?'<div><label class="lab" for="dk-'+d.id+'">Sort number</label><input class="in" id="dk-'+d.id+'" type="number" inputmode="decimal" data-bind="documents:'+d.id+':dateKey" value="'+esc(d.dateKey==null?'':d.dateKey)+'" placeholder="Story day"></div>':'')+
     '<div><label class="lab" for="pv-'+d.id+'">POV</label><select class="in" id="pv-'+d.id+'" data-bind="documents:'+d.id+':pov">'+optList('characters',d.pov,'None')+'</select></div>'+
     '<div><label class="lab" for="ar-'+d.id+'">Arc</label><select class="in" id="ar-'+d.id+'" data-bind="documents:'+d.id+':arcId">'+optList('arcs',d.arcId,'No arc','order')+'</select></div>'+
@@ -842,7 +872,7 @@ function eventCard(e){
   var h=dbar('Event','events',e.id);
   h+='<input class="title-in" data-bind="events:'+e.id+':title" value="'+esc(e.title)+'" aria-label="Event title" placeholder="Event title">';
   h+=evMeta(e);
-  h+='<div class="fgrid"><div class="span2"><label class="lab" for="ed-'+e.id+'">Date in the story</label><input class="in" id="ed-'+e.id+'" data-bind="events:'+e.id+':dateText" value="'+esc(e.dateText||'')+'" placeholder="For example 12 August 1248"></div>'+
+  h+='<div class="fgrid"><div class="span2"><label class="lab" for="ed-'+e.id+'">Date in the story</label>'+(dateMode()==='auto'?dateField('e:'+e.id,e.dateText,'ed-'+e.id):'<input class="in" id="ed-'+e.id+'" data-bind="events:'+e.id+':dateText" value="'+esc(e.dateText||'')+'" placeholder="Any label, for example Year 3, spring">')+'</div>'+
     '<div class="span2"><label class="lab" for="el-'+e.id+'">Location</label><select class="in" id="el-'+e.id+'" data-bind="events:'+e.id+':locationId">'+optList('locations',e.locationId,'No location')+'</select></div>'+
     '<div class="span2"><label class="lab" for="en-'+e.id+'">Notes</label><textarea class="in" id="en-'+e.id+'" data-bind="events:'+e.id+':notes">'+esc(e.notes||'')+'</textarea></div></div>';
   h+=relSec('Characters involved','events',e.id,'characterIds','characters',e.characterIds||[],'character');
@@ -1747,6 +1777,7 @@ clear:function(el){
   d.headings=d.headings.filter(function(x){return x.id!==from.id});
   save('documents',d);closeModal();render();toast('Info moved to “'+to.title+'”.');
 },
+'dp-clear':function(el){dpSet(el.dataset.t,'');render()},
 'tools':function(){S.modal={type:'tools'};renderModal()},
 'tool':function(el){var f=el.dataset.do;closeModal();if(A[f])A[f](el)},
 'chk-open':function(){S.modal={type:'checks',show:false};renderModal()},
@@ -1965,6 +1996,15 @@ function selectLink(d){
 }
 
 var CH={
+'dp':function(t){
+  var w=t.closest('[data-dpw]');if(!w)return;
+  var d=parseInt(w.querySelector('.dp-d').value,10), m=parseInt(w.querySelector('.dp-m').value,10), y=parseInt(w.querySelector('.dp-y').value,10);
+  if(isNaN(y)){if(!isNaN(d)||!isNaN(m)){toast('Add a year to set the date.');return}dpSet(w.dataset.dpw,'');render();return}
+  if(y<100){toast('Use a year of 100 or later.');return}
+  if(isNaN(m))d=NaN;
+  if(!isNaN(d)){var max=new Date(Date.UTC(2000,m,0)).getUTCDate();if(m===2&&(y%4===0&&(y%100!==0||y%400===0)))max=29;if(m===2&&!(y%4===0&&(y%100!==0||y%400===0)))max=28;if(d<1)d=1;if(d>max)d=max}
+  dpSet(w.dataset.dpw,(isNaN(d)?'':d+' ')+(isNaN(m)?'':MONTH_NAMES[m]+' ')+y);render();
+},
 'hol-ow':function(t){S.modal.overwrite=t.checked;S.modal.rows.forEach(function(r){if(r.ex)r.on=t.checked});renderModal()},
 'ext-row':function(t){var m=S.modal,d=byId('documents',m.id),n=$('#extName'),cur=n?n.value:m.name;if(!cur||cur===m.sug)cur=null;m.sel[t.dataset.hid]=t.checked;var s=extSug(d,m.sel);m.name=cur==null?s:cur;m.sug=s;holKeep()},
 'read-pos':function(t){var n=parseInt(t.value,10);if(!n)return;rdMoveTo(t.dataset.k,n-1);rdRefresh()},
