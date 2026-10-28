@@ -310,34 +310,34 @@ function calMonthHtml(y,m,map,list){
     if(ch.length)cc++;
     var dots=its.slice(0,3).map(function(it){return '<i style="--rc:var(--r-'+ckOf(it.kind)[2]+')"></i>'}).join('');
     var lab=d+' '+MONTH_NAMES[m]+' '+y+(ch.length?', '+ch.length+' chapter'+(ch.length>1?'s':''):'')+its.map(function(it){return ', '+it.title}).join('');
-    cells+='<button type="button" class="calday'+(ch.length?' hasch':'')+'" data-act="cal-day" data-y="'+y+'" data-m="'+m+'" data-d="'+d+'" aria-label="'+esc(lab)+'"><b>'+d+'</b>'+(dots?'<span class="calmk">'+dots+'</span>':'')+'</button>';
+    cells+='<button type="button" class="calday'+(ch.length?' hasch':'')+'" data-act="cal-day" data-y="'+y+'" data-m="'+m+'" data-d="'+d+'" aria-label="'+esc(lab)+'"><b>'+d+'</b>'+(ch.length>1?'<sup class="calct">'+ch.length+'</sup>':'')+(dots?'<span class="calmk">'+dots+'</span>':'')+'</button>';
   }
   var hd=(CAL.greg?['Mo','Tu','We','Th','Fr','Sa','Su']:WEEKDAYS.map(function(x){return x.slice(0,nw>7?4:2)})).map(function(x){return '<i>'+esc(x)+'</i>'}).join('');
-  return '<section class="calmo"><h3>'+esc(MONTH_NAMES[m])+(cc?'<small>'+cc+' day'+(cc>1?'s':'')+' with chapters</small>':'')+'</h3><div class="calgrid" style="grid-template-columns:repeat('+nw+',minmax(0,1fr))">'+hd+cells+'</div></section>';
+  return '<section class="calmo"><h3>'+esc(MONTH_NAMES[m])+(cc?'<small>'+cc+' day'+(cc>1?'s':'')+'</small>':'')+'</h3><div class="calgrid" style="grid-template-columns:repeat('+nw+',minmax(0,1fr))">'+hd+cells+'</div></section>';
 }
 function calView(){
   var cm=calChapMap(), items=calItems(), f=S.calF=S.calF||{kind:'',char:''}, yrs=cm.years;
   if(yrs.length&&yrs.indexOf(S.calY)<0)S.calY=yrs[0];
   var chars=P('characters').slice().sort(function(a,b){return (a.name||'').localeCompare(b.name||'')});
   var head='<div class="lhead"><div class="ltitle"><h1>Calendar</h1><span class="cnt">'+items.length+' item'+(items.length===1?'':'s')+'</span></div><div class="lact"><button class="btn primary" data-act="cal-new">'+ic('plus')+'New item</button></div></div>'+
-    (yrs.length?'<div class="sbwrap"><div class="seg" role="group" aria-label="Year" style="max-width:100%;overflow-x:auto">'+yrs.map(function(y){return '<button data-act="cal-year" data-y="'+y+'" aria-pressed="'+(S.calY===y)+'">'+y+'</button>'}).join('')+'</div></div>':'')+
-    '<div class="filters"><select class="in" data-change="cal-f" data-k="kind" aria-label="Kind"><option value="">All kinds</option>'+CK.map(function(k){return '<option value="'+k[0]+'"'+(f.kind===k[0]?' selected':'')+'>'+k[1]+'</option>'}).join('')+'</select>'+
-    '<select class="in" data-change="cal-f" data-k="char" aria-label="Character"><option value="">Everyone</option>'+chars.map(function(c){return '<option value="'+c.id+'"'+(f.char===c.id?' selected':'')+'>'+esc(c.name)+'</option>'}).join('')+'</select></div>';
+    '<div class="calbar">'+(yrs.length?'<div class="calyrs" role="group" aria-label="Year">'+yrs.map(function(y){return '<button data-act="cal-year" data-y="'+y+'" aria-pressed="'+(S.calY===y)+'">'+y+'</button>'}).join('')+'</div>':'<div class="calyrs"></div>')+
+    '<div class="calflt"><select class="in" data-change="cal-f" data-k="kind" aria-label="Kind"><option value="">All kinds</option>'+CK.map(function(k){return '<option value="'+k[0]+'"'+(f.kind===k[0]?' selected':'')+'>'+k[1]+'</option>'}).join('')+'</select>'+
+    '<select class="in" data-change="cal-f" data-k="char" aria-label="Character"><option value="">Everyone</option>'+chars.map(function(c){return '<option value="'+c.id+'"'+(f.char===c.id?' selected':'')+'>'+esc(c.name)+'</option>'}).join('')+'</select></div></div>';
   var rows='', list=calFiltered();
   if(cm.manual)rows+='<div class="empty"><p>The calendar follows real dates. This project is sorting by your own sort numbers, so switch it back to dates in Settings to see chapters here. Your calendar items below still work.</p></div>';
   else if(!yrs.length)rows+='<div class="empty"><h1>No dated chapters yet</h1><p>Give chapters story dates and the years they cover appear here as a full calendar in your story’s own calendar. You can already add birthdays, holidays and terms below.</p></div>';
   else{
     var nChap=0;Object.keys(cm.map).forEach(function(k){if(Math.floor(k/10000)===S.calY)nChap+=cm.map[k].length});
     var nm=[];for(var m=1;m<=CAL.nm;m++)nm.push(calMonthHtml(S.calY,m,cm.map,list));
-    rows+='<p class="calsum">'+S.calY+': '+nChap+' chapter'+(nChap===1?'':'s')+' placed on a day'+(yrs.length>1&&yrs[yrs.length-1]-yrs[0]>25?'. Years with no chapters are skipped.':'.')+' Tap a day for its chapters and items.</p>'+
-      '<div class="callg"><span><i class="calsw" style="--rc:var(--accent)"></i>chapter</span>'+CK.map(function(k){return '<span><i class="calsw" style="--rc:var(--r-'+k[2]+')"></i>'+k[1].toLowerCase()+'</span>'}).join('')+'</div>'+
+    rows+='<div class="calmeta"><span class="calsum">'+nChap+' chapter'+(nChap===1?'':'s')+' in '+S.calY+(yrs.length>1&&yrs[yrs.length-1]-yrs[0]>25?' (empty years skipped)':'')+'. Tap a day to open it.</span>'+
+      '<div class="callg"><span><i class="calsw" style="--rc:var(--accent)"></i>chapter</span>'+CK.map(function(k){return '<span><i class="calsw" style="--rc:var(--r-'+k[2]+')"></i>'+k[1].toLowerCase()+'</span>'}).join('')+'</div></div>'+
       '<div class="calmonths">'+nm.join('')+'</div>';
   }
   var ord=items.slice().sort(function(a,b){return (CK.map(function(k){return k[0]}).indexOf(a.kind)-CK.map(function(k){return k[0]}).indexOf(b.kind))||(a.title||'').localeCompare(b.title||'')});
-  rows+='<div class="grp">Calendar items</div>'+(ord.length?ord.map(function(it){
+  rows+='<div class="grp">Calendar items</div>'+(ord.length?'<div class="calitems">'+ord.map(function(it){
     var who=it.charId?nameOf('characters',it.charId):'';
-    return '<div class="row plain" role="listitem" tabindex="0" data-act="cal-edit" data-id="'+it.id+'"><div class="rb"><div class="rt" style="display:flex;align-items:center"><i class="calsw" style="--rc:var(--r-'+ckOf(it.kind)[2]+')"></i>'+(esc(it.title)||'Untitled')+'</div><div class="rm">'+esc([ckOf(it.kind)[1],who,itemSum(it)].filter(Boolean).join(' · '))+'</div></div></div>';
-  }).join(''):'<p class="hint" style="padding:8px 16px">Nothing here yet. Add a birthday that repeats every year, or a solstice or school term you set date by date.</p>');
+    return '<button type="button" class="calcard" data-act="cal-edit" data-id="'+it.id+'"><i class="calsw" style="--rc:var(--r-'+ckOf(it.kind)[2]+')"></i><span><b>'+(esc(it.title)||'Untitled')+'</b><small>'+esc([ckOf(it.kind)[1],who].filter(Boolean).join(' · '))+'</small><small>'+esc(itemSum(it))+'</small></span></button>';
+  }).join('')+'</div>':'<p class="hint" style="padding:8px 16px">Nothing here yet. Add a birthday that repeats every year, or a solstice or school term you set date by date.</p>');
   return {head:head,rows:rows};
 }
 function calDayModal(){
