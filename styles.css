@@ -8,6 +8,7 @@
      Layer 3: Component Overrides (thematic component styling)
      Layer 4: Accessibility & Responsive
      Layer 5: Core App Rules
+     Layer 6: Mobile Layout (last, so it beats Layer 5)
 
    THEME MECHANISM
      `data-theme="<name>"` on <html> activates a theme.
@@ -35,6 +36,7 @@
     --f-display:'Newsreader',Georgia,'Times New Roman',serif;
     --f-body:'Instrument Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
     --f-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+    --f-reader:Georgia,'Iowan Old Style',Cambria,serif;
     color-scheme:dark;
     --chip-bg-subtle:rgba(255,255,255,0.05);
     --overlay:var(--scrim);
@@ -296,7 +298,7 @@
     color-scheme:light;
     --overlay:rgba(44,61,55,0.6);
     --overlay-light:rgba(44,61,55,0.4);
-    --radius:16px; 
+    --radius:16px;
     --shadow:0 8px 28px rgba(49, 79, 76, 0.08);
     --scrollbar-track:var(--bg);
     --scrollbar-thumb:var(--line);
@@ -322,7 +324,7 @@
     color-scheme:dark;
     --overlay:rgba(0,0,0,0.90);
     --overlay-light:rgba(0,0,0,0.70);
-    --radius:0px; 
+    --radius:0px;
     --shadow:0 0 0 1px var(--line), 0 4px 0 rgba(0,0,0,1);
     --scrollbar-track:var(--bg);
     --scrollbar-thumb:var(--line-strong);
@@ -351,8 +353,8 @@
     color-scheme:dark;
     --overlay:rgba(26,26,34,0.85);
     --overlay-light:rgba(26,26,34,0.65);
-    --radius:4px; 
-    --shadow:0 4px 16px rgba(0,0,0,0.35); 
+    --radius:4px;
+    --shadow:0 4px 16px rgba(0,0,0,0.35);
     --scrollbar-track:var(--bg);
     --scrollbar-thumb:var(--line);
     --chip-bg-subtle:rgba(232,226,212,0.05);
@@ -363,19 +365,19 @@
     --bg:#0d0a0a; --surface:#151111; --surface-2:#1f1818;
     --line:#382626; --line-strong:#5e3b3b;
     --fg:#e8dfd3; --fg-2:#b8a89c; --fg-3:#8a7a6e;
-    --accent:#7A2424; 
-    --accent-hover:#963030; 
-    --accent-fg:#f4ebe1; 
+    --accent:#7A2424;
+    --accent-hover:#963030;
+    --accent-fg:#f4ebe1;
     --accent-soft:rgba(122,36,36,0.18);
     --accent-shadow:rgba(122,36,36,0.35);
-    --info:#4a6b55; 
-    --info-soft:rgba(74,107,85,0.14); 
+    --info:#4a6b55;
+    --info-soft:rgba(74,107,85,0.14);
     --info-hover:rgba(74,107,85,0.24);
-    --warning:#b88d5a; 
-    --warning-soft:rgba(184,141,90,0.15); 
+    --warning:#b88d5a;
+    --warning-soft:rgba(184,141,90,0.15);
     --warning-hover:rgba(184,141,90,0.25);
-    --danger:#D93025; 
-    --danger-soft:rgba(217,48,37,0.15); 
+    --danger:#D93025;
+    --danger-soft:rgba(217,48,37,0.15);
     --danger-hover:rgba(217,48,37,0.25);
     --ok:#4a6b55; --bad:#D93025;
     --st-idea:#8a7a6e; --st-outlined:#5A4B6B;
@@ -387,7 +389,7 @@
     color-scheme:dark;
     --overlay:rgba(13,10,10,0.90);
     --overlay-light:rgba(13,10,10,0.70);
-    --radius:6px; 
+    --radius:6px;
     --shadow:0 10px 30px rgba(0,0,0,0.8), inset 0 0 0 1px #050303;
     --input-bg:#DCD3C7;
     --input-fg:#1a1515;
@@ -400,7 +402,7 @@
 /* --- 15. Illuminated (Medieval Scripture) --- */
 [data-theme="illuminated"] {
     --bg:#F4EBD5; --surface:#FBF7EA; --surface-2:#E8DFC8;
-    --line:#8A7B6A; --line-strong:#2B2118; 
+    --line:#8A7B6A; --line-strong:#2B2118;
     --fg:#1A130D; --fg-2:#5A4B3C; --fg-3:#8A7B6A;
     --accent:#2E4D7B; --accent-fg:#F4EBD5; --accent-soft:rgba(46,77,123,0.15);
     --gold:#C49A45;
@@ -417,7 +419,7 @@
     --r-a:#2E4D7B; --r-b:#C49A45; --r-c:#7A9B6E;
     --r-d:#A63C30; --r-e:#5A4B3C; --r-f:#8A7B6A;
     color-scheme:light;
-    --radius:2px; 
+    --radius:2px;
     --shadow:2px 2px 0 rgba(43,33,24,0.2);
     --scrollbar-track:var(--bg);
     --scrollbar-thumb:var(--line);
@@ -425,14 +427,15 @@
     --f-display:'UnifrakturMaguntia', 'Old English Text MT', 'Newsreader', Georgia, serif;
     --f-body:'Newsreader', Georgia, serif;
     --f-mono:'Newsreader', Georgia, serif;
+    --f-reader:'Newsreader', Georgia, serif;
 }
 
 /* --- 16. Discowing (80s Comic Book) --- */
 [data-theme="discowing"] {
-    --bg:#F8A342; 
-    --surface:#FFFFFF; 
-    --surface-2:#F0F0F0; 
-    --line:#000000; 
+    --bg:#F8A342;
+    --surface:#FFFFFF;
+    --surface-2:#F0F0F0;
+    --line:#000000;
     --line-strong:#000000;
     --fg:#050505; --fg-2:#1A2A40; --fg-3:#4A5A70;
     --accent:#0080FF; --accent-fg:#FFFFFF; --accent-soft:rgba(0,128,255,0.15);
@@ -449,36 +452,37 @@
     --r-a:#0080FF; --r-b:#FFD700; --r-c:#00A86B;
     --r-d:#FF0000; --r-e:#4A5A70; --r-f:#1A2A40;
     color-scheme:light;
-    --radius:0px; 
+    --radius:0px;
     --shadow:4px 4px 0px #000000;
     --scrollbar-track:var(--bg);
     --scrollbar-thumb:var(--line);
     --chip-bg-subtle:rgba(0,0,0,0.05);
     --f-display:'Impact', 'Arial Black', sans-serif;
     --f-body:'Comic Neue', 'Comic Sans MS', sans-serif;
+    --f-reader:'Comic Neue', 'Comic Sans MS', sans-serif;
 }
 
 /* --- 17. Choc Cake (16-bit Pixel Art) --- */
 [data-theme="choc-cake"] {
-    --bg:#2A0B1F; 
-    --surface:#4B1F0A; 
-    --surface-2:#6B3110; 
-    --line:#1A0000; 
+    --bg:#2A0B1F;
+    --surface:#4B1F0A;
+    --surface-2:#6B3110;
+    --line:#1A0000;
     --line-strong:#1A0000;
-    --fg:#F2B35A; 
-    --fg-2:#D9821A; 
-    --fg-3:#B36010; 
-    --accent:#FF0000; 
-    --accent-fg:#FFFFFF; 
+    --fg:#F2B35A;
+    --fg-2:#D9821A;
+    --fg-3:#B36010;
+    --accent:#FF0000;
+    --accent-fg:#FFFFFF;
     --accent-soft:rgba(255,0,0,0.15);
-    --info:#FFD700; 
-    --info-soft:rgba(255,215,0,0.15); 
+    --info:#FFD700;
+    --info-soft:rgba(255,215,0,0.15);
     --info-hover:rgba(255,215,0,0.25);
-    --danger:#B30000; 
-    --danger-soft:rgba(179,0,0,0.15); 
+    --danger:#B30000;
+    --danger-soft:rgba(179,0,0,0.15);
     --danger-hover:rgba(179,0,0,0.25);
-    --warning:#FFA500; 
-    --warning-soft:rgba(255,165,0,0.15); 
+    --warning:#FFA500;
+    --warning-soft:rgba(255,165,0,0.15);
     --warning-hover:rgba(255,165,0,0.25);
     --ok:#6B8E23; --bad:#B30000;
     --st-idea:#B36010; --st-outlined:#D9821A; --st-draft:#FFA500;
@@ -490,21 +494,22 @@
     --r-a:#FF0000; --r-b:#D9821A; --r-c:#6B8E23;
     --r-d:#FFD700; --r-e:#B36010; --r-f:#4B1F0A;
     color-scheme:dark;
-    --radius:0px; 
+    --radius:0px;
     --shadow:4px 4px 0px var(--line-strong);
     --scrollbar-track:var(--bg);
     --scrollbar-thumb:var(--surface-2);
     --chip-bg-subtle:rgba(242,179,90,0.1);
     --f-display:'VT323', 'Courier New', monospace;
     --f-body:'VT323', 'Courier New', monospace;
+    --f-reader:'VT323', 'Courier New', monospace;
 }
 
 /* --- 18. Dada (Cut-and-Paste Collage) --- */
 [data-theme="dada"] {
-    --bg:#E8E5DF; 
-    --surface:#F4F2EC; 
-    --surface-2:#D6D2C9; 
-    --line:#111111; 
+    --bg:#E8E5DF;
+    --surface:#F4F2EC;
+    --surface-2:#D6D2C9;
+    --line:#111111;
     --line-strong:#000000;
     --fg:#1A1A1A; --fg-2:#4A4A4A; --fg-3:#737373;
     --accent:#D4A32A; --accent-fg:#111111; --accent-soft:rgba(212,163,42,0.25);
@@ -521,7 +526,7 @@
     --r-a:#111111; --r-b:#D4A32A; --r-c:#D9A5A5;
     --r-d:#C93A3A; --r-e:#5A8C5A; --r-f:#4A4A4A;
     color-scheme:light;
-    --radius:1px; 
+    --radius:1px;
     --shadow: 3px 3px 0 rgba(0,0,0,0.15), -1px -1px 0 rgba(255,255,255,0.6);
     --scrollbar-track:var(--bg);
     --scrollbar-thumb:var(--line-strong);
@@ -529,29 +534,30 @@
     --f-display: 'Oswald', 'Impact', 'Arial Black', sans-serif;
     --f-body: 'Courier New', Courier, monospace;
     --f-mono: 'Courier New', Courier, monospace;
+    --f-reader: 'Courier New', Courier, monospace;
 }
 
 /* --- 19. Brutalist (Confrontational Architecture) --- */
 [data-theme="brutalist"] {
-    --bg:#E6E6E6; 
-    --surface:#FFFFFF; 
-    --surface-2:#D0D0D0; 
-    --line:#000000; 
+    --bg:#E6E6E6;
+    --surface:#FFFFFF;
+    --surface-2:#D0D0D0;
+    --line:#000000;
     --line-strong:#000000;
-    --fg:#050505; 
-    --fg-2:#333333; 
+    --fg:#050505;
+    --fg-2:#333333;
     --fg-3:#666666;
-    --accent:#FF3300; 
-    --accent-fg:#000000; 
+    --accent:#FF3300;
+    --accent-fg:#000000;
     --accent-soft:rgba(255,51,0,0.15);
-    --info:#000000; 
-    --info-soft:rgba(0,0,0,0.08); 
+    --info:#000000;
+    --info-soft:rgba(0,0,0,0.08);
     --info-hover:rgba(0,0,0,0.15);
-    --danger:#CC0000; 
-    --danger-soft:rgba(204,0,0,0.15); 
+    --danger:#CC0000;
+    --danger-soft:rgba(204,0,0,0.15);
     --danger-hover:rgba(204,0,0,0.25);
-    --warning:#FF3300; 
-    --warning-soft:rgba(255,51,0,0.15); 
+    --warning:#FF3300;
+    --warning-soft:rgba(255,51,0,0.15);
     --warning-hover:rgba(255,51,0,0.25);
     --ok:#006600; --bad:#CC0000;
     --st-idea:#666666; --st-outlined:#333333; --st-draft:#FF3300;
@@ -563,7 +569,7 @@
     --r-a:#FF3300; --r-b:#000000; --r-c:#006600;
     --r-d:#CC0000; --r-e:#333333; --r-f:#666666;
     color-scheme:light;
-    --radius:0px; 
+    --radius:0px;
     --shadow: 8px 8px 0px #000000;
     --shadow-sm: 3px 3px 0px #000000;
     --shadow-lg: 12px 12px 0px #000000;
@@ -576,25 +582,25 @@
 
 /* --- 20. Orchestrion Guts (Mechanical) --- */
 [data-theme="orchestrion"] {
-    --bg:#1F1410; 
-    --surface:#2E1F18; 
+    --bg:#1F1410;
+    --surface:#2E1F18;
     --surface-2:#3D2A20;
-    --line:#7A5520; 
-    --line-strong:#C48E3A; 
-    --fg:#EAD8C0; 
-    --fg-2:#BCA283; 
-    --fg-3:#8A7055; 
-    --accent:#A82C2C; 
-    --accent-fg:#FFFFFF; 
+    --line:#7A5520;
+    --line-strong:#C48E3A;
+    --fg:#EAD8C0;
+    --fg-2:#BCA283;
+    --fg-3:#8A7055;
+    --accent:#A82C2C;
+    --accent-fg:#FFFFFF;
     --accent-soft:rgba(168,44,44,0.20);
-    --info:#5B8C8A; 
-    --info-soft:rgba(91,140,138,0.20); 
+    --info:#5B8C8A;
+    --info-soft:rgba(91,140,138,0.20);
     --info-hover:rgba(91,140,138,0.35);
-    --danger:#D93838; 
-    --danger-soft:rgba(217,56,56,0.20); 
+    --danger:#D93838;
+    --danger-soft:rgba(217,56,56,0.20);
     --danger-hover:rgba(217,56,56,0.35);
-    --warning:#D4A35F; 
-    --warning-soft:rgba(212,163,95,0.20); 
+    --warning:#D4A35F;
+    --warning-soft:rgba(212,163,95,0.20);
     --warning-hover:rgba(212,163,95,0.35);
     --ok:#6B8C5A; --bad:#D93838;
     --st-idea:#8A7055; --st-outlined:#5B8C8A; --st-draft:#D4A35F;
@@ -606,39 +612,40 @@
     --r-a:#A82C2C; --r-b:#5B8C8A; --r-c:#6B8C5A;
     --r-d:#D4A35F; --r-e:#BCA283; --r-f:#D93838;
     color-scheme:dark;
-    --radius:2px; 
-    --shadow: 2px 2px 0px #110A07, inset 0 1px 0px rgba(255,255,255,0.1); 
-    --shadow-in: inset 0 2px 4px #000000, 0 1px 0px rgba(255,255,255,0.05); 
+    --radius:2px;
+    --shadow: 2px 2px 0px #110A07, inset 0 1px 0px rgba(255,255,255,0.1);
+    --shadow-in: inset 0 2px 4px #000000, 0 1px 0px rgba(255,255,255,0.05);
     --scrollbar-track:var(--bg);
     --scrollbar-thumb:var(--line-strong);
     --chip-bg-subtle:rgba(196,142,58,0.1);
     --f-display:'Oswald', 'Arial Narrow', sans-serif;
     --f-body:'Courier New', Courier, monospace;
     --f-mono:'Courier New', Courier, monospace;
+    --f-reader:'Courier New', Courier, monospace;
 }
 
 /* --- 21. Rococo (French Salon Opulence) --- */
 [data-theme="rococo"] {
-    --bg:#E8F0F2; 
-    --surface:#FFF9F9; 
-    --surface-2:#F2E8E8; 
+    --bg:#E8F0F2;
+    --surface:#FFF9F9;
+    --surface-2:#F2E8E8;
     --gold:#D4AF37;
-    --line:#E0D0C0; 
-    --line-strong:#B89025; 
-    --fg:#3A4245; 
-    --fg-2:#6E7A7D; 
-    --fg-3:#8A9A9D; 
-    --accent:#527F96; 
-    --accent-fg:#FFFFFF; 
+    --line:#E0D0C0;
+    --line-strong:#B89025;
+    --fg:#3A4245;
+    --fg-2:#6E7A7D;
+    --fg-3:#8A9A9D;
+    --accent:#527F96;
+    --accent-fg:#FFFFFF;
     --accent-soft:rgba(82,127,150,0.15);
-    --info:#7CA5B8; 
-    --info-soft:rgba(124,165,184,0.20); 
+    --info:#7CA5B8;
+    --info-soft:rgba(124,165,184,0.20);
     --info-hover:rgba(124,165,184,0.35);
-    --danger:#C25959; 
-    --danger-soft:rgba(194,89,89,0.15); 
+    --danger:#C25959;
+    --danger-soft:rgba(194,89,89,0.15);
     --danger-hover:rgba(194,89,89,0.25);
-    --warning:#C49A45; 
-    --warning-soft:rgba(196,154,69,0.15); 
+    --warning:#C49A45;
+    --warning-soft:rgba(196,154,69,0.15);
     --warning-hover:rgba(196,154,69,0.25);
     --ok:#7A9B6E; --bad:#C25959;
     --st-idea:#8A9A9D; --st-outlined:#527F96; --st-draft:#E5A9B8;
@@ -650,37 +657,38 @@
     --r-a:#527F96; --r-b:#E5A9B8; --r-c:#7A9B6E;
     --r-d:#C49A45; --r-e:#8A9A9D; --r-f:#C25959;
     color-scheme:light;
-    --radius:24px; 
+    --radius:24px;
     --shadow: 0 10px 25px rgba(184,144,37,0.15), 0 0 0 1px rgba(212,175,55,0.3);
     --scrollbar-track:var(--bg);
     --scrollbar-thumb:var(--line);
     --chip-bg-subtle:rgba(212,175,55,0.1);
     --f-display:'Playfair Display', 'Newsreader', Georgia, serif;
     --f-body:'Newsreader', Georgia, serif;
-    --f-mono:'Inter', system-ui, sans-serif; 
+    --f-mono:'Inter', system-ui, sans-serif;
+    --f-reader:'Newsreader', Georgia, serif;
 }
 
 /* --- 22. Nautical Tile (Portuguese Azulejo) --- */
 [data-theme="nautical-tile"] {
-    --bg:#E4EAF0; 
-    --surface:#FFFFFF; 
-    --surface-2:#F0F4F8; 
-    --line:#1A3B6B; 
-    --line-strong:#0D2342; 
-    --fg:#0D2342; 
-    --fg-2:#3B5B82; 
-    --fg-3:#5A7A9E; 
-    --accent:#1F4A8A; 
-    --accent-fg:#FFFFFF; 
+    --bg:#E4EAF0;
+    --surface:#FFFFFF;
+    --surface-2:#F0F4F8;
+    --line:#1A3B6B;
+    --line-strong:#0D2342;
+    --fg:#0D2342;
+    --fg-2:#3B5B82;
+    --fg-3:#5A7A9E;
+    --accent:#1F4A8A;
+    --accent-fg:#FFFFFF;
     --accent-soft:rgba(31,74,138,0.15);
-    --info:#7AA6D0; 
-    --info-soft:rgba(122,166,208,0.20); 
+    --info:#7AA6D0;
+    --info-soft:rgba(122,166,208,0.20);
     --info-hover:rgba(122,166,208,0.35);
-    --danger:#A62C2C; 
-    --danger-soft:rgba(166,44,44,0.15); 
+    --danger:#A62C2C;
+    --danger-soft:rgba(166,44,44,0.15);
     --danger-hover:rgba(166,44,44,0.25);
-    --warning:#C49A45; 
-    --warning-soft:rgba(196,154,69,0.15); 
+    --warning:#C49A45;
+    --warning-soft:rgba(196,154,69,0.15);
     --warning-hover:rgba(196,154,69,0.25);
     --ok:#2C6B4A; --bad:#A62C2C;
     --st-idea:#5A7A9E; --st-outlined:#3B5B82; --st-draft:#C49A45;
@@ -692,13 +700,14 @@
     --r-a:#1F4A8A; --r-b:#7AA6D0; --r-c:#2C6B4A;
     --r-d:#C49A45; --r-e:#3B5B82; --r-f:#A62C2C;
     color-scheme:light;
-    --radius:2px; 
+    --radius:2px;
     --shadow: 2px 2px 0px rgba(13,35,66,0.15);
     --scrollbar-track:var(--bg);
     --scrollbar-thumb:var(--line);
     --chip-bg-subtle:rgba(31,74,138,0.08);
     --f-display:'Playfair Display', 'Newsreader', Georgia, serif;
     --f-body:'Newsreader', Georgia, serif;
+    --f-reader:'Newsreader', Georgia, serif;
 }
 
 /* ============================================================
@@ -841,7 +850,7 @@ html[data-theme="ukiyo-e"] body {
   background:
     radial-gradient(circle, rgba(0,0,0,0.15) 1px, transparent 1px),
     var(--bg);
-  background-size: 6px 6px; 
+  background-size: 6px 6px;
   background-attachment: fixed;
 }
 /* Choc Cake */
@@ -894,7 +903,7 @@ html[data-theme="ukiyo-e"] body {
     linear-gradient(to right, rgba(13,35,66,0.06) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(13,35,66,0.06) 1px, transparent 1px),
     var(--bg);
-  background-size: 80px 80px; 
+  background-size: 80px 80px;
   background-attachment: fixed;
 }
 
@@ -1102,8 +1111,6 @@ html[data-theme="ukiyo-e"] .lk { border-bottom: 1px solid var(--line-strong); }
     *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
     [data-theme="nature"] .btn.primary, [data-theme="nature"] .in, [data-theme="gaslight"] .btn.primary, [data-theme="gaslight"] .in, [data-theme="gaslight"] .row, [data-theme="grotesque"] .btn.primary, [data-theme="grotesque"] .in, [data-theme="grotesque"] .row, [data-theme="orchestrion"] .btn, [data-theme="rococo"] .btn { transition: none; }
 }
-
-/* mobile layout moved to the end of the file (Layer 6) */
 
 /* ============================================================
    LAYER 5: CORE APP RULES
@@ -1318,7 +1325,7 @@ textarea.in{min-height:88px;resize:vertical;line-height:1.5}
 #reader{position:fixed;inset:0;z-index:70;background:var(--bg);display:flex;flex-direction:column}#reader[hidden]{display:none}
 .rd-main{flex:1;display:flex;min-height:0;position:relative}
 .rd-art{flex:1;overflow:auto;padding:28px 18px 90px;outline:0}
-.rd-pg{max-width:40rem;margin:0 auto;font-family:Georgia,'Iowan Old Style',Cambria,serif;line-height:1.7}
+.rd-pg{max-width:40rem;margin:0 auto;font-family:var(--f-reader);line-height:1.7}
 .rd-pg p{margin:0 0 .9em;white-space:pre-wrap}.rd-pg h1,.rd-pg h2,.rd-pg h3,.rd-pg h4{font-family:inherit;line-height:1.25;margin:1.4em 0 .6em}
 .rd-pg h1{font-size:1.6em;margin-top:0}.rd-pg h2{font-size:1.3em}.rd-pg h3{font-size:1.1em}.rd-pg h4{font-size:1em;font-style:italic}
 .rd-meta{width:300px;flex:none;border-left:1px solid var(--line);overflow:auto;padding:14px;background:var(--surface)}.rd-meta[hidden]{display:none}
@@ -1373,15 +1380,6 @@ textarea.in{min-height:88px;resize:vertical;line-height:1.5}
 .banner .btn{margin-left:8px}
 
 /* ---- additions since the themed copy ---- */
-@media (max-width:959px){
-  .body{grid-template-columns:minmax(0,1fr);padding-bottom:calc(64px + env(safe-area-inset-bottom,0px))}
-  .rail{display:none}
-  .tabs{display:flex}
-  .detail{display:none}
-  .app.has-sel .detail{display:block;position:fixed;inset:0;z-index:30;border-radius:0;border:0;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-  .back{display:inline-flex}
-  .detail-in{padding-inline:16px}
-}
 .dpick{display:grid;grid-template-columns:76px minmax(0,1fr) 92px auto auto;gap:6px;align-items:center}
 @media(max-width:480px){.dpick{grid-template-columns:64px minmax(0,1fr) 78px}}
 .cal{margin-top:8px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2,transparent);max-width:320px}
@@ -1418,11 +1416,9 @@ textarea.in{min-height:88px;resize:vertical;line-height:1.5}
    LAYER 6: MOBILE LAYOUT (must stay last, so it beats the core rules)
    ============================================================ */
 @media (max-width: 959px) {
-  /* Fix: Stack layout, hide rail, show list */
   .body { grid-template-columns: minmax(0,1fr); padding-bottom: calc(64px + env(safe-area-inset-bottom,0px)); }
   .rail { display: none !important; }
   .tabs { display: flex; }
-  .list { display: block !important; }
   .detail { display: none; }
   .app.has-sel .detail { display: block; position: fixed; inset: 0; z-index: 30; border-radius: 0; border: 0; padding-top: env(safe-area-inset-top,0px); padding-bottom: env(safe-area-inset-bottom,0px); }
   .back { display: inline-flex; }
