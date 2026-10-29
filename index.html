@@ -254,6 +254,27 @@ var CK=[['birthday','Birthday','a'],['holiday','Holiday or festival','d'],['term
 function ckOf(k){for(var i=0;i<CK.length;i++)if(CK[i][0]===k)return CK[i];return CK[4]}
 function calItems(){var pr=proj();return (pr&&pr.calItems)||[]}
 function calMaxDay(m){if(CAL.greg)return [31,29,31,30,31,30,31,31,30,31,30,31][m-1]||31;var mo=CAL.months[m-1];return mo?mo.days+mo.leapDays:31}
+var ARC_PAL=['#d1627f','#4f86d6','#3fa06a','#d4963a','#8b6ad1','#d4704f','#2fb0b8','#9ba832'], ARCC={};
+function arcColors(){
+  ARCC={};P('arcs').slice().sort(function(a,b){return (a.order||0)-(b.order||0)}).forEach(function(a,i){ARCC[a.id]=a.color||ARC_PAL[i%ARC_PAL.length]});
+}
+function chArc(c){return (c.h&&c.h.arcId)||c.d.arcId||''}
+function arcOk(c){var f=S.calF||{};return !f.arc||chArc(c)===f.arc}
+function calEvMap(){
+  var map={},f=S.calF||{};if(dateMode()!=='auto')return map;
+  eff('events').forEach(function(e){
+    if(f.char&&(e.characterIds||[]).indexOf(f.char)<0)return;
+    var k=autoKey(e.dateText);if(k==null)return;
+    var mo=Math.floor(k/100)%100,da=k%100;if(!mo||!da)return;
+    (map[k]=map[k]||[]).push(e);
+  });
+  return map;
+}
+function itemInYear(it,y){
+  if(it.rule==='dates')return (it.occ||[]).some(function(o){var e=+o.ey||((o.em&&o.em*100+o.ed<o.m*100+o.d)?+o.y+1:+o.y);return y>=+o.y&&y<=e});
+  if(it.rule==='nth')return inYrs(it,y);
+  var wraps=it.em&&(it.em*100+it.ed<it.m*100+it.d);return inYrs(it,y)||(wraps&&inYrs(it,y-1));
+}
 function calChapMap(){
   var map={}, ys={};
   if(dateMode()!=='auto')return {map:map,years:[],manual:true};
@@ -317,27 +338,29 @@ function itemSum(it){
   if(it.rule==='nth')return 'Every year, the '+(NTHL[it.n]||'').toLowerCase()+' '+(WEEKDAYS[it.wd]||'')+' of '+(MONTH_NAMES[it.m]||'?')+yrSpan(it);
   if(it.rule==='dates'){
     var oc=(it.occ||[]).slice().sort(function(a,b){return (a.y*10000+a.m*100+a.d)-(b.y*10000+b.m*100+b.d)});
-    return oc.length+' date'+(oc.length===1?'':'s')+(oc.length?': '+oc.slice(0,2).map(function(o){var n=occLen(o);return dayLab(o.m,o.d)+' '+o.y+(n>1?' ('+dayWord(n)+')':'')}).join(', ')+(oc.length>2?' …':''):'');
+    return oc.length+' year'+(oc.length===1?'':'s')+(oc.length?' · '+oc.slice(0,4).map(function(o){var n=occLen(o);return o.y+': '+dayLab(o.m,o.d)+(n>1?' ('+dayWord(n)+')':'')}).join(' · ')+(oc.length>4?' …':''):'');
   }
   return 'Every year, '+dayLab(it.m,it.d)+(it.em?' to '+dayLab(it.em,it.ed)+(itemLen(it)>1?' ('+dayWord(itemLen(it))+')':''):'')+yrSpan(it);
 }
 function itemAge(it,y){return (it.kind==='birthday'&&it.rule==='yearly'&&it.y0&&y>it.y0)?'turns '+(y-it.y0):(it.kind==='birthday'&&it.y0&&y===it.y0?'born':'')}
-function calMonthHtml(y,m,map,list){
+function calMonthHtml(y,m,map,list,evm){
   var n=dim(y,m);if(!n)return '';
   var nw=CAL.greg?7:WEEKDAYS.length, first=CAL.greg?(wdayOf(y,m,1)+6)%7:wdayOf(y,m,1), cells='', i, d, cc=0;
   for(i=0;i<first;i++)cells+='<span></span>';
   for(d=1;d<=n;d++){
-    var k=y*10000+m*100+d, ch=map[k]||[], its=itemsOn(y,m,d,list);
+    var k=y*10000+m*100+d, ch=(map[k]||[]).filter(arcOk), its=itemsOn(y,m,d,list), evs=evm[k]||[], seen={}, bars='';
     if(ch.length)cc++;
-    var dots=its.slice(0,3).map(function(it){return '<i style="--rc:var(--r-'+ckOf(it.kind)[2]+')"></i>'}).join('');
-    var lab=d+' '+MONTH_NAMES[m]+' '+y+(ch.length?', '+ch.length+' chapter'+(ch.length>1?'s':''):'')+its.map(function(it){return ', '+it.title}).join('');
-    cells+='<button type="button" class="calday'+(ch.length?' hasch':'')+'" data-act="cal-day" data-y="'+y+'" data-m="'+m+'" data-d="'+d+'" aria-label="'+esc(lab)+'"><b>'+d+'</b>'+(ch.length>1?'<sup class="calct">'+ch.length+'</sup>':'')+(dots?'<span class="calmk">'+dots+'</span>':'')+'</button>';
+    ch.forEach(function(c){var a=chArc(c);if(a&&ARCC[a]&&!seen[a]&&Object.keys(seen).length<4){seen[a]=1;bars+='<u style="background:'+ARCC[a]+'"></u>'}});
+    var dots=its.slice(0,3).map(function(it){return '<i style="--rc:var(--r-'+ckOf(it.kind)[2]+')"></i>'}).join('')+(evs.length?'<i class="ev"></i>':'');
+    var lab=d+' '+MONTH_NAMES[m]+' '+y+(ch.length?', '+ch.length+' chapter'+(ch.length>1?'s':''):'')+its.map(function(it){return ', '+it.title}).join('')+evs.map(function(e){return ', event '+e.title}).join('');
+    cells+='<button type="button" class="calday'+(ch.length?' hasch':'')+'" data-act="cal-day" data-y="'+y+'" data-m="'+m+'" data-d="'+d+'" aria-label="'+esc(lab)+'">'+(bars?'<span class="calarcs">'+bars+'</span>':'')+'<b>'+d+'</b>'+(ch.length>1?'<sup class="calct">'+ch.length+'</sup>':'')+(dots?'<span class="calmk">'+dots+'</span>':'')+'</button>';
   }
   var hd=(CAL.greg?['Mo','Tu','We','Th','Fr','Sa','Su']:WEEKDAYS.map(function(x){return x.slice(0,nw>7?4:2)})).map(function(x){return '<i>'+esc(x)+'</i>'}).join('');
   return '<section class="calmo"><h3>'+esc(MONTH_NAMES[m])+(cc?'<small>'+cc+' day'+(cc>1?'s':'')+'</small>':'')+'</h3><div class="calgrid" style="grid-template-columns:repeat('+nw+',minmax(0,1fr))">'+hd+cells+'</div></section>';
 }
 function calView(){
-  var cm=calChapMap(), items=calItems(), f=S.calF=S.calF||{kind:'',char:''}, yrs=cm.years;
+  var cm=calChapMap(), items=calItems(), f=S.calF=S.calF||{kind:'',char:'',arc:''}, yrs=cm.years, evm;
+  arcColors();evm=calEvMap();
   if(yrs.length&&yrs.indexOf(S.calY)<0)S.calY=yrs[0];
   var chars=P('characters').slice().sort(function(a,b){return (a.name||'').localeCompare(b.name||'')});
   var head='<div class="lhead"><div class="ltitle"><h1>Calendar</h1><span class="cnt">'+items.length+' item'+(items.length===1?'':'s')+'</span></div><div class="lact"><button class="btn primary" data-act="cal-new">'+ic('plus')+'New item</button></div></div>'+
@@ -348,27 +371,36 @@ function calView(){
   if(cm.manual)rows+='<div class="empty"><p>The calendar follows real dates. This project is sorting by your own sort numbers, so switch it back to dates in Settings to see chapters here. Your calendar items below still work.</p></div>';
   else if(!yrs.length)rows+='<div class="empty"><h1>No dated chapters yet</h1><p>Give chapters story dates and the years they cover appear here as a full calendar in your story’s own calendar. You can already add birthdays, holidays and terms below.</p></div>';
   else{
-    var nChap=0;Object.keys(cm.map).forEach(function(k){if(Math.floor(k/10000)===S.calY)nChap+=cm.map[k].length});
-    var nm=[];for(var m=1;m<=CAL.nm;m++)nm.push(calMonthHtml(S.calY,m,cm.map,list));
+    var nChap=0, arcIn={};Object.keys(cm.map).forEach(function(k){if(Math.floor(k/10000)===S.calY)cm.map[k].forEach(function(c){var a=chArc(c);if(a)arcIn[a]=(arcIn[a]||0)+1;if(arcOk(c))nChap++})});
+    var nm=[];for(var m=1;m<=CAL.nm;m++)nm.push(calMonthHtml(S.calY,m,cm.map,list,evm));
+    var arcChips=Object.keys(arcIn).filter(function(a){return ARCC[a]}).sort(function(a,b){return Object.keys(ARCC).indexOf(a)-Object.keys(ARCC).indexOf(b)}).map(function(a){return '<button type="button" class="calarcb" data-act="cal-arc" data-id="'+a+'" aria-pressed="'+(f.arc===a)+'"><i class="calsw" style="--rc:'+ARCC[a]+'"></i>'+esc(nameOf('arcs',a))+' <small>'+arcIn[a]+'</small></button>'}).join('');
     rows+='<div class="calmeta"><span class="calsum">'+nChap+' chapter'+(nChap===1?'':'s')+' in '+S.calY+(yrs.length>1&&yrs[yrs.length-1]-yrs[0]>25?' (empty years skipped)':'')+'. Tap a day to open it.</span>'+
-      '<div class="callg"><span><i class="calsw" style="--rc:var(--accent)"></i>chapter</span>'+CK.map(function(k){return '<span><i class="calsw" style="--rc:var(--r-'+k[2]+')"></i>'+k[1].toLowerCase()+'</span>'}).join('')+'</div></div>'+
+      '<div class="callg"><span><i class="calsw" style="--rc:var(--accent)"></i>chapter</span>'+CK.map(function(k){return '<span><i class="calsw" style="--rc:var(--r-'+k[2]+')"></i>'+k[1].toLowerCase()+'</span>'}).join('')+'<span><i class="calsw calev"></i>event</span></div></div>'+
+      (arcChips?'<div class="calarcl" role="group" aria-label="Arcs">'+arcChips+(f.arc?'<button type="button" class="btn sm" data-act="cal-arc" data-id="">Show all arcs</button>':'')+'</div>':'')+
       '<div class="calmonths">'+nm.join('')+'</div>';
   }
-  var ord=items.slice().sort(function(a,b){return (CK.map(function(k){return k[0]}).indexOf(a.kind)-CK.map(function(k){return k[0]}).indexOf(b.kind))||(a.title||'').localeCompare(b.title||'')});
-  rows+='<div class="grp">Calendar items</div>'+(ord.length?'<div class="calitems">'+ord.map(function(it){
+  var all=!!S.calAll||!yrs.length||cm.manual, shown=list.filter(function(it){return all||itemInYear(it,S.calY)}), hid=list.length-shown.length;
+  var ord=shown.slice().sort(function(a,b){return (CK.map(function(k){return k[0]}).indexOf(a.kind)-CK.map(function(k){return k[0]}).indexOf(b.kind))||(a.title||'').localeCompare(b.title||'')});
+  rows+='<div class="grp calgh"><span>Calendar items'+(all?'':' in '+S.calY)+'</span>'+((hid||S.calAll)&&yrs.length?'<button type="button" class="btn sm" data-act="cal-all">'+(S.calAll?'Only '+S.calY:'Show '+hid+' from other years')+'</button>':'')+'</div>'+(ord.length?'<div class="calitems">'+ord.map(function(it){
     var who=it.charId?nameOf('characters',it.charId):'';
     return '<button type="button" class="calcard" data-act="cal-edit" data-id="'+it.id+'"><i class="calsw" style="--rc:var(--r-'+ckOf(it.kind)[2]+')"></i><span><b>'+(esc(it.title)||'Untitled')+'</b><small>'+esc([ckOf(it.kind)[1],who].filter(Boolean).join(' · '))+'</small><small>'+esc(itemSum(it))+'</small></span></button>';
-  }).join('')+'</div>':'<p class="hint" style="padding:8px 16px">Nothing here yet. Add a birthday that repeats every year, or a solstice or school term you set date by date.</p>');
+  }).join('')+'</div>':'<p class="hint" style="padding:8px 16px">'+(list.length?'Nothing happens in '+S.calY+'.':'Nothing here yet. Add a birthday that repeats every year, or a solstice or school term with a different date each year.')+'</p>');
   return {head:head,rows:rows};
 }
 function calDayModal(){
   var m=S.modal, y=m.y, mo=m.mo, d=m.d, k=y*10000+mo*100+d, cm=calChapMap(), ch=cm.map[k]||[], its=itemsOn(y,mo,d), canon=canonDate(d+' '+MONTH_NAMES[mo]+' '+y), sc=canon?schedFor(canon).length:0;
-  var h='<h2>'+esc(keyLong(k))+'</h2>';
-  h+='<div class="sec"><h3>Chapters</h3>'+(ch.length?ch.map(function(c){var pv=(c.h&&c.h.pov)||c.d.pov;return '<button class="lk" data-act="cal-chap" data-id="'+c.d.id+'" data-hid="'+(c.h?c.h.id:'')+'"><span class="n"></span><span><span class="lkt">'+(esc(c.h?c.h.title:c.d.title)||'Untitled')+'</span><small>'+esc([c.d.title,pv?'POV '+nameOf('characters',pv):''].filter(Boolean).join(' · '))+'</small></span></button>'}).join(''):'<p class="hint">No chapter is set on this day.</p>')+'</div>';
+  var h='<h2>'+esc(keyLong(k))+'</h2>';arcColors();
+  h+='<div class="sec"><h3>Chapters</h3>'+(ch.length?ch.map(function(c){var pv=(c.h&&c.h.pov)||c.d.pov;return '<button class="lk" data-act="cal-chap" data-id="'+c.d.id+'" data-hid="'+(c.h?c.h.id:'')+'"><span class="n">'+(ARCC[chArc(c)]?'<i class="calsw" style="--rc:'+ARCC[chArc(c)]+'"></i>':'')+'</span><span><span class="lkt">'+(esc(c.h?c.h.title:c.d.title)||'Untitled')+'</span><small>'+esc([c.d.title,chArc(c)?nameOf('arcs',chArc(c)):'',pv?'POV '+nameOf('characters',pv):''].filter(Boolean).join(' · '))+'</small></span></button>'}).join(''):'<p class="hint">No chapter is set on this day.</p>')+'</div>';
   h+='<div class="sec"><h3>Calendar items</h3>'+(its.length?its.map(function(it){
     var who=it.charId?nameOf('characters',it.charId):'', ag=itemAge(it,y);
     return '<button class="lk" data-act="cal-edit" data-id="'+it.id+'"><span class="n"><i class="calsw" style="--rc:var(--r-'+ckOf(it.kind)[2]+')"></i></span><span><span class="lkt">'+(esc(it.title)||'Untitled')+'</span><small>'+esc([ckOf(it.kind)[1],who,ag,spanPos(it,y,mo,d),it.note].filter(Boolean).join(' · '))+'</small></span></button>';
   }).join(''):'<p class="hint">Nothing marked on this day.</p>')+'</div>';
+  var evs=calEvMap()[k]||[], others=eff('events').filter(function(e){return evs.indexOf(e)<0}).sort(function(a,b){return (a.title||'').localeCompare(b.title||'')});
+  h+='<div class="sec"><h3>Events</h3>'+(evs.length?evs.map(function(e){return '<button class="lk" data-act="goto" data-view="timeline" data-seg="events" data-id="'+e.id+'"><span class="n"><i class="calsw calev"></i></span><span><span class="lkt">'+(esc(e.title)||'Untitled')+'</span>'+(e.locationId?'<small>'+esc(nameOf('locations',e.locationId))+'</small>':'')+'</span></button>'}).join(''):'<p class="hint">No event is set on this day.</p>')+
+    '<div class="calrow" style="grid-template-columns:minmax(0,1fr) auto;margin-top:6px">'+(others.length?'<select class="in" id="cd-ev" aria-label="Event to place on this day">'+others.map(function(e){return '<option value="'+e.id+'">'+esc(e.title||'Untitled')+(e.dateText?' ('+esc(e.dateText)+')':'')+'</option>'}).join('')+'</select><button class="btn sm" data-act="cal-ev-attach">Put it here</button>':'<span class="hint">No other events yet.</span><span></span>')+'</div>'+
+    '<button class="btn sm" data-act="cal-ev-new" style="margin-top:6px">'+ic('plus',14)+'New event on this day</button></div>';
+  var mov=calItems().filter(function(x){return x.rule==='dates'});
+  if(mov.length)h+='<div class="sec"><h3>A different date each year</h3><p class="hint" style="margin:0 0 6px">Use this day as the date for '+y+'.</p><div class="calrow" style="grid-template-columns:minmax(0,1fr) auto"><select class="in" id="cd-mv" aria-label="Movable item">'+mov.map(function(x){return '<option value="'+x.id+'">'+esc(x.title||'Untitled')+'</option>'}).join('')+'</select><button class="btn sm" data-act="cal-setocc">Set for '+y+'</button></div></div>';
   return h+'<div class="actions"><button class="btn" data-act="close">Close</button>'+(sc?'<button class="btn" data-act="sched-open" data-date="'+esc(canon)+'">Schedule'+(sc>1?'s':'')+'</button>':'')+'<button class="btn primary" data-act="cal-new" data-y="'+y+'" data-m="'+mo+'" data-d="'+d+'">'+ic('plus')+'Add on this day</button></div>';
 }
 function ciBlank(y,m,d){return {n:1,wd:Math.min(1,WEEKDAYS.length-1),id:'',title:'',kind:'holiday',charId:'',rule:'yearly',m:m||1,d:d||1,em:0,ed:0,y0:'',y1:'',occ:[],note:'',py:y||''}}
@@ -390,7 +422,7 @@ function calItModal(){
     '<label class="lab" for="ci-t">Name</label><input class="in" id="ci-t" value="'+esc(it.title)+'" placeholder="Midsummer, a birthday, term starts">'+
     '<div class="fgrid"><div><label class="lab" for="ci-k">Kind</label><select class="in" id="ci-k" data-change="cali-sync">'+CK.map(function(k){return '<option value="'+k[0]+'"'+(it.kind===k[0]?' selected':'')+'>'+k[1]+'</option>'}).join('')+'</select></div>'+
     '<div><label class="lab" for="ci-c">Character</label><select class="in" id="ci-c">'+optList('characters',it.charId,'None')+'</select></div></div>'+
-    '<label class="lab" for="ci-r" style="margin-top:12px">Repeats</label><select class="in" id="ci-r" data-change="cali-sync"><option value="yearly"'+(it.rule==='yearly'?' selected':'')+'>Every year on the same date (birthdays, fixed holidays)</option><option value="nth"'+(it.rule==='nth'?' selected':'')+'>Every year on a weekday (first Monday of September)</option><option value="dates"'+(it.rule==='dates'?' selected':'')+'>On chosen dates (solstices, terms: set each year)</option></select>';
+    '<label class="lab" for="ci-r" style="margin-top:12px">Repeats</label><select class="in" id="ci-r" data-change="cali-sync"><option value="yearly"'+(it.rule==='yearly'?' selected':'')+'>Every year on the same date (birthdays, fixed holidays)</option><option value="nth"'+(it.rule==='nth'?' selected':'')+'>Every year on a weekday (first Monday of September)</option><option value="dates"'+(it.rule==='dates'?' selected':'')+'>A different date each year (equinoxes, term dates)</option></select>';
   if(it.rule==='yearly'){
     h+='<div class="fgrid">'+ciDM('ci-s',it.d,it.m,'Date')+ciDM('ci-e',it.ed,it.em,'Ends on (optional)')+
       '<div><label class="lab" for="ci-y0">'+(bd?'Born in year (optional)':'From year (optional)')+'</label><input class="in" id="ci-y0" type="number" min="100" max="9999" inputmode="numeric" value="'+esc(it.y0)+'"></div>'+
@@ -405,10 +437,10 @@ function calItModal(){
       '<p class="hint" style="margin:6px 0 0">The date moves with the weekdays of your calendar, so it lands somewhere different each year. A year where the month has no fifth one simply skips it.</p>';
   }else{
     h+=(it.occ||[]).map(function(o,i){
-      return '<div class="calocc"><div class="calrow"><input class="in" id="ci-o'+i+'-d" type="number" min="1" max="'+CAL.maxd+'" inputmode="numeric" placeholder="Day" value="'+(o.d||'')+'" aria-label="Day"><select class="in" id="ci-o'+i+'-m" aria-label="Month"><option value="">Month</option>'+MONTH_NAMES.slice(1).map(function(n,j){return '<option value="'+(j+1)+'"'+(+o.m===j+1?' selected':'')+'>'+esc(n)+'</option>'}).join('')+'</select><input class="in" id="ci-o'+i+'-y" type="number" min="100" max="9999" inputmode="numeric" placeholder="Year" value="'+esc(o.y)+'" aria-label="Year"></div>'+
-        '<div class="calrow"><input class="in" id="ci-o'+i+'-ed" type="number" min="1" max="'+CAL.maxd+'" inputmode="numeric" placeholder="End day" value="'+(o.ed||'')+'" aria-label="End day"><select class="in" id="ci-o'+i+'-em" aria-label="End month"><option value="">Ends (optional)</option>'+MONTH_NAMES.slice(1).map(function(n,j){return '<option value="'+(j+1)+'"'+(+o.em===j+1?' selected':'')+'>'+esc(n)+'</option>'}).join('')+'</select><input class="in" id="ci-o'+i+'-ey" type="number" min="100" max="9999" inputmode="numeric" placeholder="End year" value="'+esc(o.ey||'')+'" aria-label="End year"></div>'+
-        '<small class="hint" id="ci-sp-'+i+'" style="display:block;margin:2px 0 6px">'+ciSpanTxt(it,i)+'</small><button class="btn sm" data-act="cali-rm" data-i="'+i+'">Remove this date</button></div>';
-    }).join('')+'<button class="btn sm" data-act="cali-addocc">'+ic('plus',14)+'Add another date</button>';
+      return '<div class="calocc"><div class="calrow occ1"><input class="in" id="ci-o'+i+'-y" type="number" min="100" max="9999" inputmode="numeric" placeholder="Year" value="'+esc(o.y)+'" aria-label="Year"><input class="in" id="ci-o'+i+'-d" type="number" min="1" max="'+CAL.maxd+'" inputmode="numeric" placeholder="Day" value="'+(o.d||'')+'" aria-label="Day"><select class="in" id="ci-o'+i+'-m" aria-label="Month"><option value="">Month</option>'+MONTH_NAMES.slice(1).map(function(n,j){return '<option value="'+(j+1)+'"'+(+o.m===j+1?' selected':'')+'>'+esc(n)+'</option>'}).join('')+'</select><button class="btn sm" data-act="cali-rm" data-i="'+i+'" aria-label="Remove '+esc(o.y||'this year')+'">'+ic('x',14)+'</button></div>'+
+        '<div class="calrow occ2"><small class="hint">Ends</small><input class="in" id="ci-o'+i+'-ed" type="number" min="1" max="'+CAL.maxd+'" inputmode="numeric" placeholder="Day" value="'+(o.ed||'')+'" aria-label="End day"><select class="in" id="ci-o'+i+'-em" aria-label="Month"><option value="">Month</option>'+MONTH_NAMES.slice(1).map(function(n,j){return '<option value="'+(j+1)+'"'+(+o.em===j+1?' selected':'')+'>'+esc(n)+'</option>'}).join('')+'</select><input class="in" id="ci-o'+i+'-ey" type="number" min="100" max="9999" inputmode="numeric" placeholder="Year" value="'+esc(o.ey||'')+'" aria-label="End year"></div>'+
+        '<small class="hint" id="ci-sp-'+i+'" style="display:block;margin:2px 0 0">'+ciSpanTxt(it,i)+'</small></div>';
+    }).join('')+'<button class="btn sm" data-act="cali-addocc">'+ic('plus',14)+'Add another year</button><p class="hint" style="margin:6px 0 0">One item holds every year, so the list stays short. Tap any day in the calendar to set it as a year\'s date.</p>';
   }
   h+='<label class="lab" for="ci-n" style="margin-top:12px">Note</label><input class="in" id="ci-n" value="'+esc(it.note)+'" placeholder="Optional">'+
     '<div class="actions"><button class="btn" data-act="close">Cancel</button>'+(it.id?'<button class="btn danger" data-act="cali-del">'+(S.modal.armed?'Really delete?':'Delete')+'</button>':'')+'<button class="btn primary" data-act="cali-save">Save</button></div>';
@@ -2269,6 +2301,22 @@ clear:function(el){
   S._nd=S._nd||{};S._nd[pr.id]=0;save('projects',pr);syncCal();closeModal();render();toast('Calendar saved. Dates written with other month names need picking again.');
 },
 /* ---- story calendar ---- */
+'cal-all':function(){S.calAll=!S.calAll;render()},
+'cal-arc':function(el){S.calF=S.calF||{kind:'',char:'',arc:''};var id=el.dataset.id||'';S.calF.arc=(S.calF.arc===id)?'':id;render()},
+'cal-ev-attach':function(){
+  var m=S.modal,s=document.getElementById('cd-ev'),e=s&&byId('events',s.value);if(!e||!m)return;
+  e.dateText=canonDate(m.d+' '+MONTH_NAMES[m.mo]+' '+m.y)||(m.d+' '+MONTH_NAMES[m.mo]+' '+m.y);save('events',e);renderModal();render();toast('Event placed on this day.');
+},
+'cal-ev-new':function(){
+  var m=S.modal,y=m.y,mo=m.mo,d=m.d;
+  askName('New event','What happens',function(n){var o=createEntity('events',n);o.dateText=canonDate(d+' '+MONTH_NAMES[mo]+' '+y)||(d+' '+MONTH_NAMES[mo]+' '+y);save('events',o);S.modal={type:'calday',y:y,mo:mo,d:d};renderModal();render()});
+},
+'cal-setocc':function(){
+  var m=S.modal,s=document.getElementById('cd-mv'),pr=proj(),it=s&&calItems().find(function(x){return x.id===s.value});if(!it||!pr||!m)return;
+  var occ=(it.occ||[]).filter(function(o){return +o.y!==m.y});occ.push({y:m.y,m:m.mo,d:m.d,ed:0,em:0,ey:''});
+  occ.sort(function(a,b){return (+a.y-+b.y)||(a.m-b.m)||(a.d-b.d)});it.occ=occ;
+  pr.calItems=(pr.calItems||[]).map(function(x){return x.id===it.id?it:x});save('projects',pr);renderModal();render();toast(it.title+': set for '+m.y+'.');
+},
 'cal-year':function(el){S.calY=+el.dataset.y;render()},
 'cal-day':function(el){S.modal={type:'calday',y:+el.dataset.y,mo:+el.dataset.m,d:+el.dataset.d};renderModal()},
 'cal-chap':function(el){closeModal();A['chap-go'](el)},
@@ -2324,7 +2372,7 @@ clear:function(el){
       occ.push(r);
     });
     if(bad){toast(bad);return}
-    o.occ=occ;
+    occ.sort(function(a,b){return (a.y-b.y)||(a.m-b.m)||(a.d-b.d)});o.occ=occ;
   }
   var arr=(pr.calItems||[]).slice(), i=arr.findIndex(function(x){return x.id===o.id});
   if(i>-1)arr[i]=o;else arr.push(o);
