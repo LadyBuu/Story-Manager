@@ -290,15 +290,36 @@ function itemOn(it,y,m,d){
 }
 function itemsOn(y,m,d,list){return (list||calItems()).filter(function(it){return itemOn(it,y,m,d)})}
 function calFiltered(){var f=S.calF||{};return calItems().filter(function(it){return (!f.kind||it.kind===f.kind)&&(!f.char||it.charId===f.char)})}
+function spanDays(y,m,d,ey,em,ed){
+  y=+y;m=+m;d=+d;ey=+ey;em=+em;ed=+ed;
+  if(!(y>=1)||!m||!d||!(ey>=1)||!em||!ed||m>CAL.nm||em>CAL.nm||d>dim(y,m)||ed>dim(ey,em))return 0;
+  var n=dayCount(ey,em,ed)-dayCount(y,m,d)+1;return n>0?n:0;
+}
+function dayWord(n){return n+' day'+(n===1?'':'s')}
+function itemLen(it,y){
+  if(it.rule==='dates')return 0;
+  if(!it.em||!it.ed)return 0;
+  y=y||S.calY||+it.y0||100;
+  return spanDays(y,it.m,it.d,(it.em*100+it.ed<it.m*100+it.d)?y+1:y,it.em,it.ed);
+}
+function occLen(o){return (o.ed&&o.em)?spanDays(o.y,o.m,o.d,o.ey||((o.em*100+o.ed<o.m*100+o.d)?+o.y+1:o.y),o.em,o.ed):0}
+function spanPos(it,y,m,d){
+  var n,s;
+  if(it.rule==='dates'){var o=(it.occ||[]).find(function(o){var a=o.y*10000+o.m*100+o.d,e=o.ey?o.ey*10000+o.em*100+o.ed:a,k=y*10000+m*100+d;return k>=a&&k<=e});if(!o)return '';n=occLen(o);if(n<2)return '';s=spanDays(o.y,o.m,o.d,y,m,d)}
+  else{
+    if(!it.em)return '';var sy=(m*100+d>=it.m*100+it.d)?y:y-1;n=itemLen(it,sy);if(n<2)return '';s=spanDays(sy,it.m,it.d,y,m,d);
+  }
+  return s&&n?'day '+s+' of '+n:'';
+}
 function dayLab(m,d){return d+' '+(MONTH_NAMES[m]||'?')}
 function yrSpan(it){return it.y0&&it.y1?' ('+it.y0+' to '+it.y1+')':it.y0?' (from '+it.y0+')':it.y1?' (until '+it.y1+')':''}
 function itemSum(it){
   if(it.rule==='nth')return 'Every year, the '+(NTHL[it.n]||'').toLowerCase()+' '+(WEEKDAYS[it.wd]||'')+' of '+(MONTH_NAMES[it.m]||'?')+yrSpan(it);
   if(it.rule==='dates'){
     var oc=(it.occ||[]).slice().sort(function(a,b){return (a.y*10000+a.m*100+a.d)-(b.y*10000+b.m*100+b.d)});
-    return oc.length+' date'+(oc.length===1?'':'s')+(oc.length?': '+oc.slice(0,2).map(function(o){return dayLab(o.m,o.d)+' '+o.y}).join(', ')+(oc.length>2?' …':''):'');
+    return oc.length+' date'+(oc.length===1?'':'s')+(oc.length?': '+oc.slice(0,2).map(function(o){var n=occLen(o);return dayLab(o.m,o.d)+' '+o.y+(n>1?' ('+dayWord(n)+')':'')}).join(', ')+(oc.length>2?' …':''):'');
   }
-  return 'Every year, '+dayLab(it.m,it.d)+(it.em?' to '+dayLab(it.em,it.ed):'')+yrSpan(it);
+  return 'Every year, '+dayLab(it.m,it.d)+(it.em?' to '+dayLab(it.em,it.ed)+(itemLen(it)>1?' ('+dayWord(itemLen(it))+')':''):'')+yrSpan(it);
 }
 function itemAge(it,y){return (it.kind==='birthday'&&it.rule==='yearly'&&it.y0&&y>it.y0)?'turns '+(y-it.y0):(it.kind==='birthday'&&it.y0&&y===it.y0?'born':'')}
 function calMonthHtml(y,m,map,list){
@@ -346,11 +367,20 @@ function calDayModal(){
   h+='<div class="sec"><h3>Chapters</h3>'+(ch.length?ch.map(function(c){var pv=(c.h&&c.h.pov)||c.d.pov;return '<button class="lk" data-act="cal-chap" data-id="'+c.d.id+'" data-hid="'+(c.h?c.h.id:'')+'"><span class="n"></span><span><span class="lkt">'+(esc(c.h?c.h.title:c.d.title)||'Untitled')+'</span><small>'+esc([c.d.title,pv?'POV '+nameOf('characters',pv):''].filter(Boolean).join(' · '))+'</small></span></button>'}).join(''):'<p class="hint">No chapter is set on this day.</p>')+'</div>';
   h+='<div class="sec"><h3>Calendar items</h3>'+(its.length?its.map(function(it){
     var who=it.charId?nameOf('characters',it.charId):'', ag=itemAge(it,y);
-    return '<button class="lk" data-act="cal-edit" data-id="'+it.id+'"><span class="n"><i class="calsw" style="--rc:var(--r-'+ckOf(it.kind)[2]+')"></i></span><span><span class="lkt">'+(esc(it.title)||'Untitled')+'</span><small>'+esc([ckOf(it.kind)[1],who,ag,it.note].filter(Boolean).join(' · '))+'</small></span></button>';
+    return '<button class="lk" data-act="cal-edit" data-id="'+it.id+'"><span class="n"><i class="calsw" style="--rc:var(--r-'+ckOf(it.kind)[2]+')"></i></span><span><span class="lkt">'+(esc(it.title)||'Untitled')+'</span><small>'+esc([ckOf(it.kind)[1],who,ag,spanPos(it,y,mo,d),it.note].filter(Boolean).join(' · '))+'</small></span></button>';
   }).join(''):'<p class="hint">Nothing marked on this day.</p>')+'</div>';
   return h+'<div class="actions"><button class="btn" data-act="close">Close</button>'+(sc?'<button class="btn" data-act="sched-open" data-date="'+esc(canon)+'">Schedule'+(sc>1?'s':'')+'</button>':'')+'<button class="btn primary" data-act="cal-new" data-y="'+y+'" data-m="'+mo+'" data-d="'+d+'">'+ic('plus')+'Add on this day</button></div>';
 }
 function ciBlank(y,m,d){return {n:1,wd:Math.min(1,WEEKDAYS.length-1),id:'',title:'',kind:'holiday',charId:'',rule:'yearly',m:m||1,d:d||1,em:0,ed:0,y0:'',y1:'',occ:[],note:'',py:y||''}}
+function ciSpanTxt(it,i){
+  var n=i==null?itemLen(it,+it.y0||S.calY||100):occLen(it.occ[i]||{});
+  return n>1?'That is '+dayWord(n)+', counting both ends.':'';
+}
+function ciSpan(){
+  var m=S.modal;if(!m||m.type!=='calit')return;ciCapture();var it=m.it,e=document.getElementById('ci-span');
+  if(e)e.textContent=ciSpanTxt(it);
+  (it.occ||[]).forEach(function(o,i){var x=document.getElementById('ci-sp-'+i);if(x)x.textContent=ciSpanTxt(it,i)});
+}
 function ciDM(id,d,m,lab){
   return '<div><label class="lab" for="'+id+'-d">'+lab+'</label><div class="calrow" style="grid-template-columns:72px minmax(0,1fr)"><input class="in" id="'+id+'-d" type="number" min="1" max="'+CAL.maxd+'" inputmode="numeric" placeholder="Day" value="'+(d||'')+'" aria-label="'+esc(lab)+' day"><select class="in" id="'+id+'-m" aria-label="'+esc(lab)+' month"><option value="">Month</option>'+MONTH_NAMES.slice(1).map(function(n,i){return '<option value="'+(i+1)+'"'+(+m===i+1?' selected':'')+'>'+esc(n)+'</option>'}).join('')+'</select></div></div>';
 }
@@ -365,7 +395,7 @@ function calItModal(){
     h+='<div class="fgrid">'+ciDM('ci-s',it.d,it.m,'Date')+ciDM('ci-e',it.ed,it.em,'Ends on (optional)')+
       '<div><label class="lab" for="ci-y0">'+(bd?'Born in year (optional)':'From year (optional)')+'</label><input class="in" id="ci-y0" type="number" min="100" max="9999" inputmode="numeric" value="'+esc(it.y0)+'"></div>'+
       '<div><label class="lab" for="ci-y1">Until year (optional)</label><input class="in" id="ci-y1" type="number" min="100" max="9999" inputmode="numeric" value="'+esc(it.y1)+'"></div></div>'+
-      '<p class="hint" style="margin:6px 0 0">'+(bd?'With a birth year, each birthday shows the age. ':'')+'An end date makes it a span, such as a summer break. A span may run over the new year.</p>';
+      '<p class="hint" style="margin:6px 0 0">'+(bd?'With a birth year, each birthday shows the age. ':'')+'An end date makes it a span, such as a summer break. A span may run over the new year. <b id="ci-span">'+ciSpanTxt(it)+'</b></p>';
   }else if(it.rule==='nth'){
     h+='<div class="fgrid"><div><label class="lab" for="ci-nn">Which</label><select class="in" id="ci-nn">'+['1','2','3','4','5','-1'].map(function(v){return '<option value="'+v+'"'+(String(it.n)===v?' selected':'')+'>'+NTHL[v]+'</option>'}).join('')+'</select></div>'+
       '<div><label class="lab" for="ci-nw">Weekday</label><select class="in" id="ci-nw">'+WEEKDAYS.map(function(n,i){return '<option value="'+i+'"'+(+it.wd===i?' selected':'')+'>'+esc(n)+'</option>'}).join('')+'</select></div>'+
@@ -377,7 +407,7 @@ function calItModal(){
     h+=(it.occ||[]).map(function(o,i){
       return '<div class="calocc"><div class="calrow"><input class="in" id="ci-o'+i+'-d" type="number" min="1" max="'+CAL.maxd+'" inputmode="numeric" placeholder="Day" value="'+(o.d||'')+'" aria-label="Day"><select class="in" id="ci-o'+i+'-m" aria-label="Month"><option value="">Month</option>'+MONTH_NAMES.slice(1).map(function(n,j){return '<option value="'+(j+1)+'"'+(+o.m===j+1?' selected':'')+'>'+esc(n)+'</option>'}).join('')+'</select><input class="in" id="ci-o'+i+'-y" type="number" min="100" max="9999" inputmode="numeric" placeholder="Year" value="'+esc(o.y)+'" aria-label="Year"></div>'+
         '<div class="calrow"><input class="in" id="ci-o'+i+'-ed" type="number" min="1" max="'+CAL.maxd+'" inputmode="numeric" placeholder="End day" value="'+(o.ed||'')+'" aria-label="End day"><select class="in" id="ci-o'+i+'-em" aria-label="End month"><option value="">Ends (optional)</option>'+MONTH_NAMES.slice(1).map(function(n,j){return '<option value="'+(j+1)+'"'+(+o.em===j+1?' selected':'')+'>'+esc(n)+'</option>'}).join('')+'</select><input class="in" id="ci-o'+i+'-ey" type="number" min="100" max="9999" inputmode="numeric" placeholder="End year" value="'+esc(o.ey||'')+'" aria-label="End year"></div>'+
-        '<button class="btn sm" data-act="cali-rm" data-i="'+i+'">Remove this date</button></div>';
+        '<small class="hint" id="ci-sp-'+i+'" style="display:block;margin:2px 0 6px">'+ciSpanTxt(it,i)+'</small><button class="btn sm" data-act="cali-rm" data-i="'+i+'">Remove this date</button></div>';
     }).join('')+'<button class="btn sm" data-act="cali-addocc">'+ic('plus',14)+'Add another date</button>';
   }
   h+='<label class="lab" for="ci-n" style="margin-top:12px">Note</label><input class="in" id="ci-n" value="'+esc(it.note)+'" placeholder="Optional">'+
@@ -2598,6 +2628,7 @@ document.addEventListener('click',function(e){
 });
 document.addEventListener('change',function(e){
   var t=e.target;
+  if(S.modal&&S.modal.type==='calit'&&t.id&&/^ci-(e-|o\d+-)/.test(t.id)){ciSpan();return}
   if(t.dataset&&t.dataset.change&&CH[t.dataset.change]){CH[t.dataset.change](t,e);return}
   if(t.dataset&&t.dataset.bind&&/:file\.url$/.test(t.dataset.bind))renderDetail();
 });
