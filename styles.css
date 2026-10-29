@@ -1425,6 +1425,19 @@ textarea.in{min-height:88px;resize:vertical;line-height:1.5}
 .calcard b{display:block;font-weight:600;font-size:13.5px}
 .calcard small{display:block;color:var(--fg-3);font-size:12px;margin-top:2px}
 @media(max-width:560px){.calbar,.calmeta{padding-left:12px;padding-right:12px}.calmonths{grid-template-columns:1fr;padding:0 12px 14px}.calday{height:40px;font-size:14px}.calitems{grid-template-columns:1fr;padding:0 12px 16px}.calflt{width:100%;flex-wrap:nowrap}.calflt select.in{flex:1;min-width:0;max-width:none}.calday{height:38px}}
+.calarcs{position:absolute;left:4px;right:4px;top:2px;height:3px;display:flex;gap:1px;border-radius:2px;overflow:hidden}
+.calarcs u{flex:1;text-decoration:none}
+.calday .calct{top:5px}
+.calmk i.ev{border-radius:1px;transform:rotate(45deg);background:var(--fg-2)}
+.calsw.calev{border-radius:2px;transform:rotate(45deg);background:var(--fg-2);width:8px;height:8px}
+.calarcl{display:flex;flex-wrap:wrap;gap:6px;padding:0 16px 12px}
+.calarcb{display:inline-flex;align-items:center;gap:0;min-height:30px;padding:3px 11px 3px 8px;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--fg-2);font:inherit;font-size:12.5px;cursor:pointer}
+.calarcb small{margin-left:6px;font:500 10.5px var(--f-mono,monospace);color:var(--fg-3)}
+.calarcb[aria-pressed="true"]{border-color:var(--fg-2);background:var(--accent-soft);color:var(--fg)}
+.calgh{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.calocc .occ1{grid-template-columns:84px 64px minmax(0,1fr) 36px}
+.calocc .occ2{grid-template-columns:34px 64px minmax(0,1fr) 84px}
+.calocc .occ2 .hint{margin:0}
 .calocc{border:1px solid var(--line);border-radius:8px;padding:8px;margin:8px 0}
 .calrow{display:grid;grid-template-columns:72px minmax(0,1fr) 92px;gap:6px;align-items:center;margin:4px 0}
 .calrow .in{min-width:0}
