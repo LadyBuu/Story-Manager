@@ -1411,6 +1411,16 @@ textarea.in{min-height:88px;resize:vertical;line-height:1.5}
 .calgrid>i{font:500 10px var(--f-mono,monospace);font-style:normal;text-transform:uppercase;letter-spacing:.04em;color:var(--fg-3);text-align:center;padding:2px 0 4px}
 .calday{position:relative;height:32px;display:flex;align-items:center;justify-content:center;border:0;border-radius:8px;background:none;color:var(--fg-2);font:inherit;font-size:12.5px;font-variant-numeric:tabular-nums;padding:0 0 4px;cursor:pointer}
 .calday:hover,.calday:focus-visible{background:var(--accent-soft);outline:0}
+.calday.sch-t{background:color-mix(in srgb,var(--r-c) 15%,transparent)}
+.calday.sch-b{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--r-d) 30%,transparent) 0 4px,transparent 4px 8px)}
+.calday.sch-r{background:color-mix(in srgb,var(--r-c) 6%,transparent);color:var(--fg-3)}
+.calday.sch-s{box-shadow:inset 3px 0 0 var(--r-c)}
+.calday.sch-e{box-shadow:inset -3px 0 0 var(--r-c)}
+.calday.sch-s.sch-e{box-shadow:inset 3px 0 0 var(--r-c),inset -3px 0 0 var(--r-c)}
+.calnum{position:absolute;bottom:1px;right:3px;font:500 8px var(--f-mono,monospace);color:var(--fg-3)}
+.calsw.sw-t{background:color-mix(in srgb,var(--r-c) 45%,transparent)}
+.calsw.sw-b{background:repeating-linear-gradient(135deg,var(--r-d) 0 2px,transparent 2px 4px);border:1px solid var(--r-d)}
+.calsw.sw-r{background:color-mix(in srgb,var(--r-c) 14%,transparent);border:1px solid var(--line)}
 .calday.hasch{background:var(--accent-soft);color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
 .calday b{font-weight:400}
 .calday.hasch b{font-weight:700}
@@ -1446,6 +1456,36 @@ textarea.in{min-height:88px;resize:vertical;line-height:1.5}
 .calmo.leap{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
 .calleapt{font:500 10px var(--f-mono,monospace);font-style:normal;text-transform:uppercase;letter-spacing:.04em;color:var(--accent);margin-left:8px}
 @media(max-width:560px){.calleap{padding-left:12px;padding-right:12px}}
+.calmode{width:auto;flex:none}
+.calmode button{padding:6px 14px}
+.caladd{display:inline-flex;gap:4px;align-items:center;margin-left:4px}
+.caladd .in{width:84px;min-height:32px;padding:4px 8px;font-size:12.5px}
+.schp{padding:0 16px 10px;display:grid;gap:10px}
+.schr{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.calrest{min-height:30px;min-width:42px;padding:2px 8px;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--fg-3);font:500 12px var(--f-mono,monospace);cursor:pointer}
+.calrest[aria-pressed="true"]{background:color-mix(in srgb,var(--r-c) 22%,transparent);border-color:var(--r-c);color:var(--fg)}
+.schn{margin-left:auto;font-size:12.5px}
+.schy{border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:12px}
+.schy.empty{text-align:left}
+.schy-h{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px 14px;align-items:center;margin-bottom:8px}
+.schy-h b{font-size:15px;display:block}
+.schy-h small{display:block;color:var(--fg-3);font-size:12px}
+.schy-t{text-align:right;font-size:12.5px;color:var(--fg-2)}
+.schy-t b{display:inline;font-size:18px;color:var(--r-c)}
+.scht{border-top:1px solid var(--line);padding:9px 0 4px}
+.scht-m{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.scht-n{background:none;border:0;padding:0;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.scht-n b{display:block;font-size:13.5px}
+.scht-n small{display:block;color:var(--fg-3);font-size:12px}
+.scht-s{font-size:12px;color:var(--fg-2);margin:4px 0}
+.scht-b{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0 2px}
+.schbk{display:inline-flex;flex-direction:column;align-items:flex-start;padding:4px 10px;border:1px solid var(--r-d);border-radius:9px;background:color-mix(in srgb,var(--r-d) 12%,transparent);color:var(--fg);font:inherit;cursor:pointer;text-align:left}
+.schbk b{font-size:12px;font-weight:600}
+.schbk small{font-size:11px;color:var(--fg-3)}
+.schbk.bad{border-color:var(--danger,#c0392b);color:var(--danger,#c0392b)}
+.schy-f{padding-top:6px}
+.sch3{grid-template-columns:72px minmax(0,1fr) 92px}
+@media(max-width:560px){.schp{padding-left:12px;padding-right:12px}.schy-h{grid-template-columns:minmax(0,1fr) auto}.schy-t{grid-column:1/-1;text-align:left}.schn{margin-left:0}}
 .calocc{border:1px solid var(--line);border-radius:8px;padding:8px;margin:8px 0}
 .calrow{display:grid;grid-template-columns:72px minmax(0,1fr) 92px;gap:6px;align-items:center;margin:4px 0}
 .calrow .in{min-width:0}
