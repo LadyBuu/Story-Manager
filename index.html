@@ -132,7 +132,7 @@ function kindOf(d){var k=d&&d.kind;return (!k||k==='chapter'||k==='scene')?'draf
 function kindLabel(k){k=(!k||k==='chapter'||k==='scene')?'draft':k;var x=KINDS.find(function(y){return y[0]===k});return x?x[1]:'Draft'}
 
 /* chapters live inside a file: the headings at the chapter level carry the story data */
-var CAL={greg:true,months:[],wk:[],start:0,leapC:0,leapK:0,leapOff:0,nm:12,maxd:31,sig:'',ys:[0,0],avg:365,R:null,map:null};
+var CAL={greg:true,months:[],wk:[],start:0,leapC:0,leapK:0,leapOff:0,nm:12,maxd:31,sig:'',ys:[0,0],avg:365,R:null,map:null,ins:{},mc:{}};
 var MONTHS={january:1,jan:1,february:2,feb:2,march:3,mar:3,april:4,apr:4,may:5,june:6,jun:6,july:7,jul:7,august:8,aug:8,september:9,sep:9,sept:9,october:10,oct:10,november:11,nov:11,december:12,dec:12};
 var WEEKDAYS_GREG=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 function reEsc(s){return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}
@@ -142,7 +142,7 @@ function syncCal(){
   CAL.sig=sig;CAL.ys=[0,0];
   var names=[],map={},wk;
   if(sig==='greg'){
-    CAL.greg=true;CAL.nm=12;CAL.maxd=31;CAL.months=[];
+    CAL.greg=true;CAL.nm=12;CAL.maxd=31;CAL.months=[];CAL.ins={};CAL.mc={};
     names=['January','February','March','April','May','June','July','August','September','October','November','December'];
     Object.keys(MONTHS).forEach(function(k){map[k]=MONTHS[k]});
     wk=WEEKDAYS_GREG;CAL.start=0;CAL.avg=365.2425;
@@ -152,8 +152,15 @@ function syncCal(){
     CAL.nm=CAL.months.length;
     CAL.maxd=Math.max.apply(null,CAL.months.map(function(m){return m.days+m.leapDays}));
     names=CAL.months.map(function(m){return m.name});
-    var norm=function(s){return s.toLowerCase().replace(/[\u2018\u2019]/g,"'").replace(/[,.]/g,' ').replace(/\s+/g,' ').trim()};
+    var norm=function(s){return s.toLowerCase().replace(/[\u2018\u2019]/g,"'").replace(/[,.]/g,' ').replace(/\s+/g,' ').trim()}, extra=[];
+    CAL.ins={};CAL.mc={};
+    Object.keys(c.ins||{}).forEach(function(k){
+      var yy=+k;if(!(yy>=1))return;
+      var arr=(c.ins[k]||[]).map(function(x){return {id:+x.id||0,after:+x.after||0,name:String(x.name||'Leap month'),days:Math.max(1,Math.min(99,parseInt(x.days,10)||30))}}).filter(function(x){return x.id});
+      if(arr.length){CAL.ins[yy]=arr;arr.forEach(function(x){CAL.maxd=Math.max(CAL.maxd,x.days);extra.push(x.name)})}
+    });
     names.forEach(function(n,i){map[norm(n)]=i+1});
+    extra.forEach(function(n){var kk=norm(n);if(!map[kk])map[kk]=-1});
     wk=(c.weekdays&&c.weekdays.length?c.weekdays:WEEKDAYS_GREG).map(String);
     CAL.start=((parseInt(c.startWeekday,10)||0)%wk.length+wk.length)%wk.length;
     CAL.leapC=Math.max(0,parseInt(c.leapC,10)||0);CAL.leapK=Math.max(0,parseInt(c.leapK,10)||0);CAL.leapOff=parseInt(c.leapOff,10)||0;
@@ -166,29 +173,59 @@ function syncCal(){
   CAL.R={a:new RegExp('^(\\d{1,2})(?:st|nd|rd|th)? (?:of )?('+src+') (\\d{3,4})$'),b:new RegExp('^('+src+') (\\d{1,2})(?:st|nd|rd|th)? (\\d{3,4})$'),c:new RegExp('^('+src+') (\\d{3,4})$')};
 }
 function isLeapY(y){if(CAL.greg)return y%4===0&&(y%100!==0||y%400===0);return CAL.leapC>0&&CAL.leapK>0&&(((CAL.leapK*y+CAL.leapOff)%CAL.leapC)+CAL.leapC)%CAL.leapC<CAL.leapK}
-function yearLen(y){if(CAL.greg)return isLeapY(y)?366:365;var n=0;for(var i=1;i<=CAL.months.length;i++)n+=dim(y,i);return n}
+function normM(s){return String(s).toLowerCase().replace(/[\u2018\u2019]/g,"'").replace(/[,.]/g,' ').replace(/\s+/g,' ').trim()}
+function monthsOf(y){
+  var i,l;
+  if(CAL.greg){l=[];for(i=1;i<=12;i++)l.push({id:i,name:MONTH_NAMES[i],days:dim(y,i)});return l}
+  if(CAL.mc[y])return CAL.mc[y];
+  var out=[],lp=isLeapY(y),b;
+  for(i=0;i<CAL.months.length;i++){b=CAL.months[i];if(b.leapOnly&&!lp)continue;out.push({id:i+1,name:b.name,days:b.days+(lp?b.leapDays:0)})}
+  (CAL.ins[y]||[]).forEach(function(x){
+    var at=0,j;
+    if(x.after){
+      for(j=0;j<out.length;j++)if(out[j].id===x.after){at=j+1;break}
+      if(!at&&x.after<100){for(j=0;j<out.length;j++)if(out[j].id<100&&out[j].id<x.after)at=j+1}
+    }
+    while(out[at]&&out[at].ins&&out[at].anc===x.after)at++;
+    out.splice(at,0,{id:x.id,name:x.name,days:x.days,ins:true,anc:x.after});
+  });
+  return (CAL.mc[y]=out);
+}
+function nmOf(y){return CAL.greg?12:monthsOf(y).length}
+function mname(y,m){if(CAL.greg)return MONTH_NAMES[m]||'';var e=monthsOf(y)[m-1];return e?e.name:''}
+function monthOrd(y,name){var n=normM(name),l=monthsOf(y);for(var i=0;i<l.length;i++)if(normM(l[i].name)===n)return i+1;return 0}
+function ordId(y,id){if(CAL.greg)return id>=1&&id<=12?id:0;var l=monthsOf(y);for(var i=0;i<l.length;i++)if(l[i].id===id)return i+1;return 0}
+function idOrd(y,m){if(CAL.greg)return m;var e=monthsOf(y)[m-1];return e?e.id:0}
+function idName(y,id){var o=ordId(y,id);if(o)return mname(y,o);return CAL.greg?(MONTH_NAMES[id]||'?'):((CAL.months[id-1]||{}).name||'?')}
+function monthOptsHtml(y,sel){
+  var l=y?monthsOf(y):CAL.greg?monthsOf(2001):CAL.months.map(function(b,i){return {id:i+1,name:b.name,lo:b.leapOnly}});
+  if(!y&&!CAL.greg){var have={};l.forEach(function(e){have[normM(e.name)]=1});Object.keys(CAL.ins).forEach(function(k){CAL.ins[k].forEach(function(x){if(!have[normM(x.name)]){have[normM(x.name)]=1;l=l.concat([{id:x.id,name:x.name,ins:true,yr:k}])}})})}
+  return l.map(function(e){return '<option value="'+esc(e.name)+'"'+(sel===e.name?' selected':'')+'>'+esc(e.name)+(e.lo?' (leap years)':'')+(e.ins?' (leap month'+(e.yr?' in '+e.yr:'')+')':'')+'</option>'}).join('');
+}
+function yearLen(y){if(CAL.greg)return isLeapY(y)?366:365;var n=0,l=monthsOf(y);for(var i=0;i<l.length;i++)n+=l[i].days;return n}
 function yearStart(y){if(y<1)return 0;for(var k=CAL.ys.length-1;k<y;k++)CAL.ys[k+1]=CAL.ys[k]+yearLen(k);return CAL.ys[y]}
 function dayCount(y,m,d){var n=yearStart(y);for(var i=1;i<m;i++)n+=dim(y,i);return n+(d-1)}
 function autoKey(text){
   syncCal();
-  var t=(text||'').trim().toLowerCase().replace(/[\u2018\u2019]/g,"'").replace(/[,.]/g,' ').replace(/\s+/g,' ').trim(), m, y, mo=0, da=0;
+  var t=(text||'').trim().toLowerCase().replace(/[\u2018\u2019]/g,"'").replace(/[,.]/g,' ').replace(/\s+/g,' ').trim(), m, y, mo=0, da=0, mn='';
   if(!t)return null;
   if((m=/^(\d{3,4})-(\d{1,2})-(\d{1,2})$/.exec(t))){y=+m[1];mo=+m[2];da=+m[3]}
-  else if((m=CAL.R.a.exec(t))){da=+m[1];mo=CAL.map[m[2]];y=+m[3]}
-  else if((m=CAL.R.b.exec(t))){mo=CAL.map[m[1]];da=+m[2];y=+m[3]}
-  else if((m=CAL.R.c.exec(t))){mo=CAL.map[m[1]];y=+m[2]}
+  else if((m=CAL.R.a.exec(t))){da=+m[1];mn=m[2];y=+m[3]}
+  else if((m=CAL.R.b.exec(t))){mn=m[1];da=+m[2];y=+m[3]}
+  else if((m=CAL.R.c.exec(t))){mn=m[1];y=+m[2]}
   else if((m=/^(\d{3,4})$/.exec(t))){y=+m[1]}
   else return null;
-  if(mo>CAL.nm||da>CAL.maxd)return null;
+  if(mn){mo=CAL.greg?CAL.map[mn]:monthOrd(y,mn);if(!mo)return null}
+  if(mo>nmOf(y)||da>CAL.maxd)return null;
   return y*10000+mo*100+da;
 }
 var MONTH_NAMES=['','January','February','March','April','May','June','July','August','September','October','November','December'];
-function canonDate(text){var k=autoKey(text);if(k==null)return null;var y=Math.floor(k/10000),mo=Math.floor(k/100)%100,da=k%100;return (da?da+' ':'')+(mo?MONTH_NAMES[mo]+' ':'')+y}
+function canonDate(text){var k=autoKey(text);if(k==null)return null;var y=Math.floor(k/10000),mo=Math.floor(k/100)%100,da=k%100;return (da?da+' ':'')+(mo?mname(y,mo)+' ':'')+y}
 function dateParts(text){var k=autoKey(text);if(k==null)return {d:'',m:'',y:''};return {d:k%100||'',m:Math.floor(k/100)%100||'',y:Math.floor(k/10000)}}
 var WEEKDAYS=WEEKDAYS_GREG.slice();
 function dim(y,m){
   if(CAL.greg){var l=isLeapY(y);return [31,l?29:28,31,30,31,30,31,31,30,31,30,31][m-1]||0}
-  var mo=CAL.months[m-1];if(!mo)return 0;var lp=isLeapY(y);if(mo.leapOnly&&!lp)return 0;return mo.days+(lp?mo.leapDays:0);
+  var e=monthsOf(y)[m-1];return e?e.days:0;
 }
 function wdayOf(y,m,d){
   if(CAL.greg){var dt=new Date(0);dt.setUTCFullYear(y,m-1,d);return dt.getUTCDay()}
@@ -202,8 +239,8 @@ function defYearFor(target){var a=target.split(':');return (a[0]==='c'||a[0]==='
 function calHtml(target,pt){
   var c=S.cal, y=c.y, m=c.m, nw=CAL.greg?7:WEEKDAYS.length, first=CAL.greg?(wdayOf(y,m,1)+6)%7:wdayOf(y,m,1), n=dim(y,m), sel=(pt.y===y&&pt.m===m)?pt.d:0, cells='';
   for(var i=0;i<first;i++)cells+='<span></span>';
-  for(var d=1;d<=n;d++)cells+='<button type="button" class="cal-d'+(d===sel?' on':'')+'" data-act="cal-pick" data-t="'+target+'" data-d="'+d+'" aria-label="'+d+' '+MONTH_NAMES[m]+' '+y+', '+WEEKDAYS[wdayOf(y,m,d)]+'">'+d+'</button>';
-  return '<div class="cal" role="group" aria-label="Calendar"><div class="cal-h"><button type="button" class="btn sm" data-act="cal-nav" data-n="-1" aria-label="Previous month">‹</button><b>'+MONTH_NAMES[m]+' '+y+'</b><button type="button" class="btn sm" data-act="cal-nav" data-n="1" aria-label="Next month">›</button></div>'+
+  for(var d=1;d<=n;d++)cells+='<button type="button" class="cal-d'+(d===sel?' on':'')+'" data-act="cal-pick" data-t="'+target+'" data-d="'+d+'" aria-label="'+d+' '+mname(y,m)+' '+y+', '+WEEKDAYS[wdayOf(y,m,d)]+'">'+d+'</button>';
+  return '<div class="cal" role="group" aria-label="Calendar"><div class="cal-h"><button type="button" class="btn sm" data-act="cal-nav" data-n="-1" aria-label="Previous month">‹</button><b>'+mname(y,m)+' '+y+'</b><button type="button" class="btn sm" data-act="cal-nav" data-n="1" aria-label="Next month">›</button></div>'+
     '<div class="cal-g" style="grid-template-columns:repeat('+nw+',minmax(1.6em,1fr))">'+(CAL.greg?['Mo','Tu','We','Th','Fr','Sa','Su']:WEEKDAYS.map(function(x){return x.slice(0,nw>7?4:2)})).map(function(x){return '<i>'+esc(x)+'</i>'}).join('')+cells+'</div>'+
     '<div class="cal-f"><small class="hint">'+(CAL.greg?'Weekdays follow the modern calendar, counted back for old years.':'Weekdays follow your calendar.')+'</small><button type="button" class="btn sm" data-act="cal-close">Close</button></div></div>';
 }
@@ -212,8 +249,8 @@ function longDate(text){
   var t=(text||'').trim();if(!t||dateMode()!=='auto')return t;
   var k=autoKey(t);if(k==null)return t;
   var y=Math.floor(k/10000),mo=Math.floor(k/100)%100,da=k%100;
-  if(da&&mo)return WEEKDAYS[wdayOf(y,mo,da)]+', '+ordinal(da)+' '+MONTH_NAMES[mo]+' '+y;
-  return (mo?MONTH_NAMES[mo]+' ':'')+y;
+  if(da&&mo)return WEEKDAYS[wdayOf(y,mo,da)]+', '+ordinal(da)+' '+mname(y,mo)+' '+y;
+  return (mo?mname(y,mo)+' ':'')+y;
 }
 var DHS={v:''};
 function schedList(){var pr=proj();return (pr&&pr.schedules)||[]}
@@ -300,21 +337,28 @@ function nthDay(y,m,n,wd){
   var d=1+(((wd-wdayOf(y,m,1))%len)+len)%len+(n-1)*len;
   return d>days?0:d;
 }
+function spanKeys(it,sy){
+  if(!it.em||!it.ed)return null;
+  var so=ordId(sy,it.m);if(!so)return null;
+  var ey=(it.em*100+it.ed<it.m*100+it.d)?sy+1:sy, eo=ordId(ey,it.em);if(!eo)return null;
+  return [sy*10000+so*100+it.d, ey*10000+eo*100+it.ed];
+}
 function itemOn(it,y,m,d){
-  var k=y*10000+m*100+d, md=m*100+d;
-  if(it.rule==='dates')return (it.occ||[]).some(function(o){var s=o.y*10000+o.m*100+o.d,e=o.ey?o.ey*10000+o.em*100+o.ed:s;return k>=s&&k<=e});
-  if(it.rule==='nth'){var nd=nthDay(y,it.m,it.n,it.wd);return !!nd&&m===it.m&&d===nd&&inYrs(it,y)}
-  var s=it.m*100+it.d, e=it.em?it.em*100+it.ed:0;
-  if(!e)return md===s&&inYrs(it,y);
-  if(e>=s)return md>=s&&md<=e&&inYrs(it,y);
-  return (md>=s&&inYrs(it,y))||(md<=e&&inYrs(it,y-1));
+  var k=y*10000+m*100+d;
+  if(it.rule==='dates')return (it.occ||[]).some(function(o){var os=ordId(+o.y,+o.m);if(!os)return false;var s=o.y*10000+os*100+o.d,e=s;if(o.ey){var oe=ordId(+o.ey,+o.em);e=oe?o.ey*10000+oe*100+o.ed:s}return k>=s&&k<=e});
+  if(it.rule==='nth'){var os=ordId(y,it.m);if(!os||os!==m)return false;var nd=nthDay(y,os,it.n,it.wd);return !!nd&&d===nd&&inYrs(it,y)}
+  if(!it.em){return inYrs(it,y)&&ordId(y,it.m)===m&&d===it.d}
+  var r,sy;
+  for(sy=y-1;sy<=y;sy++){if(!inYrs(it,sy))continue;r=spanKeys(it,sy);if(r&&k>=r[0]&&k<=r[1])return true}
+  return false;
 }
 function itemsOn(y,m,d,list){return (list||calItems()).filter(function(it){return itemOn(it,y,m,d)})}
 function calFiltered(){var f=S.calF||{};return calItems().filter(function(it){return (!f.kind||it.kind===f.kind)&&(!f.char||it.charId===f.char)})}
 function spanDays(y,m,d,ey,em,ed){
   y=+y;m=+m;d=+d;ey=+ey;em=+em;ed=+ed;
-  if(!(y>=1)||!m||!d||!(ey>=1)||!em||!ed||m>CAL.nm||em>CAL.nm||d>dim(y,m)||ed>dim(ey,em))return 0;
-  var n=dayCount(ey,em,ed)-dayCount(y,m,d)+1;return n>0?n:0;
+  if(!(y>=1)||!m||!d||!(ey>=1)||!em||!ed)return 0;
+  var so=ordId(y,m),eo=ordId(ey,em);if(!so||!eo||d>dim(y,so)||ed>dim(ey,eo))return 0;
+  var n=dayCount(ey,eo,ed)-dayCount(y,so,d)+1;return n>0?n:0;
 }
 function dayWord(n){return n+' day'+(n===1?'':'s')}
 function itemLen(it,y){
@@ -324,21 +368,21 @@ function itemLen(it,y){
   return spanDays(y,it.m,it.d,(it.em*100+it.ed<it.m*100+it.d)?y+1:y,it.em,it.ed);
 }
 function occLen(o){return (o.ed&&o.em)?spanDays(o.y,o.m,o.d,o.ey||((o.em*100+o.ed<o.m*100+o.d)?+o.y+1:o.y),o.em,o.ed):0}
-function spanPos(it,y,m,d){
-  var n,s;
-  if(it.rule==='dates'){var o=(it.occ||[]).find(function(o){var a=o.y*10000+o.m*100+o.d,e=o.ey?o.ey*10000+o.em*100+o.ed:a,k=y*10000+m*100+d;return k>=a&&k<=e});if(!o)return '';n=occLen(o);if(n<2)return '';s=spanDays(o.y,o.m,o.d,y,m,d)}
+function spanPos(it,y,mo,d){
+  var n,s,m=idOrd(y,mo);
+  if(it.rule==='dates'){var o=(it.occ||[]).find(function(o){var os=ordId(+o.y,+o.m);if(!os)return false;var a=o.y*10000+os*100+o.d,e=a;if(o.ey){var oe=ordId(+o.ey,+o.em);e=oe?o.ey*10000+oe*100+o.ed:a}var k=y*10000+mo*100+d;return k>=a&&k<=e});if(!o)return '';n=occLen(o);if(n<2)return '';s=spanDays(o.y,o.m,o.d,y,m,d)}
   else{
     if(!it.em)return '';var sy=(m*100+d>=it.m*100+it.d)?y:y-1;n=itemLen(it,sy);if(n<2)return '';s=spanDays(sy,it.m,it.d,y,m,d);
   }
   return s&&n?'day '+s+' of '+n:'';
 }
-function dayLab(m,d){return d+' '+(MONTH_NAMES[m]||'?')}
+function dayLab(m,d,y){return d+' '+(y?idName(+y,m):(MONTH_NAMES[m]||'?'))}
 function yrSpan(it){return it.y0&&it.y1?' ('+it.y0+' to '+it.y1+')':it.y0?' (from '+it.y0+')':it.y1?' (until '+it.y1+')':''}
 function itemSum(it){
   if(it.rule==='nth')return 'Every year, the '+(NTHL[it.n]||'').toLowerCase()+' '+(WEEKDAYS[it.wd]||'')+' of '+(MONTH_NAMES[it.m]||'?')+yrSpan(it);
   if(it.rule==='dates'){
-    var oc=(it.occ||[]).slice().sort(function(a,b){return (a.y*10000+a.m*100+a.d)-(b.y*10000+b.m*100+b.d)});
-    return oc.length+' year'+(oc.length===1?'':'s')+(oc.length?' · '+oc.slice(0,4).map(function(o){var n=occLen(o);return o.y+': '+dayLab(o.m,o.d)+(n>1?' ('+dayWord(n)+')':'')}).join(' · ')+(oc.length>4?' …':''):'');
+    var oc=(it.occ||[]).slice().sort(function(a,b){return (a.y*10000+ordId(+a.y,+a.m)*100+a.d)-(b.y*10000+ordId(+b.y,+b.m)*100+b.d)});
+    return oc.length+' year'+(oc.length===1?'':'s')+(oc.length?' · '+oc.slice(0,4).map(function(o){var n=occLen(o);return o.y+': '+dayLab(o.m,o.d,o.y)+(n>1?' ('+dayWord(n)+')':'')}).join(' · ')+(oc.length>4?' …':''):'');
   }
   return 'Every year, '+dayLab(it.m,it.d)+(it.em?' to '+dayLab(it.em,it.ed)+(itemLen(it)>1?' ('+dayWord(itemLen(it))+')':''):'')+yrSpan(it);
 }
@@ -352,11 +396,54 @@ function calMonthHtml(y,m,map,list,evm){
     if(ch.length)cc++;
     ch.forEach(function(c){var a=chArc(c);if(a&&ARCC[a]&&!seen[a]&&Object.keys(seen).length<4){seen[a]=1;bars+='<u style="background:'+ARCC[a]+'"></u>'}});
     var dots=its.slice(0,3).map(function(it){return '<i style="--rc:var(--r-'+ckOf(it.kind)[2]+')"></i>'}).join('')+(evs.length?'<i class="ev"></i>':'');
-    var lab=d+' '+MONTH_NAMES[m]+' '+y+(ch.length?', '+ch.length+' chapter'+(ch.length>1?'s':''):'')+its.map(function(it){return ', '+it.title}).join('')+evs.map(function(e){return ', event '+e.title}).join('');
+    var lab=d+' '+mname(y,m)+' '+y+(ch.length?', '+ch.length+' chapter'+(ch.length>1?'s':''):'')+its.map(function(it){return ', '+it.title}).join('')+evs.map(function(e){return ', event '+e.title}).join('');
     cells+='<button type="button" class="calday'+(ch.length?' hasch':'')+'" data-act="cal-day" data-y="'+y+'" data-m="'+m+'" data-d="'+d+'" aria-label="'+esc(lab)+'">'+(bars?'<span class="calarcs">'+bars+'</span>':'')+'<b>'+d+'</b>'+(ch.length>1?'<sup class="calct">'+ch.length+'</sup>':'')+(dots?'<span class="calmk">'+dots+'</span>':'')+'</button>';
   }
   var hd=(CAL.greg?['Mo','Tu','We','Th','Fr','Sa','Su']:WEEKDAYS.map(function(x){return x.slice(0,nw>7?4:2)})).map(function(x){return '<i>'+esc(x)+'</i>'}).join('');
-  return '<section class="calmo"><h3>'+esc(MONTH_NAMES[m])+(cc?'<small>'+cc+' day'+(cc>1?'s':'')+'</small>':'')+'</h3><div class="calgrid" style="grid-template-columns:repeat('+nw+',minmax(0,1fr))">'+hd+cells+'</div></section>';
+  return '<section class="calmo'+((monthsOf(y)[m-1]||{}).ins?' leap':'')+'"><h3>'+esc(mname(y,m))+((monthsOf(y)[m-1]||{}).ins?'<em class="calleapt">leap month</em>':'')+(cc?'<small>'+cc+' day'+(cc>1?'s':'')+'</small>':'')+'</h3><div class="calgrid" style="grid-template-columns:repeat('+nw+',minmax(0,1fr))">'+hd+cells+'</div></section>';
+}
+function leapAnchorName(y,x){
+  if(!x.after)return 'at the start of the year';
+  var e=monthsOf(y).filter(function(m){return m.id===x.after})[0];
+  return 'after '+(e?e.name:idName(y,x.after));
+}
+function calLeapBar(y){
+  if(CAL.greg||!y)return '';
+  var ins=CAL.ins[y]||[];
+  return '<div class="calleap"><span class="calleapl">Leap months in '+y+'</span>'+(ins.length?ins.map(function(x){return '<button type="button" class="calleapb" data-act="leap-edit" data-y="'+y+'" data-id="'+x.id+'"><b>'+esc(x.name)+'</b><small>'+x.days+' days, '+esc(leapAnchorName(y,x))+'</small></button>'}).join(''):'<span class="hint">none</span>')+
+    '<button type="button" class="btn sm" data-act="leap-new" data-y="'+y+'">'+ic('plus',14)+'Insert a leap month</button></div>';
+}
+function leapModal(){
+  var m=S.modal,y=m.y,cur=m.id,opts='<option value="0"'+(!m.after?' selected':'')+'>At the start of the year</option>';
+  monthsOf(y).forEach(function(e){if(e.id===cur)return;opts+='<option value="'+e.id+'"'+(+m.after===e.id?' selected':'')+'>After '+esc(e.name)+'</option>'});
+  return '<h2>'+(cur?'Edit leap month':'Insert a leap month')+' · '+y+'</h2>'+
+    '<p class="hint" style="margin:0 0 8px">This month exists only in '+y+'. Choose its name and where it falls. Every date in '+y+' after it keeps its own name and just moves along.</p>'+
+    '<label class="lab" for="lm-n">Name</label><input class="in" id="lm-n" value="'+esc(m.name)+'" placeholder="Second Harvest Moon">'+
+    '<div class="fgrid"><div><label class="lab" for="lm-d">Days</label><input class="in" id="lm-d" type="number" min="1" max="99" inputmode="numeric" value="'+esc(m.days)+'"></div>'+
+    '<div><label class="lab" for="lm-a">Where</label><select class="in" id="lm-a">'+opts+'</select></div></div>'+
+    '<div class="actions"><button class="btn" data-act="close">Cancel</button>'+(cur?'<button class="btn danger" data-act="leap-del">'+(m.armed?'Really delete?':'Delete')+'</button>':'')+'<button class="btn primary" data-act="leap-save">Save</button></div>';
+}
+function leapCapture(){
+  var m=S.modal;if(!m||m.type!=='leapm'||!document.getElementById('lm-n'))return;
+  m.name=document.getElementById('lm-n').value;m.days=document.getElementById('lm-d').value;m.after=+document.getElementById('lm-a').value||0;
+}
+function leapStrings(y,name){
+  var out=[],pr=proj();
+  var chk=function(o,f,top,coll){var t=o[f];if(!t)return;var k=autoKey(t);if(k==null||Math.floor(k/10000)!==y)return;var mo=Math.floor(k/100)%100;if(mo&&mname(y,mo)===name)out.push({o:o,f:f,top:top,coll:coll,da:k%100})};
+  P('documents').forEach(function(d){chk(d,'storyDate',d,'documents');(d.headings||[]).forEach(function(x){chk(x,'storyDate',d,'documents')})});
+  P('events').forEach(function(e){chk(e,'dateText',e,'events')});
+  ((pr&&pr.schedules)||[]).forEach(function(s){chk(s,'date',pr,'projects')});
+  return out;
+}
+function leapApply(pr,y,list,mutate){
+  var oldName=mutate.oldName, hits=oldName?leapStrings(y,oldName):[];
+  var cal=JSON.parse(JSON.stringify(pr.calendar));cal.ins=cal.ins||{};var arr=(cal.ins[y]||[]).slice();
+  mutate.fn(arr);
+  if(arr.length)cal.ins[y]=arr;else delete cal.ins[y];
+  pr.calendar=cal;S._nd=S._nd||{};S._nd[pr.id]=0;save('projects',pr);syncCal();
+  var seen={};
+  if(mutate.newName)hits.forEach(function(x){x.o[x.f]=(x.da?x.da+' ':'')+mutate.newName+' '+y;var key=x.coll+':'+(x.top.id);if(!seen[key]){seen[key]=1;save(x.coll,x.top)}});
+  return hits.length;
 }
 function calView(){
   var cm=calChapMap(), items=calItems(), f=S.calF=S.calF||{kind:'',char:'',arc:''}, yrs=cm.years, evm;
@@ -367,12 +454,12 @@ function calView(){
     '<div class="calbar">'+(yrs.length?'<div class="calyrs" role="group" aria-label="Year">'+yrs.map(function(y){return '<button data-act="cal-year" data-y="'+y+'" aria-pressed="'+(S.calY===y)+'">'+y+'</button>'}).join('')+'</div>':'<div class="calyrs"></div>')+
     '<div class="calflt"><select class="in" data-change="cal-f" data-k="kind" aria-label="Kind"><option value="">All kinds</option>'+CK.map(function(k){return '<option value="'+k[0]+'"'+(f.kind===k[0]?' selected':'')+'>'+k[1]+'</option>'}).join('')+'</select>'+
     '<select class="in" data-change="cal-f" data-k="char" aria-label="Character"><option value="">Everyone</option>'+chars.map(function(c){return '<option value="'+c.id+'"'+(f.char===c.id?' selected':'')+'>'+esc(c.name)+'</option>'}).join('')+'</select></div></div>';
-  var rows='', list=calFiltered();
+  var rows=calLeapBar(S.calY), list=calFiltered();
   if(cm.manual)rows+='<div class="empty"><p>The calendar follows real dates. This project is sorting by your own sort numbers, so switch it back to dates in Settings to see chapters here. Your calendar items below still work.</p></div>';
   else if(!yrs.length)rows+='<div class="empty"><h1>No dated chapters yet</h1><p>Give chapters story dates and the years they cover appear here as a full calendar in your story’s own calendar. You can already add birthdays, holidays and terms below.</p></div>';
   else{
     var nChap=0, arcIn={};Object.keys(cm.map).forEach(function(k){if(Math.floor(k/10000)===S.calY)cm.map[k].forEach(function(c){var a=chArc(c);if(a)arcIn[a]=(arcIn[a]||0)+1;if(arcOk(c))nChap++})});
-    var nm=[];for(var m=1;m<=CAL.nm;m++)nm.push(calMonthHtml(S.calY,m,cm.map,list,evm));
+    var nm=[];for(var m=1;m<=nmOf(S.calY);m++)nm.push(calMonthHtml(S.calY,m,cm.map,list,evm));
     var arcChips=Object.keys(arcIn).filter(function(a){return ARCC[a]}).sort(function(a,b){return Object.keys(ARCC).indexOf(a)-Object.keys(ARCC).indexOf(b)}).map(function(a){return '<button type="button" class="calarcb" data-act="cal-arc" data-id="'+a+'" aria-pressed="'+(f.arc===a)+'"><i class="calsw" style="--rc:'+ARCC[a]+'"></i>'+esc(nameOf('arcs',a))+' <small>'+arcIn[a]+'</small></button>'}).join('');
     rows+='<div class="calmeta"><span class="calsum">'+nChap+' chapter'+(nChap===1?'':'s')+' in '+S.calY+(yrs.length>1&&yrs[yrs.length-1]-yrs[0]>25?' (empty years skipped)':'')+'. Tap a day to open it.</span>'+
       '<div class="callg"><span><i class="calsw" style="--rc:var(--accent)"></i>chapter</span>'+CK.map(function(k){return '<span><i class="calsw" style="--rc:var(--r-'+k[2]+')"></i>'+k[1].toLowerCase()+'</span>'}).join('')+'<span><i class="calsw calev"></i>event</span></div></div>'+
@@ -388,7 +475,7 @@ function calView(){
   return {head:head,rows:rows};
 }
 function calDayModal(){
-  var m=S.modal, y=m.y, mo=m.mo, d=m.d, k=y*10000+mo*100+d, cm=calChapMap(), ch=cm.map[k]||[], its=itemsOn(y,mo,d), canon=canonDate(d+' '+MONTH_NAMES[mo]+' '+y), sc=canon?schedFor(canon).length:0;
+  var m=S.modal, y=m.y, mo=m.mo, d=m.d, k=y*10000+mo*100+d, cm=calChapMap(), ch=cm.map[k]||[], its=itemsOn(y,mo,d), canon=canonDate(d+' '+mname(y,mo)+' '+y), sc=canon?schedFor(canon).length:0;
   var h='<h2>'+esc(keyLong(k))+'</h2>';arcColors();
   h+='<div class="sec"><h3>Chapters</h3>'+(ch.length?ch.map(function(c){var pv=(c.h&&c.h.pov)||c.d.pov;return '<button class="lk" data-act="cal-chap" data-id="'+c.d.id+'" data-hid="'+(c.h?c.h.id:'')+'"><span class="n">'+(ARCC[chArc(c)]?'<i class="calsw" style="--rc:'+ARCC[chArc(c)]+'"></i>':'')+'</span><span><span class="lkt">'+(esc(c.h?c.h.title:c.d.title)||'Untitled')+'</span><small>'+esc([c.d.title,chArc(c)?nameOf('arcs',chArc(c)):'',pv?'POV '+nameOf('characters',pv):''].filter(Boolean).join(' · '))+'</small></span></button>'}).join(''):'<p class="hint">No chapter is set on this day.</p>')+'</div>';
   h+='<div class="sec"><h3>Calendar items</h3>'+(its.length?its.map(function(it){
@@ -404,6 +491,10 @@ function calDayModal(){
   return h+'<div class="actions"><button class="btn" data-act="close">Close</button>'+(sc?'<button class="btn" data-act="sched-open" data-date="'+esc(canon)+'">Schedule'+(sc>1?'s':'')+'</button>':'')+'<button class="btn primary" data-act="cal-new" data-y="'+y+'" data-m="'+mo+'" data-d="'+d+'">'+ic('plus')+'Add on this day</button></div>';
 }
 function ciBlank(y,m,d){return {n:1,wd:Math.min(1,WEEKDAYS.length-1),id:'',title:'',kind:'holiday',charId:'',rule:'yearly',m:m||1,d:d||1,em:0,ed:0,y0:'',y1:'',occ:[],note:'',py:y||''}}
+function yearMonthIds(y,sel){
+  var l=y?monthsOf(y):CAL.greg?monthsOf(2001):CAL.months.map(function(b,i){return {id:i+1,name:b.name}});
+  return l.map(function(e){return '<option value="'+e.id+'"'+(sel===e.id?' selected':'')+'>'+esc(e.name)+(e.ins?' (leap month)':'')+'</option>'}).join('');
+}
 function ciSpanTxt(it,i){
   var n=i==null?itemLen(it,+it.y0||S.calY||100):occLen(it.occ[i]||{});
   return n>1?'That is '+dayWord(n)+', counting both ends.':'';
@@ -437,8 +528,8 @@ function calItModal(){
       '<p class="hint" style="margin:6px 0 0">The date moves with the weekdays of your calendar, so it lands somewhere different each year. A year where the month has no fifth one simply skips it.</p>';
   }else{
     h+=(it.occ||[]).map(function(o,i){
-      return '<div class="calocc"><div class="calrow occ1"><input class="in" id="ci-o'+i+'-y" type="number" min="100" max="9999" inputmode="numeric" placeholder="Year" value="'+esc(o.y)+'" aria-label="Year"><input class="in" id="ci-o'+i+'-d" type="number" min="1" max="'+CAL.maxd+'" inputmode="numeric" placeholder="Day" value="'+(o.d||'')+'" aria-label="Day"><select class="in" id="ci-o'+i+'-m" aria-label="Month"><option value="">Month</option>'+MONTH_NAMES.slice(1).map(function(n,j){return '<option value="'+(j+1)+'"'+(+o.m===j+1?' selected':'')+'>'+esc(n)+'</option>'}).join('')+'</select><button class="btn sm" data-act="cali-rm" data-i="'+i+'" aria-label="Remove '+esc(o.y||'this year')+'">'+ic('x',14)+'</button></div>'+
-        '<div class="calrow occ2"><small class="hint">Ends</small><input class="in" id="ci-o'+i+'-ed" type="number" min="1" max="'+CAL.maxd+'" inputmode="numeric" placeholder="Day" value="'+(o.ed||'')+'" aria-label="End day"><select class="in" id="ci-o'+i+'-em" aria-label="Month"><option value="">Month</option>'+MONTH_NAMES.slice(1).map(function(n,j){return '<option value="'+(j+1)+'"'+(+o.em===j+1?' selected':'')+'>'+esc(n)+'</option>'}).join('')+'</select><input class="in" id="ci-o'+i+'-ey" type="number" min="100" max="9999" inputmode="numeric" placeholder="Year" value="'+esc(o.ey||'')+'" aria-label="End year"></div>'+
+      return '<div class="calocc"><div class="calrow occ1"><input class="in" id="ci-o'+i+'-y" type="number" min="100" max="9999" inputmode="numeric" placeholder="Year" value="'+esc(o.y)+'" aria-label="Year"><input class="in" id="ci-o'+i+'-d" type="number" min="1" max="'+CAL.maxd+'" inputmode="numeric" placeholder="Day" value="'+(o.d||'')+'" aria-label="Day"><select class="in" id="ci-o'+i+'-m" aria-label="Month"><option value="">Month</option>'+yearMonthIds(+o.y||S.calY,+o.m)+'</select><button class="btn sm" data-act="cali-rm" data-i="'+i+'" aria-label="Remove '+esc(o.y||'this year')+'">'+ic('x',14)+'</button></div>'+
+        '<div class="calrow occ2"><small class="hint">Ends</small><input class="in" id="ci-o'+i+'-ed" type="number" min="1" max="'+CAL.maxd+'" inputmode="numeric" placeholder="Day" value="'+(o.ed||'')+'" aria-label="End day"><select class="in" id="ci-o'+i+'-em" aria-label="Month"><option value="">Month</option>'+yearMonthIds(+o.ey||+o.y||S.calY,+o.em)+'</select><input class="in" id="ci-o'+i+'-ey" type="number" min="100" max="9999" inputmode="numeric" placeholder="Year" value="'+esc(o.ey||'')+'" aria-label="End year"></div>'+
         '<small class="hint" id="ci-sp-'+i+'" style="display:block;margin:2px 0 0">'+ciSpanTxt(it,i)+'</small></div>';
     }).join('')+'<button class="btn sm" data-act="cali-addocc">'+ic('plus',14)+'Add another year</button><p class="hint" style="margin:6px 0 0">One item holds every year, so the list stays short. Tap any day in the calendar to set it as a year\'s date.</p>';
   }
@@ -476,7 +567,7 @@ var CAL_PRESETS={
   islamic:       {name:'Lunar · 11-in-30',                group:'Lunar',     fidelity:'exact',       note:'12 lunar months of 29–30 days. No solar anchoring, so the year drifts through the seasons. Tabular, not sighting-based.'},
   lunar:         {name:'Lunar · generic 12-moon',         group:'Lunar',     fidelity:'template',    note:'12 moons alternating 29 and 30 days, occasional leap day. A shape to build on.'},
   frenchrepublican:{name:'Decimal · 10-day week',         group:'Decimal',   fidelity:'exact',       note:'12 months of 30 days plus 5–6 complementary days. Weeks of 10. Romme rule for leap years.'},
-  lunisolar:     {name:'Lunisolar · custom',              group:'Custom',    fidelity:'template',    note:'Build your own moons, leap months and week length.'},
+  lunisolar:     {name:'Lunisolar · custom',              group:'Custom',    fidelity:'template',    note:'12 moons with no automatic leap month. In the Calendar tab, each year has a button to insert a leap month, named and placed however you like.'},
   custom:        {name:'Custom',                          group:'Custom',    fidelity:'template',    note:'Any number of months, any week length, any leap rule.'}
 };
 var CAL_GROUPS=['Solar','Lunisolar','Lunar','Decimal','Custom'];
@@ -529,8 +620,8 @@ function calPreset(k){
     return out(ms,4,1,3);
   }
   if(k==='lunisolar'){
-    numMoons();ms.push({name:'Leap Moon',days:30,leapDays:0,leapOnly:true});
-    return out(ms,19,7,1);
+    numMoons();
+    return out(ms,0,0,0);
   }
   if(k==='custom'){
     for(i=0;i<12;i++)ms.push({name:'Month '+(i+1),days:30,leapDays:0,leapOnly:false});
@@ -587,7 +678,7 @@ function schImpModal(){
     return '<div class="rd-nt" style="display:block"><label class="chk"><input type="checkbox" id="si-on-'+i+'"'+(it.table?' checked':' disabled')+'><span><b>'+esc(it.file)+'</b><small>'+(it.table?it.table.cols.length-1+' slot'+(it.table.cols.length===2?'':'s')+' · '+it.table.rows.length+' row'+(it.table.rows.length===1?'':'s'):'Could not read a table from this file.')+'</small></span></label>'+
       (it.table?'<div class="fgrid" style="margin-top:6px"><div class="span2"><label class="lab" for="si-t-'+i+'">Title</label><input class="in" id="si-t-'+i+'" value="'+esc(it.title)+'"></div>'+
       '<div class="span2"><label class="lab" for="si-c-'+i+'">Character</label><select class="in" id="si-c-'+i+'">'+optList('characters',it.charId,'None')+'</select></div>'+
-      '<div class="span2"><label class="lab" for="si-d-'+i+'">Date</label><div class="dpick"><input class="in" id="si-d-'+i+'" type="number" min="1" max="31" inputmode="numeric" placeholder="Day" aria-label="Day" value="'+esc(it.d)+'"><select class="in" id="si-m-'+i+'" aria-label="Month"><option value="">Month</option>'+MONTH_NAMES.slice(1).map(function(n,j){return '<option value="'+(j+1)+'"'+(it.m===j+1?' selected':'')+'>'+n+'</option>'}).join('')+'</select><input class="in" id="si-y-'+i+'" type="number" min="100" max="9999" inputmode="numeric" placeholder="Year" aria-label="Year" value="'+esc(it.y)+'"></div></div></div>':'')+'</div>';
+      '<div class="span2"><label class="lab" for="si-d-'+i+'">Date</label><div class="dpick"><input class="in" id="si-d-'+i+'" type="number" min="1" max="31" inputmode="numeric" placeholder="Day" aria-label="Day" value="'+esc(it.d)+'"><select class="in" id="si-m-'+i+'" aria-label="Month"><option value="">Month</option>'+monthOptsHtml(+it.y||0,it.m?mname(+it.y||0,it.m):'')+'</select><input class="in" id="si-y-'+i+'" type="number" min="100" max="9999" inputmode="numeric" placeholder="Year" aria-label="Year" value="'+esc(it.y)+'"></div></div></div>':'')+'</div>';
   }).join('');
   return '<h2>Import schedules</h2><p class="hint">'+(m.date?'These are attached to '+esc(longDate(m.date))+(m.pov&&byId('characters',m.pov)?' and to '+esc(nameOf('characters',m.pov)):'')+'. You can change either below.':'Dates and characters are guessed from the file names. Check them, because the date is what links a schedule to your chapters.')+' Only the table is saved.</p><div data-hl style="max-height:56vh;overflow:auto;border-top:1px solid var(--line)">'+items+'</div>'+
     '<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn primary" data-act="sch-go">Import</button></div>';
@@ -637,7 +728,7 @@ function dateHead(hd,heads,cl,d){
 function dateField(target,text,id){
   var t=(text||'').trim(), pt=dateParts(t), odd=t&&autoKey(t)==null, dy=defYearFor(target);
   return '<div class="dpick" data-dpw="'+target+'"><input class="in dp-d" id="'+id+'" type="number" min="1" max="'+CAL.maxd+'" inputmode="numeric" placeholder="Day" aria-label="Day" data-change="dp" value="'+esc(pt.d)+'">'+
-    '<select class="in dp-m" aria-label="Month" data-change="dp"><option value="">Month</option>'+MONTH_NAMES.slice(1).map(function(n,i){return '<option value="'+(i+1)+'"'+(pt.m===i+1?' selected':'')+'>'+esc(n)+((CAL.months[i]&&CAL.months[i].leapOnly)?' (leap years)':'')+'</option>'}).join('')+'</select>'+
+    '<select class="in dp-m" aria-label="Month" data-change="dp"><option value="">Month</option>'+monthOptsHtml(pt.y||dy||0,pt.m?mname(pt.y,pt.m):'')+'</select>'+
     '<input class="in dp-y" type="number" min="100" max="9999" inputmode="numeric" placeholder="'+(dy?esc(dy):'Year')+'" aria-label="Year" data-change="dp" value="'+esc(pt.y)+'">'+
     '<button class="btn sm" type="button" data-act="cal-open" data-t="'+target+'" aria-label="Open calendar" title="Calendar">'+ic('cal',16)+'</button>'+
     (t?'<button class="btn sm" type="button" data-act="dp-clear" data-t="'+target+'">Clear</button>':'')+'</div>'+
@@ -668,7 +759,7 @@ function dateHint(text){
   if(dateMode()==='manual')return 'Shown as written. Order comes from the sort number.';
   if(!t)return 'Pick a year, and a month and day if you know them. For a made-up calendar, switch to sort numbers in Settings.';
   var k=autoKey(t);if(k==null)return 'Not a real date, so it follows its file. Pick a date to replace it, or use sort numbers in Settings for a made-up calendar.';
-  var y=Math.floor(k/10000), mo=Math.floor(k/100)%100, da=k%100, mn=MONTH_NAMES;
+  var y=Math.floor(k/10000), mo=Math.floor(k/100)%100, da=k%100, mn=[''].concat(monthsOf(y).map(function(e){return e.name}));
   return 'Sorts as '+(da&&mo?WEEKDAYS[wdayOf(y,mo,da)]+' ':'')+(da?da+' ':'')+(mo?mn[mo]+' ':'')+y+'.';
 }
 function dateMode(){var p=proj();return (p&&p.dateMode)||'auto'}
@@ -1417,6 +1508,7 @@ function renderModal(){
   else if(m.type==='sched')inner=schedModal();
   else if(m.type==='calday')inner=calDayModal();
   else if(m.type==='calit')inner=calItModal();
+  else if(m.type==='leapm')inner=leapModal();
   else if(m.type==='calset')inner=calModal();
   else if(m.type==='schimp')inner=schImpModal();
   else if(m.type==='revpass')inner=revModal();
@@ -2283,9 +2375,9 @@ clear:function(el){
   var pt=dateParts(txt), y=pt.y||defYearFor(t)||new Date().getFullYear(), m=pt.m||1;
   S.cal={t:t,y:+y,m:+m};render();
 },
-'cal-nav':function(el){var c=S.cal;if(!c)return;var st=parseInt(el.dataset.n,10)<0?-1:1,g=0;do{c.m+=st;if(c.m<1){c.m=CAL.nm;c.y--}if(c.m>CAL.nm){c.m=1;c.y++}if(c.y<100){c.y=100;c.m=1;break}g++}while(dim(c.y,c.m)===0&&g<40);render()},
+'cal-nav':function(el){var c=S.cal;if(!c)return;var st=parseInt(el.dataset.n,10)<0?-1:1,g=0;do{c.m+=st;if(c.m<1){c.y--;c.m=nmOf(c.y)}if(c.m>nmOf(c.y)){c.m=1;c.y++}if(c.y<100){c.y=100;c.m=1;break}g++}while(dim(c.y,c.m)===0&&g<40);render()},
 'cal-close':function(){S.cal=null;render()},
-'cal-pick':function(el){var c=S.cal;if(!c)return;dpSet(el.dataset.t,el.dataset.d+' '+MONTH_NAMES[c.m]+' '+c.y);S.cal=null;render()},
+'cal-pick':function(el){var c=S.cal;if(!c)return;dpSet(el.dataset.t,el.dataset.d+' '+mname(c.y,c.m)+' '+c.y);S.cal=null;render()},
 'dp-clear':function(el){dpSet(el.dataset.t,'');render()},
 'calset-open':function(){S.modal={type:'calset',c:calCurrent()};renderModal()},
 'cal-add':function(){calCapture();var c=S.modal.c;c.months.push({name:'Month '+(c.months.length+1),days:30,leapDays:0,leapOnly:false});renderModal()},
@@ -2297,30 +2389,53 @@ clear:function(el){
   var seen={},bad='';
   c.months.forEach(function(x){var k=(x.name||'').trim().toLowerCase();if(!k)bad='Every month needs a name.';else if(seen[k])bad='Two months are both called '+x.name+'.';seen[k]=1});
   if(bad){toast(bad);return}
-  pr.calendar={preset:c.preset,name:(c.name||'').trim()||'My calendar',months:c.months.map(function(x){return {name:x.name.trim(),days:Math.max(1,Math.min(99,+x.days||1)),leapDays:Math.max(0,Math.min(99,+x.leapDays||0)),leapOnly:!!x.leapOnly}}),weekdays:c.weekdays||WEEKDAYS_GREG.slice(),startWeekday:c.startWeekday||0,leapC:c.leapC||0,leapK:c.leapK||0,leapOff:c.leapOff||0};
+  pr.calendar={preset:c.preset,name:(c.name||'').trim()||'My calendar',months:c.months.map(function(x){return {name:x.name.trim(),days:Math.max(1,Math.min(99,+x.days||1)),leapDays:Math.max(0,Math.min(99,+x.leapDays||0)),leapOnly:!!x.leapOnly}}),weekdays:c.weekdays||WEEKDAYS_GREG.slice(),startWeekday:c.startWeekday||0,leapC:c.leapC||0,leapK:c.leapK||0,leapOff:c.leapOff||0,ins:(c.preset==='lunisolar'||c.preset==='custom'||pr.calendar&&pr.calendar.preset===c.preset)?((pr.calendar&&pr.calendar.ins)||c.ins||{}):{}};
   S._nd=S._nd||{};S._nd[pr.id]=0;save('projects',pr);syncCal();closeModal();render();toast('Calendar saved. Dates written with other month names need picking again.');
 },
 /* ---- story calendar ---- */
+'leap-new':function(el){var y=+el.dataset.y;var pre=(CAL.ins[y]||[]).length;S.modal={type:'leapm',y:y,id:0,name:pre?'Leap Moon '+(pre+1):'Leap Moon',days:30,after:0};var l=monthsOf(y).filter(function(e){return !e.ins});if(l.length)S.modal.after=l[l.length-1].id;renderModal()},
+'leap-edit':function(el){var y=+el.dataset.y,id=+el.dataset.id,x=(CAL.ins[y]||[]).filter(function(v){return v.id===id})[0];if(!x)return;S.modal={type:'leapm',y:y,id:id,name:x.name,days:x.days,after:x.after,old:x.name};renderModal()},
+'leap-del':function(){
+  var m=S.modal,pr=proj();if(!pr||!m||!m.id)return;
+  if(!m.armed){leapCapture();m.armed=true;renderModal();return}
+  var n=leapStrings(m.y,m.old).length;
+  leapApply(pr,m.y,null,{oldName:'',fn:function(a){for(var i=a.length-1;i>=0;i--)if(a[i].id===m.id)a.splice(i,1)}});
+  closeModal();render();toast('Leap month removed.'+(n?' '+n+' date'+(n===1?'':'s')+' written with its name need picking again.':''));
+},
+'leap-save':function(){
+  var m=S.modal,pr=proj();if(!pr||!m)return;leapCapture();
+  var nm=(m.name||'').trim(), dy=parseInt(m.days,10);
+  if(!nm){toast('Give the month a name.');return}
+  if(!(dy>=1&&dy<=99)){toast('Days must be between 1 and 99.');return}
+  var clash=monthsOf(m.y).some(function(e){return e.id!==m.id&&normM(e.name)===normM(nm)});
+  if(clash){toast('Another month in '+m.y+' is already called '+nm+'.');return}
+  if(!pr.calendar||CAL.greg){toast('Leap months need a custom calendar.');return}
+  var id=m.id||Math.max(100,Math.max.apply(null,[0].concat(Object.keys(CAL.ins).reduce(function(a,k){return a.concat(CAL.ins[k].map(function(x){return x.id}))},[]))))+1, after=m.after, renamed=m.id&&m.old&&m.old!==nm;
+  var n=leapApply(pr,m.y,null,{oldName:renamed?m.old:'',newName:renamed?nm:'',fn:function(a){var x=a.filter(function(v){return v.id===id})[0];if(x){x.name=nm;x.days=dy;x.after=after}else a.push({id:id,after:after,name:nm,days:dy})}});
+  closeModal();render();toast('Saved.'+(renamed&&n?' '+n+' date'+(n===1?'':'s')+' renamed to match.':''));
+},
 'cal-all':function(){S.calAll=!S.calAll;render()},
 'cal-arc':function(el){S.calF=S.calF||{kind:'',char:'',arc:''};var id=el.dataset.id||'';S.calF.arc=(S.calF.arc===id)?'':id;render()},
 'cal-ev-attach':function(){
   var m=S.modal,s=document.getElementById('cd-ev'),e=s&&byId('events',s.value);if(!e||!m)return;
-  e.dateText=canonDate(m.d+' '+MONTH_NAMES[m.mo]+' '+m.y)||(m.d+' '+MONTH_NAMES[m.mo]+' '+m.y);save('events',e);renderModal();render();toast('Event placed on this day.');
+  e.dateText=canonDate(m.d+' '+mname(m.y,m.mo)+' '+m.y)||(m.d+' '+mname(m.y,m.mo)+' '+m.y);save('events',e);renderModal();render();toast('Event placed on this day.');
 },
 'cal-ev-new':function(){
   var m=S.modal,y=m.y,mo=m.mo,d=m.d;
-  askName('New event','What happens',function(n){var o=createEntity('events',n);o.dateText=canonDate(d+' '+MONTH_NAMES[mo]+' '+y)||(d+' '+MONTH_NAMES[mo]+' '+y);save('events',o);S.modal={type:'calday',y:y,mo:mo,d:d};renderModal();render()});
+  askName('New event','What happens',function(n){var o=createEntity('events',n);o.dateText=canonDate(d+' '+mname(y,mo)+' '+y)||(d+' '+mname(y,mo)+' '+y);save('events',o);S.modal={type:'calday',y:y,mo:mo,d:d};renderModal();render()});
 },
 'cal-setocc':function(){
   var m=S.modal,s=document.getElementById('cd-mv'),pr=proj(),it=s&&calItems().find(function(x){return x.id===s.value});if(!it||!pr||!m)return;
-  var occ=(it.occ||[]).filter(function(o){return +o.y!==m.y});occ.push({y:m.y,m:m.mo,d:m.d,ed:0,em:0,ey:''});
-  occ.sort(function(a,b){return (+a.y-+b.y)||(a.m-b.m)||(a.d-b.d)});it.occ=occ;
+  var occ=(it.occ||[]).filter(function(o){return +o.y!==m.y});occ.push({y:m.y,m:idOrd(m.y,m.mo),d:m.d,ed:0,em:0,ey:''});
+  occ.sort(function(a,b){return (+a.y-+b.y)||(ordId(+a.y,+a.m)-ordId(+b.y,+b.m))||(a.d-b.d)});it.occ=occ;
   pr.calItems=(pr.calItems||[]).map(function(x){return x.id===it.id?it:x});save('projects',pr);renderModal();render();toast(it.title+': set for '+m.y+'.');
 },
 'cal-year':function(el){S.calY=+el.dataset.y;render()},
 'cal-day':function(el){S.modal={type:'calday',y:+el.dataset.y,mo:+el.dataset.m,d:+el.dataset.d};renderModal()},
 'cal-chap':function(el){closeModal();A['chap-go'](el)},
-'cal-new':function(el){var y=el&&el.dataset&&el.dataset.y;S.modal={type:'calit',it:ciBlank(y?+el.dataset.y:S.calY,y?+el.dataset.m:0,y?+el.dataset.d:0),from:y?'day':''};renderModal()},
+'cal-new':function(el){var y=el&&el.dataset&&el.dataset.y;var nit=ciBlank(y?+el.dataset.y:S.calY,y?idOrd(+el.dataset.y,+el.dataset.m):0,y?+el.dataset.d:0);
+  if(nit.m>=100){nit.rule='dates';nit.occ=[{y:+y,m:nit.m,d:nit.d,ed:0,em:0,ey:''}]}
+  S.modal={type:'calit',it:nit,from:y?'day':''};renderModal()},
 'cal-edit':function(el){var it=calItems().find(function(x){return x.id===el.dataset.id});if(!it)return;var c=JSON.parse(JSON.stringify(it));c.occ=c.occ||[];c.y0=c.y0||'';c.y1=c.y1||'';c.em=c.em||0;c.ed=c.ed||0;c.note=c.note||'';c.charId=c.charId||'';S.modal={type:'calit',it:c};renderModal()},
 'cali-sync':function(){
   ciCapture();var it=S.modal.it;
@@ -2359,20 +2474,20 @@ clear:function(el){
     it.occ.forEach(function(x,i){
       if(bad)return;
       var y=+x.y,mo=+x.m,d=+x.d;
-      if(!(y>=100)||!mo||!d||mo>CAL.nm||d<1||d>dim(y,mo)){bad='Date '+(i+1)+' is not a real date in '+(y||'that year')+'.';return}
+      if(!(y>=100)||!mo||!ordId(y,mo)||d<1||d>dim(y,ordId(y,mo))){bad='Date '+(i+1)+' is not a real date in '+(y||'that year')+'.';return}
       var r={y:y,m:mo,d:d};
       if(x.ed||x.em||x.ey){
         var em=+x.em,ed=+x.ed,ey=+x.ey||0;
         if(!em||!ed){bad='Date '+(i+1)+': give the end a day and a month, or clear it.';return}
         if(!ey)ey=(em*100+ed<mo*100+d)?y+1:y;
-        if(em>CAL.nm||ed<1||ed>dim(ey,em)){bad='The end of date '+(i+1)+' is not a real date in '+ey+'.';return}
-        if(ey*10000+em*100+ed<y*10000+mo*100+d){bad='Date '+(i+1)+' ends before it starts.';return}
+        if(!ordId(ey,em)||ed<1||ed>dim(ey,ordId(ey,em))){bad='The end of date '+(i+1)+' is not a real date in '+ey+'.';return}
+        if(ey*10000+ordId(ey,em)*100+ed<y*10000+ordId(y,mo)*100+d){bad='Date '+(i+1)+' ends before it starts.';return}
         r.ey=ey;r.em=em;r.ed=ed;
       }
       occ.push(r);
     });
     if(bad){toast(bad);return}
-    occ.sort(function(a,b){return (a.y-b.y)||(a.m-b.m)||(a.d-b.d)});o.occ=occ;
+    occ.sort(function(a,b){return (a.y-b.y)||(ordId(a.y,a.m)-ordId(b.y,b.m))||(a.d-b.d)});o.occ=occ;
   }
   var arr=(pr.calItems||[]).slice(), i=arr.findIndex(function(x){return x.id===o.id});
   if(i>-1)arr[i]=o;else arr.push(o);
@@ -2389,11 +2504,12 @@ clear:function(el){
   var m=S.modal,pr=proj();if(!pr)return;var out=[],bad=0;
   m.items.forEach(function(it,i){
     var on=document.getElementById('si-on-'+i);if(!it.table||!on||!on.checked)return;
-    var d=parseInt(document.getElementById('si-d-'+i).value,10), mo=parseInt(document.getElementById('si-m-'+i).value,10), y=parseInt(document.getElementById('si-y-'+i).value,10);
+    var d=parseInt(document.getElementById('si-d-'+i).value,10), mnm=document.getElementById('si-m-'+i).value, mo=NaN, y=parseInt(document.getElementById('si-y-'+i).value,10);
     if(isNaN(y)||y<100){bad++;return}
+    if(mnm){mo=monthOrd(y,mnm);if(!mo){bad++;return}}
     if(isNaN(mo))d=NaN;
     if(!isNaN(d)){var mx=dim(y,mo);if(d<1)d=1;if(d>mx)d=mx}
-    out.push({id:uid(),title:(document.getElementById('si-t-'+i).value||'').trim()||'Schedule',charId:document.getElementById('si-c-'+i).value,date:(isNaN(d)?'':d+' ')+(isNaN(mo)?'':MONTH_NAMES[mo]+' ')+y,cols:it.table.cols,rows:it.table.rows});
+    out.push({id:uid(),title:(document.getElementById('si-t-'+i).value||'').trim()||'Schedule',charId:document.getElementById('si-c-'+i).value,date:(isNaN(d)?'':d+' ')+(isNaN(mo)?'':mname(y,mo)+' ')+y,cols:it.table.cols,rows:it.table.rows});
   });
   if(bad){toast('Give each ticked schedule a year.');return}
   if(!out.length){toast('Nothing to import.');return}
@@ -2627,14 +2743,15 @@ var CH={
 'dy':function(t){var d=byId('documents',t.dataset.id);if(!d)return;var n=parseInt(t.value,10);d.defaultYear=(n>=100&&n<=9999)?n:'';save('documents',d);render()},
 'dp':function(t){
   var w=t.closest('[data-dpw]');if(!w)return;
-  var d=parseInt(w.querySelector('.dp-d').value,10), m=parseInt(w.querySelector('.dp-m').value,10), y=parseInt(w.querySelector('.dp-y').value,10);
+  var d=parseInt(w.querySelector('.dp-d').value,10), mnm=w.querySelector('.dp-m').value, m=mnm?1:NaN, y=parseInt(w.querySelector('.dp-y').value,10);
   if(isNaN(y)&&!isNaN(m)){var dyv=defYearFor(w.dataset.dpw);if(dyv)y=dyv}
   if(isNaN(y)){if(!isNaN(d)||!isNaN(m)){toast('Add a year, or set a default year for this file.');return}dpSet(w.dataset.dpw,'');render();return}
   if(y<100){toast('Use a year of 100 or later.');return}
   if(isNaN(m))d=NaN;
-  if(!isNaN(m)&&dim(y,m)===0){toast(MONTH_NAMES[m]+' only exists in leap years, and '+y+' is not one.');return}
-  if(!isNaN(d)){var max=dim(y,m);if(d<1)d=1;if(d>max)d=max}
-  dpSet(w.dataset.dpw,(isNaN(d)?'':d+' ')+(isNaN(m)?'':MONTH_NAMES[m]+' ')+y);render();
+  var mo=0;
+  if(!isNaN(m)){mo=monthOrd(y,mnm);if(!mo){toast(mnm+' does not exist in '+y+'. Add it as a leap month for that year in the Calendar tab.');return}}
+  if(!isNaN(d)){var max=dim(y,mo);if(d<1)d=1;if(d>max)d=max}
+  dpSet(w.dataset.dpw,(isNaN(d)?'':d+' ')+(isNaN(m)?'':mname(y,mo)+' ')+y);render();
 },
 'hol-ow':function(t){S.modal.overwrite=t.checked;S.modal.rows.forEach(function(r){if(r.ex)r.on=t.checked});renderModal()},
 'ext-row':function(t){var m=S.modal,d=byId('documents',m.id),n=$('#extName'),cur=n?n.value:m.name;if(!cur||cur===m.sug)cur=null;m.sel[t.dataset.hid]=t.checked;var s=extSug(d,m.sel);m.name=cur==null?s:cur;m.sug=s;holKeep()},
@@ -2676,6 +2793,7 @@ document.addEventListener('click',function(e){
 });
 document.addEventListener('change',function(e){
   var t=e.target;
+  if(S.modal&&S.modal.type==='calit'&&t.id&&/^ci-o\d+-e?y$/.test(t.id)){A['cali-sync']();return}
   if(S.modal&&S.modal.type==='calit'&&t.id&&/^ci-(e-|o\d+-)/.test(t.id)){ciSpan();return}
   if(t.dataset&&t.dataset.change&&CH[t.dataset.change]){CH[t.dataset.change](t,e);return}
   if(t.dataset&&t.dataset.bind&&/:file\.url$/.test(t.dataset.bind))renderDetail();
@@ -2864,7 +2982,7 @@ function rdByDate(b){
   rows.sort(function(a,c){if(a.k==null&&c.k==null)return a.i-c.i;if(a.k==null)return 1;if(c.k==null)return -1;return (a.k-c.k)||(a.i-c.i)});
   return rows.map(function(r){return {d:r.x.d,h:r.x.h,ek:r.k}});
 }
-function keyLong(k){var y=Math.floor(k/10000),mo=Math.floor(k/100)%100,da=k%100;return longDate((da?da+' ':'')+(mo?MONTH_NAMES[mo]+' ':'')+y)}
+function keyLong(k){var y=Math.floor(k/10000),mo=Math.floor(k/100)%100,da=k%100;return longDate((da?da+' ':'')+(mo?mname(y,mo)+' ':'')+y)}
 function rdCustom(){var pr=proj();return !!(pr&&pr.readSeq&&pr.readSeq.length)}
 function rdMoveTo(key,idx){
   var pr=proj();if(!pr)return;var ks=rdItemsBase().map(rdKey), i=ks.indexOf(key);if(i<0)return;
