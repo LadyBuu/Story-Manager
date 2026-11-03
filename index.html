@@ -406,12 +406,90 @@ function calMonthHtml(y,m,map,list,evm){
   return '<section class="calmo'+((monthsOf(y)[m-1]||{}).ins?' leap':'')+'"><h3>'+esc(mname(y,m))+((monthsOf(y)[m-1]||{}).ins?'<em class="calleapt">leap month</em>':'')+(cc?'<small>'+cc+' day'+(cc>1?'s':'')+'</small>':'')+'</h3><div class="calgrid" style="grid-template-columns:repeat('+nw+',minmax(0,1fr))">'+hd+cells+'</div></section>';
 }
 /* ---------- school terms ---------- */
-function schoolOf(){var pr=proj();return (pr&&pr.school)||{years:[],rest:null,nums:false}}
-function schoolWrite(fn){var pr=proj();if(!pr)return;var s=JSON.parse(JSON.stringify(pr.school||{years:[],rest:null,nums:false}));s.years=s.years||[];fn(s);pr.school=s;save('projects',pr)}
-function schoolRest(){var s=schoolOf();return s.rest||(CAL.greg?[0,6]:[])}
+function schoolRaw(){var pr=proj();return (pr&&pr.school)||{years:[],rest:null,nums:false}}
+var SO={sig:'',v:null};
+function schoolOf(){
+  var pr=proj(),raw=schoolRaw();syncCal();
+  var sig=(pr?pr.id:'')+'|'+CAL.sig+'|'+JSON.stringify(raw)+'|'+JSON.stringify(calItems());
+  if(SO.sig===sig&&SO.v)return SO.v;
+  var s=JSON.parse(JSON.stringify(raw));s.years=s.years||[];
+  var terms={};s.years.forEach(function(yr){(yr.terms||[]).forEach(function(t){terms[t.id]=t})});
+  for(var pass=0;pass<4;pass++)Object.keys(terms).forEach(function(id){schResolveTerm(terms[id],terms)});
+  SO.sig=sig;SO.v=s;return s;
+}
+function schoolWriteX(fn){var pr=proj();if(!pr)return;var s=JSON.parse(JSON.stringify(pr.school||{years:[],rest:null,nums:false}));s.years=s.years||[];fn(s);pr.school=s;save('projects',pr)}
+function schoolWrite(fn){return schoolWriteX(fn)}
+function schoolRest(){var s=schoolRaw();return s.rest||(CAL.greg?[0,6]:[])}
 function ymdKey(v){if(!v||!(+v.y>=1)||!(+v.m)||!(+v.d))return 0;var o=ordId(+v.y,+v.m);return o?v.y*10000+o*100+(+v.d):0}
 function ymdOk(v){if(!v||!(+v.y>=1)||!(+v.m)||!(+v.d))return false;var o=ordId(+v.y,+v.m);return !!(o&&+v.d>=1&&+v.d<=dim(+v.y,o))}
 function ymdTxt(v){return ymdOk(v)?(+v.d)+' '+idName(+v.y,+v.m)+' '+v.y:'not a real date'}
+function ymdShift(v,n){
+  var y=+v.y,o=ordId(y,+v.m),d=+v.d,g=0;if(!o||!d)return null;n=Math.max(-3000,Math.min(3000,n|0));
+  while(n>0&&g++<4000){d++;if(d>dim(y,o)){d=1;o++;if(o>nmOf(y)){o=1;y++}}n--}
+  while(n<0&&g++<4000){d--;if(d<1){o--;if(o<1){y--;if(y<1)return null;o=nmOf(y)}d=dim(y,o)}n++}
+  return {y:y,m:idOrd(y,o),d:d};
+}
+function schItemFirst(it,from){
+  if(!ymdOk(from))return null;
+  var y=+from.y,o=ordId(y,+from.m),d=+from.d,g=0;
+  while(g++<1200){
+    if(itemOn(it,y,o,d))return {y:y,m:idOrd(y,o),d:d};
+    d++;if(d>dim(y,o)){d=1;o++;if(o>nmOf(y)){o=1;y++}}
+  }
+  return null;
+}
+function schRefDate(ref,t,terms){
+  var a=String(ref||'').split(':'),r=null;
+  if(a[0]==='t'){var x=terms[a[1]];if(x&&ymdOk(a[2]==='e'?x.e:x.s))r=a[2]==='e'?x.e:x.s}
+  else if(a[0]==='b'){Object.keys(terms).forEach(function(id){(terms[id].breaks||[]).forEach(function(b){if(b.id===a[1]&&ymdOk(b.s))r=b.s})})}
+  else if(a[0]==='i'){var it=calItems().filter(function(v){return v.id===a[1]})[0];if(it)r=schItemFirst(it,t.s)}
+  return r;
+}
+function schResolveTerm(t,terms){
+  (t.breaks||[]).forEach(function(b){if(+b.ln>0&&ymdOk(b.s))b.e=ymdShift(b.s,+b.ln-1)||b.e});
+  if(t.sr){var rt=terms[t.sr.ref],base=rt&&ymdOk(rt.e)?rt.e:null,ns=base?ymdShift(base,+t.sr.n||0):null;t.s=ns||{y:'',m:'',d:''}}
+  var er=t.er;if(!er)return;
+  if(!ymdOk(t.s)){t.e={y:'',m:'',d:''};return}
+  var n=Math.max(1,parseInt(er.n,10)||1),e=null;
+  if(er.mode==='len'){
+    if(er.unit==='school'){
+      var rest={},bk=[];schoolRest().forEach(function(w){rest[w]=1});
+      (t.breaks||[]).forEach(function(b){if(ymdOk(b.s)&&ymdOk(b.e))bk.push([ymdKey(b.s),ymdKey(b.e)])});
+      var y=+t.s.y,o=ordId(y,+t.s.m),d=+t.s.d,wd=wdayOf(y,o,d),c=0,g=0,len=WEEKDAYS.length;
+      while(g++<3000){
+        var key=y*10000+o*100+d,inb=bk.some(function(b){return key>=b[0]&&key<=b[1]});
+        if(!rest[wd]&&!inb&&++c===n){e={y:y,m:idOrd(y,o),d:d};break}
+        d++;if(d>dim(y,o)){d=1;o++;if(o>nmOf(y)){o=1;y++}}wd=(wd+1)%len;
+      }
+    }else e=ymdShift(t.s,(er.unit==='week'?n*7:n)-1);
+  }else if(er.mode==='rel'){
+    var tg=schRefDate(er.ref,t,terms);
+    e=tg?ymdShift(tg,(er.dir==='after'?1:-1)*n):null;
+  }
+  t.e=e||{y:'',m:'',d:''};
+}
+function schRuleTxt(t,terms){
+  var out=[],nm=function(ref){var a=String(ref).split(':');
+    if(a[0]==='t'){var x=terms[a[1]];return x?(a[2]==='e'?'the end of ':'the start of ')+(x.name||'term'):'a missing term'}
+    if(a[0]==='b'){var r='a missing break';Object.keys(terms).forEach(function(id){(terms[id].breaks||[]).forEach(function(b){if(b.id===a[1])r=(b.name||'break')+' (start)'})});return r}
+    var it=calItems().filter(function(v){return v.id===a[1]})[0];return it?(it.title||'item'):'a missing calendar item'};
+  if(t.sr){var rt=terms[t.sr.ref],n=+t.sr.n||0;out.push('Starts '+(n===1?'the day after':n===0?'on the last day of':n+' days after')+' '+(rt?rt.name||'term':'a missing term')+(n===1?' ends':n===0?'':' ends'))}
+  if(t.er){var e=t.er;if(e.mode==='len')out.push('Runs '+e.n+' '+(e.unit==='school'?'school day':e.unit==='week'?'week':'calendar day')+(+e.n===1?'':'s'));
+    else if(e.mode==='rel')out.push('Ends '+e.n+' day'+(+e.n===1?'':'s')+' '+(e.dir==='after'?'after ':'before ')+nm(e.ref))}
+  return out.join(' · ');
+}
+function schRefOpts(selfId,sel,withItems){
+  var h='',yrs=schoolOf().years,g='';
+  yrs.forEach(function(yr){(yr.terms||[]).forEach(function(t){
+    if(t.id===selfId||(t.sr&&t.sr.ref===selfId))return;
+    g+='<option value="t:'+t.id+':s"'+(sel==='t:'+t.id+':s'?' selected':'')+'>Start of '+esc(t.name||'term')+'</option><option value="t:'+t.id+':e"'+(sel==='t:'+t.id+':e'?' selected':'')+'>End of '+esc(t.name||'term')+'</option>';
+    (t.breaks||[]).forEach(function(b){g+='<option value="b:'+b.id+'"'+(sel==='b:'+b.id?' selected':'')+'>Start of break: '+esc(b.name||'break')+'</option>'});
+  })});
+  if(g)h+='<optgroup label="School terms">'+g+'</optgroup>';
+  var it=calItems().map(function(v){return '<option value="i:'+v.id+'"'+(sel==='i:'+v.id?' selected':'')+'>'+esc(v.title||'Untitled')+'</option>'}).join('');
+  if(it&&withItems)h+='<optgroup label="Calendar items (first one after the start)">'+it+'</optgroup>';
+  return h;
+}
 function schoolDays(sv,ev,fn){
   var y=+sv.y,o=ordId(y,+sv.m),d=+sv.d,ey=+ev.y,eo=ordId(ey,+ev.m),ed=+ev.d,len=WEEKDAYS.length,wd=wdayOf(y,o,d),i=0,g=0,end=ey*10000+eo*100+ed;
   while(g++<1500){
@@ -457,22 +535,34 @@ function schoolYearName(yr){
 function schStat(st){return st?st.teach+' school day'+(st.teach===1?'':'s')+' · '+st.total+' in all · '+st.rest+' rest · '+st.brk+' break':'Needs valid dates'}
 function schTermFind(id){var r=null;schoolOf().years.forEach(function(yr){(yr.terms||[]).forEach(function(t){if(t.id===id)r={yr:yr,t:t}})});return r}
 function schLegend(){return '<span><i class="calsw sw-t"></i>term</span><span><i class="calsw sw-b"></i>break</span><span><i class="calsw sw-r"></i>rest day</span>'}
+function schYearOpen(yr,ys){
+  var o=S.schOpen||{};if(o[yr.id]!==undefined)return !!o[yr.id];
+  var cy=S.calY;if(!cy||!ys||!ys.fv)return true;
+  return +ys.fv.y<=cy&&cy<=+ys.lv.y;
+}
 function schoolPanel(){
-  var s=schoolOf(),sc=schoolCalc(),rest=schoolRest(),h='<div class="schp">';
+  var s=schoolOf(),sc=schoolCalc(),rest=schoolRest(),h='<div class="schp">',terms={};
+  s.years.forEach(function(yr){(yr.terms||[]).forEach(function(t){terms[t.id]=t})});
   h+='<div class="schr"><span class="calleapl">Rest days</span>'+WEEKDAYS.map(function(n,i){return '<button type="button" class="calrest" data-act="sch-rest" data-w="'+i+'" aria-pressed="'+(rest.indexOf(i)>-1)+'" title="'+esc(n)+'">'+esc(n.slice(0,3))+'</button>'}).join('')+
-    '<label class="chk schn"><input type="checkbox" data-act="sch-nums"'+(s.nums?' checked':'')+'><span>Number the school days on the calendar</span></label></div>';
-  if(!sc.order.length)h+='<div class="schy empty"><p class="hint" style="margin:0 0 8px">No school years yet. A term has a start and an end. Breaks inside it, and the rest days above, are taken out of the count.</p><button class="btn primary" data-act="sch-term-new">'+ic('plus')+'Add the first term</button></div>';
+    '<label class="chk schn"><input type="checkbox" data-act="sch-nums"'+(s.nums?' checked':'')+'><span>Number the school days</span></label></div>';
+  if(!sc.order.length)h+='<div class="schy empty"><p class="hint" style="margin:0 0 8px">No school years yet. Give a term its first day, then either a last day, a number of school days, or "until 5 days before something". Rest days and breaks are taken out of the count.</p><button class="btn primary" data-act="sch-term-new">'+ic('plus')+'Add the first term</button></div>';
+  if(sc.order.length>1)h+='<div class="schr" style="gap:6px"><button class="btn sm" data-act="sch-all" data-v="1">Open all</button><button class="btn sm" data-act="sch-all" data-v="0">Collapse all</button></div>';
   sc.order.forEach(function(yr){
-    var ys=sc.stats[yr.id]||{},ts=(yr.terms||[]).slice().sort(function(a,b){return (ymdKey(a.s)||1e12)-(ymdKey(b.s)||1e12)});
-    h+='<section class="schy"><div class="schy-h"><div><b>'+esc(schoolYearName(yr))+'</b><small>'+(ys.fv?esc(ymdTxt(ys.fv)+' to '+ymdTxt(ys.lv)):'No dated terms yet')+'</small></div><div class="schy-t"><b>'+(ys.teach||0)+'</b> school days<small>'+(ys.total||0)+' in all · '+(ys.rest||0)+' rest · '+(ys.brk||0)+' break</small></div><button class="btn sm" data-act="sch-year-edit" data-id="'+yr.id+'">Edit</button></div>';
-    ts.forEach(function(t){
-      var st=sc.stats[t.id];
-      h+='<div class="scht"><div class="scht-m"><button type="button" class="scht-n" data-act="sch-go" data-y="'+esc(t.s&&t.s.y||'')+'"><b>'+esc(t.name||'Term')+'</b><small>'+esc(ymdTxt(t.s)+' to '+ymdTxt(t.e))+'</small></button><button class="btn sm" data-act="sch-term-edit" data-id="'+t.id+'">Edit</button></div>'+
-        '<div class="scht-s">'+esc(schStat(st))+'</div>'+
-        '<div class="scht-b">'+(t.breaks||[]).slice().sort(function(a,b){return (ymdKey(a.s)||1e12)-(ymdKey(b.s)||1e12)}).map(function(b){var tk=ymdKey(t.s),te=ymdKey(t.e),bk=ymdKey(b.s),be=ymdKey(b.e),out=!bk||!be||bk<tk||be>te;return '<button type="button" class="schbk'+(out?' bad':'')+'" data-act="sch-break-edit" data-tid="'+t.id+'" data-id="'+b.id+'"><b>'+esc(b.name||'Break')+'</b><small>'+esc(ymdTxt(b.s)+(ymdKey(b.s)===ymdKey(b.e)?'':' to '+ymdTxt(b.e))+(out?' (outside the term)':''))+'</small></button>'}).join('')+
-        '<button type="button" class="btn sm" data-act="sch-break-new" data-tid="'+t.id+'">'+ic('plus',14)+'Break</button></div></div>';
-    });
-    h+='<div class="schy-f"><button class="btn sm" data-act="sch-term-new" data-yid="'+yr.id+'">'+ic('plus',14)+'Term in this year</button></div></section>';
+    var ys=sc.stats[yr.id]||{},open=schYearOpen(yr,ys),
+    ts=(yr.terms||[]).slice().sort(function(a,b){return (ymdKey(a.s)||1e12)-(ymdKey(b.s)||1e12)});
+    h+='<section class="schy'+(open?' open':'')+'"><div class="schy-h"><button type="button" class="schy-tg" data-act="sch-toggle" data-id="'+yr.id+'" aria-expanded="'+open+'"><span class="schy-chev">'+ic('chev',16)+'</span><span><b>'+esc(schoolYearName(yr))+'</b><small>'+(ys.fv?esc(ymdTxt(ys.fv)+' to '+ymdTxt(ys.lv)):'No dated terms yet')+' · '+ts.length+' term'+(ts.length===1?'':'s')+'</small></span></button><div class="schy-t"><b>'+(ys.teach||0)+'</b> school days<small>'+(ys.total||0)+' in all · '+(ys.rest||0)+' rest · '+(ys.brk||0)+' break</small></div></div>';
+    if(open){
+      h+='<div class="schy-body">';
+      ts.forEach(function(t){
+        var st=sc.stats[t.id],rt=schRuleTxt(t,terms);
+        h+='<div class="scht"><div class="scht-m"><button type="button" class="scht-n" data-act="sch-go" data-y="'+esc(t.s&&t.s.y||'')+'"><b>'+esc(t.name||'Term')+'</b><small>'+esc(ymdTxt(t.s)+' to '+ymdTxt(t.e))+'</small></button><button class="btn sm" data-act="sch-term-edit" data-id="'+t.id+'">Edit</button></div>'+
+          '<div class="scht-s">'+esc(schStat(st))+(rt?'<br><i>'+esc(rt)+'</i>':'')+'</div>'+
+          '<div class="scht-b">'+(t.breaks||[]).slice().sort(function(a,b){return (ymdKey(a.s)||1e12)-(ymdKey(b.s)||1e12)}).map(function(b){var tk=ymdKey(t.s),te=ymdKey(t.e),bk=ymdKey(b.s),be=ymdKey(b.e),out=!bk||!be||bk<tk||be>te;return '<button type="button" class="schbk'+(out?' bad':'')+'" data-act="sch-break-edit" data-tid="'+t.id+'" data-id="'+b.id+'"><b>'+esc(b.name||'Break')+'</b><small>'+esc(ymdTxt(b.s)+(ymdKey(b.s)===ymdKey(b.e)?'':' to '+ymdTxt(b.e))+(out?' (outside the term)':''))+'</small></button>'}).join('')+
+          '<button type="button" class="btn sm" data-act="sch-break-new" data-tid="'+t.id+'">'+ic('plus',14)+'Break</button></div></div>';
+      });
+      h+='<div class="schy-f"><button class="btn sm" data-act="sch-term-new" data-yid="'+yr.id+'">'+ic('plus',14)+'Next term</button><button class="btn sm" data-act="sch-year-edit" data-id="'+yr.id+'">Rename or delete year</button></div></div>';
+    }
+    h+='</section>';
   });
   if(sc.order.length)h+='<div class="schy-f" style="padding:0 0 4px"><button class="btn" data-act="sch-term-new" data-yid="new">'+ic('plus')+'New school year</button></div>';
   return h+'</div>';
@@ -494,30 +584,80 @@ function ymdHtml(p,v){
 function ymdGet(p){var g=function(i){var e=document.getElementById(p+i);return e?e.value:''};return {d:parseInt(g('-d'),10)||'',m:parseInt(g('-m'),10)||'',y:parseInt(g('-y'),10)||''}}
 function schCapture(){
   var m=S.modal;if(!m)return;
-  var n=document.getElementById('sc-n');if(n)m.name=n.value;
-  var yy=document.getElementById('sc-yr');if(yy)m.yid=yy.value;
-  var tt=document.getElementById('sc-term');if(tt)m.tid=tt.value;
+  var g=function(id){var e=document.getElementById(id);return e?e.value:undefined},v;
+  if((v=g('sc-n'))!==undefined)m.name=v;
+  if((v=g('sc-yr'))!==undefined)m.yid=v;
+  if((v=g('sc-term'))!==undefined)m.tid=v;
+  if((v=g('sc-sm'))!==undefined)m.sMode=v;
+  if((v=g('sc-sref'))!==undefined)m.sRef=v;
+  if((v=g('sc-sn'))!==undefined)m.sN=v;
+  if((v=g('sc-em'))!==undefined)m.eMode=v;
+  if((v=g('sc-en'))!==undefined)m.eN=v;
+  if((v=g('sc-eu'))!==undefined)m.eUnit=v;
+  if((v=g('sc-ed'))!==undefined)m.eDir=v;
+  if((v=g('sc-eref'))!==undefined)m.eRef=v;
   if(document.getElementById('sc-s-d'))m.s=ymdGet('sc-s');
   if(document.getElementById('sc-e-d'))m.e=ymdGet('sc-e');
 }
+function schSpec(m){
+  var t={id:m.id||'_new',name:m.name,s:m.s,e:m.e,breaks:[]};
+  if(m.id){var f=schTermFind(m.id);if(f)t.breaks=JSON.parse(JSON.stringify(f.t.breaks||[]))}
+  if(m.sMode==='after'&&m.sRef)t.sr={ref:m.sRef,n:m.sN===''||m.sN==null?1:parseInt(m.sN,10)||0};
+  if(m.eMode==='len')t.er={mode:'len',n:parseInt(m.eN,10)||1,unit:m.eUnit||'school'};
+  else if(m.eMode==='rel'&&m.eRef)t.er={mode:'rel',n:parseInt(m.eN,10)||1,dir:m.eDir||'before',ref:m.eRef};
+  return t;
+}
+function schPreview(m){
+  var t=schSpec(m),terms={};
+  schoolOf().years.forEach(function(yr){(yr.terms||[]).forEach(function(x){if(x.id!==m.id)terms[x.id]=JSON.parse(JSON.stringify(x))})});
+  terms[t.id]=t;schResolveTerm(t,terms);return t;
+}
+function schPrevHtml(m){
+  if(m.type==='schbreak'){
+    var n=parseInt(m.eN,10);
+    if(m.eMode==='len'&&ymdOk(m.s)&&n>0)return '<p class="schprev" id="sc-prev">Ends '+esc(ymdTxt(ymdShift(m.s,n-1)))+'</p>';
+    return '<p class="schprev" id="sc-prev"></p>';
+  }
+  var t=schPreview(m),ok=ymdOk(t.s)&&ymdOk(t.e)&&ymdKey(t.e)>=ymdKey(t.s),both=ymdOk(t.s)&&ymdOk(t.e);
+  return '<p class="schprev'+(ok?'':' bad')+'" id="sc-prev">'+(ok?'Runs '+esc(ymdTxt(t.s))+' to '+esc(ymdTxt(t.e)):both?'That ends ('+esc(ymdTxt(t.e))+') before it starts ('+esc(ymdTxt(t.s))+').':'Fill in the settings above to see where it lands.')+'</p>';
+}
+function schModes(m){return {s:m.sMode||'date',e:m.eMode||'date'}}
 function schTermModal(){
-  var m=S.modal,yrs=schoolOf().years;
-  return '<h2>'+(m.id?'Edit term':'New term')+'</h2>'+
+  var m=S.modal,yrs=schoolOf().years,md=schModes(m),others=[];
+  yrs.forEach(function(y){(y.terms||[]).forEach(function(x){if(x.id!==m.id&&!(x.sr&&x.sr.ref===m.id))others.push(x)})});
+  if(md.s==='after'&&!m.sRef&&others.length)m.sRef=others[others.length-1].id;
+  if(md.e==='rel'&&!m.eDir)m.eDir='before';
+  var t=schPreview(m);
+  var sel=function(id,opts,cur,ch){return '<select class="in" id="'+id+'"'+(ch===false?'':' data-change="sch-sync"')+'>'+opts.map(function(o){return '<option value="'+o[0]+'"'+(String(cur)===String(o[0])?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select>'};
+  var h='<h2>'+(m.id?'Edit term':'New term')+'</h2>'+
     '<label class="lab" for="sc-n">Name</label><input class="in" id="sc-n" value="'+esc(m.name)+'" placeholder="Autumn term">'+
-    '<label class="lab" for="sc-yr" style="margin-top:10px">School year</label><select class="in" id="sc-yr">'+yrs.map(function(y){return '<option value="'+y.id+'"'+(m.yid===y.id?' selected':'')+'>'+esc(schoolYearName(y))+'</option>'}).join('')+'<option value="new"'+(m.yid==='new'||!yrs.length?' selected':'')+'>A new school year</option></select>'+
-    '<label class="lab" style="margin-top:10px">First day</label>'+ymdHtml('sc-s',m.s)+'<label class="lab" style="margin-top:8px">Last day</label>'+ymdHtml('sc-e',m.e)+
-    '<p class="hint" style="margin:8px 0 0">Rest days and breaks inside the term are taken out of the school-day count. The school year runs from its first term to its last.</p>'+
-    '<div class="actions"><button class="btn" data-act="close">Cancel</button>'+(m.id?'<button class="btn danger" data-act="sch-term-del">'+(m.armed?'Really delete?':'Delete')+'</button>':'')+'<button class="btn primary" data-act="sch-term-save">Save</button></div>';
+    '<label class="lab" for="sc-yr" style="margin-top:10px">School year</label><select class="in" id="sc-yr">'+yrs.map(function(y){return '<option value="'+y.id+'"'+(m.yid===y.id?' selected':'')+'>'+esc(schoolYearName(y))+'</option>'}).join('')+'<option value="new"'+(m.yid==='new'||!yrs.length?' selected':'')+'>A new school year</option></select>';
+  h+='<fieldset class="schf"><legend>First day</legend>'+sel('sc-sm',[['date','On a date']].concat(others.length?[['after','After another term']]:[]),md.s);
+  if(md.s==='after')h+='<div class="calrow sch2"><input class="in" id="sc-sn" type="number" min="0" max="365" inputmode="numeric" value="'+esc(m.sN===''||m.sN==null?1:m.sN)+'" aria-label="Days after" data-change="sch-sync"><span class="schw">day(s) after the end of</span></div>'+sel('sc-sref',others.map(function(x){return [x.id,esc(x.name||'Term')]}),m.sRef);
+  else h+=ymdHtml('sc-s',m.s);
+  h+='</fieldset>';
+  h+='<fieldset class="schf"><legend>Last day</legend>'+sel('sc-em',[['date','On a date'],['len','After a number of days'],['rel','Until some days before or after…']],md.e);
+  if(md.e==='len')h+='<div class="calrow sch2"><input class="in" id="sc-en" type="number" min="1" max="800" inputmode="numeric" value="'+esc(m.eN||'')+'" placeholder="How many" aria-label="How many" data-change="sch-sync">'+sel('sc-eu',[['school','school days (skips rest days and breaks)'],['cal','calendar days'],['week','weeks']],m.eUnit||'school')+'</div>';
+  else if(md.e==='rel')h+='<div class="calrow sch2"><input class="in" id="sc-en" type="number" min="0" max="800" inputmode="numeric" value="'+esc(m.eN===''||m.eN==null?'':m.eN)+'" placeholder="How many" aria-label="How many days" data-change="sch-sync"><span class="schw">days</span>'+sel('sc-ed',[['before','before'],['after','after']],m.eDir||'before')+'</div><select class="in" id="sc-eref" data-change="sch-sync"><option value="">Choose a date…</option>'+schRefOpts(m.id,m.eRef,true)+'</select>';
+  else h+=ymdHtml('sc-e',m.e);
+  h+='</fieldset>';
+  h+=schPrevHtml(m);
+  h+='<div class="actions"><button class="btn" data-act="close">Cancel</button>'+(m.id?'<button class="btn danger" data-act="sch-term-del">'+(m.armed?'Really delete?':'Delete')+'</button>':'<button class="btn" data-act="sch-term-save" data-next="1">Save and add next</button>')+'<button class="btn primary" data-act="sch-term-save">Save</button></div>';
+  return h;
 }
 function schBreakModal(){
-  var m=S.modal,opts='';
+  var m=S.modal,opts='',md=m.eMode||'date';
   schoolOf().years.forEach(function(yr){(yr.terms||[]).forEach(function(t){opts+='<option value="'+t.id+'"'+(m.tid===t.id?' selected':'')+'>'+esc(t.name||'Term')+' · '+esc(schoolYearName(yr))+'</option>'})});
-  return '<h2>'+(m.id?'Edit break':'New break')+'</h2>'+
+  var h='<h2>'+(m.id?'Edit break':'New break')+'</h2>'+
     '<label class="lab" for="sc-n">Name</label><input class="in" id="sc-n" value="'+esc(m.name)+'" placeholder="Half term">'+
     '<label class="lab" for="sc-term" style="margin-top:10px">Inside term</label><select class="in" id="sc-term">'+opts+'</select>'+
-    '<label class="lab" style="margin-top:10px">First day</label>'+ymdHtml('sc-s',m.s)+'<label class="lab" style="margin-top:8px">Last day</label>'+ymdHtml('sc-e',m.e)+
-    '<p class="hint" style="margin:8px 0 0">The break has to sit inside its term. Rest days within it are not counted twice.</p>'+
+    '<fieldset class="schf"><legend>First day</legend>'+ymdHtml('sc-s',m.s)+'</fieldset>'+
+    '<fieldset class="schf"><legend>Last day</legend><select class="in" id="sc-em" data-change="sch-sync"><option value="date"'+(md==='date'?' selected':'')+'>On a date</option><option value="len"'+(md==='len'?' selected':'')+'>After a number of days</option></select>'+
+    (md==='len'?'<div class="calrow sch2"><input class="in" id="sc-en" type="number" min="1" max="400" inputmode="numeric" value="'+esc(m.eN||'')+'" placeholder="How many" aria-label="Length in days" data-change="sch-sync"><span class="schw">days in a row, counting the first</span></div>':ymdHtml('sc-e',m.e))+'</fieldset>';
+  h+=schPrevHtml(m);
+  h+='<p class="hint" style="margin:8px 0 0">The break has to sit inside its term. Rest days within it are not counted twice.</p>'+
     '<div class="actions"><button class="btn" data-act="close">Cancel</button>'+(m.id?'<button class="btn danger" data-act="sch-break-del">'+(m.armed?'Really delete?':'Delete')+'</button>':'')+'<button class="btn primary" data-act="sch-break-save">Save</button></div>';
+  return h;
 }
 function schYearModal(){
   var m=S.modal;
@@ -2533,52 +2673,83 @@ clear:function(el){
 'sch-rest':function(el){var w=+el.dataset.w,cur=schoolRest().slice(),i=cur.indexOf(w);if(i>-1)cur.splice(i,1);else cur.push(w);schoolWrite(function(s){s.rest=cur.sort(function(a,b){return a-b})});render()},
 'sch-nums':function(el){var on=!!el.checked;schoolWrite(function(s){s.nums=on});render()},
 'sch-go':function(el){var y=+el.dataset.y;if(y>=100){S.calY=y;render()}},
+'sch-toggle':function(el){var id=el.dataset.id,yr=schoolOf().years.filter(function(y){return y.id===id})[0];if(!yr)return;S.schOpen=S.schOpen||{};S.schOpen[id]=!schYearOpen(yr,schoolCalc().stats[id]);render()},
+'sch-all':function(el){var on=el.dataset.v==='1';S.schOpen={};schoolOf().years.forEach(function(y){S.schOpen[y.id]=on});render()},
 'sch-term-new':function(el){
-  var d=el&&el.dataset||{},yid=d.yid||'',yrs=schoolOf().years;
+  var d=el&&el.dataset||{},yid=d.yid||'',yrs=schoolOf().years,m;
   if(!yid)yid=yrs.length?(schoolCalc().order.slice(-1)[0]||yrs[0]).id:'new';
-  var s={y:d.y?+d.y:(S.calY||''),m:d.y?idOrd(+d.y,+d.m):'',d:d.y?+d.d:''};
-  S.modal={type:'schterm',id:'',yid:yid,name:'',s:s,e:{y:s.y,m:'',d:''}};renderModal();
+  m={type:'schterm',id:'',yid:yid,name:'',s:{y:S.calY||'',m:'',d:''},e:{y:S.calY||'',m:'',d:''},sMode:'date',eMode:'date',sN:1,eN:'',eUnit:'school',eDir:'before',eRef:'',sRef:''};
+  if(d.y){m.s={y:+d.y,m:+d.m,d:+d.d};m.e={y:m.s.y,m:'',d:''}}
+  else if(yid!=='new'){
+    var yr=yrs.filter(function(y){return y.id===yid})[0],ts=((yr&&yr.terms)||[]).slice().sort(function(a,b){return (ymdKey(a.s)||0)-(ymdKey(b.s)||0)}),last=ts[ts.length-1];
+    if(last){m.sMode='after';m.sRef=last.id;m.sN=1;m.s={y:'',m:'',d:''};m.e={y:'',m:'',d:''}}
+  }
+  S.modal=m;renderModal();
 },
-'sch-term-edit':function(el){var f=schTermFind(el.dataset.id);if(!f)return;var t=f.t;S.modal={type:'schterm',id:t.id,yid:f.yr.id,name:t.name||'',s:Object.assign({},t.s),e:Object.assign({},t.e)};renderModal()},
-'sch-term-save':function(){
+'sch-term-edit':function(el){
+  var f=schTermFind(el.dataset.id);if(!f)return;var t=f.t,er=t.er||{};
+  S.modal={type:'schterm',id:t.id,yid:f.yr.id,name:t.name||'',s:Object.assign({},t.s),e:Object.assign({},t.e),sMode:t.sr?'after':'date',sRef:t.sr?t.sr.ref:'',sN:t.sr?t.sr.n:1,eMode:er.mode||'date',eN:er.n||'',eUnit:er.unit||'school',eDir:er.dir||'before',eRef:er.ref||''};
+  renderModal();
+},
+'sch-term-save':function(el){
   var m=S.modal;schCapture();
-  var nm=(m.name||'').trim()||'Term';
-  if(!ymdOk(m.s)||!ymdOk(m.e)){toast('Give the first and last day a real day, month and year.');return}
-  if(ymdKey(m.e)<ymdKey(m.s)){toast('The term ends before it starts.');return}
-  var clash=null,a=ymdKey(m.s),b=ymdKey(m.e);
-  schoolOf().years.forEach(function(yr){(yr.terms||[]).forEach(function(t){if(t.id!==m.id&&ymdOk(t.s)&&ymdOk(t.e)&&!(ymdKey(t.e)<a||ymdKey(t.s)>b))clash=t})});
+  var nm=(m.name||'').trim()||'Term',t=schPreview(m);
+  if(!ymdOk(t.s)||!ymdOk(t.e)){toast('Those settings do not give a real first and last day yet.');return}
+  if(ymdKey(t.e)<ymdKey(t.s)){toast('The term ends before it starts.');return}
+  var clash=null,a=ymdKey(t.s),b=ymdKey(t.e);
+  schoolOf().years.forEach(function(yr){(yr.terms||[]).forEach(function(x){if(x.id!==m.id&&ymdOk(x.s)&&ymdOk(x.e)&&!(ymdKey(x.e)<a||ymdKey(x.s)>b))clash=x})});
   if(clash){toast('That overlaps '+(clash.name||'another term')+'.');return}
-  var keep=S.calY;
+  var newId=m.id||uid(),yidNew=m.yid,goNext=!!(el&&el.dataset&&el.dataset.next);
   schoolWrite(function(s){
     var yr=m.yid&&m.yid!=='new'?s.years.filter(function(y){return y.id===m.yid})[0]:null;
     if(!yr){yr={id:uid(),name:'',terms:[]};s.years.push(yr)}
-    var t=null;
-    s.years.forEach(function(yy){yy.terms=yy.terms||[];var i=yy.terms.findIndex(function(x){return x.id===m.id});if(i>-1){t=yy.terms[i];if(yy!==yr)yy.terms.splice(i,1)}});
-    if(!t)t={id:uid(),name:nm,s:m.s,e:m.e,breaks:[]};
-    t.name=nm;t.s={y:+m.s.y,m:+m.s.m,d:+m.s.d};t.e={y:+m.e.y,m:+m.e.m,d:+m.e.d};
-    if(yr.terms.indexOf(t)<0)yr.terms.push(t);
+    yidNew=yr.id;
+    var cur=null;
+    s.years.forEach(function(yy){yy.terms=yy.terms||[];var i=yy.terms.findIndex(function(x){return x.id===newId});if(i>-1){cur=yy.terms[i];if(yy!==yr)yy.terms.splice(i,1)}});
+    if(!cur)cur={id:newId,breaks:[]};
+    cur.name=nm;cur.s={y:+t.s.y,m:+t.s.m,d:+t.s.d};cur.e={y:+t.e.y,m:+t.e.m,d:+t.e.d};
+    if(t.sr)cur.sr=t.sr;else delete cur.sr;
+    if(t.er)cur.er=t.er;else delete cur.er;
+    if(yr.terms.indexOf(cur)<0)yr.terms.push(cur);
     yr.terms.sort(function(p,q){return (ymdKey(p.s)||1e12)-(ymdKey(q.s)||1e12)});
     s.years=s.years.filter(function(y){return (y.terms||[]).length||y===yr});
   });
-  S.calY=+m.s.y||keep;closeModal();render();toast('Saved.');
+  S.calY=+t.s.y||S.calY;S.schOpen=S.schOpen||{};S.schOpen[yidNew]=true;
+  closeModal();
+  if(goNext){
+    S.modal={type:'schterm',id:'',yid:yidNew,name:'',s:{y:'',m:'',d:''},e:{y:'',m:'',d:''},sMode:'after',sRef:newId,sN:1,eMode:m.eMode==='date'?'date':m.eMode,eN:m.eN,eUnit:m.eUnit||'school',eDir:m.eDir||'before',eRef:m.eMode==='rel'?'':m.eRef};
+    render();renderModal();return;
+  }
+  render();toast('Saved.');
 },
 'sch-term-del':function(){
   var m=S.modal;if(!m||!m.id)return;
   if(!m.armed){schCapture();m.armed=true;renderModal();return}
-  schoolWrite(function(s){s.years.forEach(function(y){y.terms=(y.terms||[]).filter(function(t){return t.id!==m.id})});s.years=s.years.filter(function(y){return (y.terms||[]).length})});
+  var gone={};var f=schTermFind(m.id);if(f)(f.t.breaks||[]).forEach(function(b){gone['b:'+b.id]=1});
+  schoolWrite(function(s){
+    s.years.forEach(function(y){y.terms=(y.terms||[]).filter(function(t){return t.id!==m.id});
+      y.terms.forEach(function(t){
+        if(t.sr&&t.sr.ref===m.id)delete t.sr;
+        if(t.er&&t.er.mode==='rel'&&(String(t.er.ref).indexOf('t:'+m.id+':')===0||gone[t.er.ref]))delete t.er;
+      })});
+    s.years=s.years.filter(function(y){return (y.terms||[]).length});
+  });
   closeModal();render();toast('Term deleted.');
 },
 'sch-break-new':function(el){
   var d=el.dataset,f=schTermFind(d.tid);if(!f)return;
-  var s=d.y?{y:+d.y,m:idOrd(+d.y,+d.m),d:+d.d}:{y:f.t.s.y,m:'',d:''};
-  S.modal={type:'schbreak',id:'',tid:d.tid,name:'',s:s,e:{y:s.y,m:d.y?s.m:'',d:''}};renderModal();
+  var s=d.y?{y:+d.y,m:+d.m,d:+d.d}:{y:f.t.s.y,m:'',d:''};
+  S.modal={type:'schbreak',id:'',tid:d.tid,name:'',s:s,e:{y:s.y,m:d.y?s.m:'',d:''},eMode:'date',eN:''};renderModal();
 },
-'sch-break-edit':function(el){var f=schTermFind(el.dataset.tid);if(!f)return;var b=(f.t.breaks||[]).filter(function(x){return x.id===el.dataset.id})[0];if(!b)return;S.modal={type:'schbreak',id:b.id,tid:f.t.id,name:b.name||'',s:Object.assign({},b.s),e:Object.assign({},b.e)};renderModal()},
+'sch-break-edit':function(el){var f=schTermFind(el.dataset.tid);if(!f)return;var b=(f.t.breaks||[]).filter(function(x){return x.id===el.dataset.id})[0];if(!b)return;S.modal={type:'schbreak',id:b.id,tid:f.t.id,name:b.name||'',s:Object.assign({},b.s),e:Object.assign({},b.e),eMode:b.ln?'len':'date',eN:b.ln||''};renderModal()},
 'sch-break-save':function(){
   var m=S.modal;schCapture();
   var f=schTermFind(m.tid);if(!f){toast('Pick a term.');return}
-  if(!ymdOk(m.s)||!ymdOk(m.e)){toast('Give the first and last day a real day, month and year.');return}
-  var a=ymdKey(m.s),b=ymdKey(m.e);
+  if(!ymdOk(m.s)){toast('Give the first day a real day, month and year.');return}
+  var ln=0,e=m.e;
+  if(m.eMode==='len'){ln=parseInt(m.eN,10)||0;if(ln<1){toast('How many days?');return}e=ymdShift(m.s,ln-1)}
+  if(!ymdOk(e)){toast('Give the last day a real day, month and year.');return}
+  var a=ymdKey(m.s),b=ymdKey(e);
   if(b<a){toast('The break ends before it starts.');return}
   if(a<ymdKey(f.t.s)||b>ymdKey(f.t.e)){toast('The break has to sit inside '+(f.t.name||'the term')+' ('+ymdTxt(f.t.s)+' to '+ymdTxt(f.t.e)+').');return}
   var nm=(m.name||'').trim()||'Break';
@@ -2586,8 +2757,9 @@ clear:function(el){
     var cur=null;s.years.forEach(function(y){(y.terms||[]).forEach(function(t){var i=(t.breaks||[]).findIndex(function(x){return x.id===m.id});if(i>-1){cur=t.breaks[i];if(t.id!==m.tid)t.breaks.splice(i,1)}})});
     var term=null;s.years.forEach(function(y){(y.terms||[]).forEach(function(t){if(t.id===m.tid)term=t})});
     if(!term)return;term.breaks=term.breaks||[];
-    if(!cur){cur={id:uid()};}
-    cur.name=nm;cur.s={y:+m.s.y,m:+m.s.m,d:+m.s.d};cur.e={y:+m.e.y,m:+m.e.m,d:+m.e.d};
+    if(!cur)cur={id:uid()};
+    cur.name=nm;cur.s={y:+m.s.y,m:+m.s.m,d:+m.s.d};cur.e={y:+e.y,m:+e.m,d:+e.d};
+    if(ln)cur.ln=ln;else delete cur.ln;
     if(term.breaks.indexOf(cur)<0)term.breaks.push(cur);
   });
   closeModal();render();toast('Saved.');
@@ -2595,7 +2767,7 @@ clear:function(el){
 'sch-break-del':function(){
   var m=S.modal;if(!m||!m.id)return;
   if(!m.armed){schCapture();m.armed=true;renderModal();return}
-  schoolWrite(function(s){s.years.forEach(function(y){(y.terms||[]).forEach(function(t){t.breaks=(t.breaks||[]).filter(function(b){return b.id!==m.id})})})});
+  schoolWrite(function(s){s.years.forEach(function(y){(y.terms||[]).forEach(function(t){t.breaks=(t.breaks||[]).filter(function(b){return b.id!==m.id});if(t.er&&t.er.ref==='b:'+m.id)delete t.er})})});
   closeModal();render();toast('Break deleted.');
 },
 'sch-year-edit':function(el){var y=schoolOf().years.filter(function(v){return v.id===el.dataset.id})[0];if(!y)return;S.modal={type:'schyear',id:y.id,name:y.name||''};renderModal()},
@@ -2949,7 +3121,11 @@ function selectLink(d){
 
 var CH={
 'cali-sync':function(){A['cali-sync']()},
-'sch-sync':function(){schCapture();renderModal()},
+'sch-sync':function(el){schCapture();var m=S.modal,pe=document.getElementById('sc-prev');
+  if(el&&el.tagName==='INPUT'&&pe){
+    if(/-y$/.test(el.id)){var ms=document.getElementById(el.id.replace(/-y$/,'-m'));if(ms){var cur=ms.value;ms.innerHTML='<option value="">Month</option>'+yearMonthIds(+el.value||S.calY||0,+cur);}}
+    pe.outerHTML=schPrevHtml(m);return}
+  renderModal()},
 'cal-f':function(t){S.calF=S.calF||{kind:'',char:''};S.calF[t.dataset.k]=t.value;render()},
 'cal-preset':function(t){S.modal.c=calPreset(t.value);renderModal()},
 'cal-wk':function(t){calCapture();renderModal()},
