@@ -1467,7 +1467,7 @@ textarea.in{min-height:88px;resize:vertical;line-height:1.5}
 .schn{margin-left:auto;font-size:12.5px}
 .schy{border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:12px}
 .schy.empty{text-align:left}
-.schy-h{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px 14px;align-items:center;margin-bottom:8px}
+.schy-h{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 14px;align-items:center;margin-bottom:8px}
 .schy-h b{font-size:15px;display:block}
 .schy-h small{display:block;color:var(--fg-3);font-size:12px}
 .schy-t{text-align:right;font-size:12.5px;color:var(--fg-2)}
@@ -1483,7 +1483,18 @@ textarea.in{min-height:88px;resize:vertical;line-height:1.5}
 .schbk b{font-size:12px;font-weight:600}
 .schbk small{font-size:11px;color:var(--fg-3)}
 .schbk.bad{border-color:var(--danger,#c0392b);color:var(--danger,#c0392b)}
-.schy-f{padding-top:6px}
+.schy-f{padding-top:6px;display:flex;gap:6px;flex-wrap:wrap}
+.schy-tg{display:flex;align-items:center;gap:8px;background:none;border:0;padding:2px 0;color:inherit;font:inherit;text-align:left;cursor:pointer;min-width:0;width:100%}
+.schy-chev{display:inline-flex;transition:transform .15s;transform:rotate(-90deg);color:var(--fg-3);flex:none}
+.schy.open .schy-chev{transform:none}
+.schy:not(.open) .schy-h{margin-bottom:0}
+.schy-body{margin-top:2px}
+.schf{border:1px solid var(--line);border-radius:10px;margin:10px 0 0;padding:6px 10px 10px;display:grid;gap:8px}
+.schf legend{font:500 11px var(--f-mono,monospace);letter-spacing:.04em;text-transform:uppercase;color:var(--fg-3);padding:0 4px}
+.sch2{grid-template-columns:96px minmax(0,1fr);align-items:center}
+.schw{font-size:12.5px;color:var(--fg-2)}
+.schprev{margin:10px 0 0;font-size:13px;color:var(--fg-2)}
+.schprev.bad{color:var(--fg-3)}
 .sch3{grid-template-columns:72px minmax(0,1fr) 92px}
 @media(max-width:560px){.schp{padding-left:12px;padding-right:12px}.schy-h{grid-template-columns:minmax(0,1fr) auto}.schy-t{grid-column:1/-1;text-align:left}.schn{margin-left:0}}
 .calocc{border:1px solid var(--line);border-radius:8px;padding:8px;margin:8px 0}
