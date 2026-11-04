@@ -412,9 +412,10 @@ function pvBlock(k){
   var off=!!PVOFF[k];
   return '<div class="pvh"><span class="lab">Opening lines</span><button type="button" class="btn sm" data-act="pv-toggle" data-k="'+esc(k)+'">'+(off?'Show':'Hide')+'</button></div>'+(off?'':'<div class="pvbox" data-pv="'+esc(k)+'"><p class="hint">Loading…</p></div>');
 }
+function isDateP(x){return !!(x&&x.bm&&x.bm.some(function(n){return n.indexOf('so_d_')===0}))}
 function pvSnippet(seg){
   var out='',i,t;
-  for(i=0;i<seg.length&&out.length<300;i++){if(seg[i].lv>0)continue;t=String(seg[i].text||'').replace(/\s+/g,' ').trim();if(t)out+=(out?' ':'')+t}
+  for(i=0;i<seg.length&&out.length<300;i++){if(seg[i].lv>0||isDateP(seg[i]))continue;t=String(seg[i].text||'').replace(/\s+/g,' ').trim();if(t)out+=(out?' ':'')+t}
   if(out.length>300){out=out.slice(0,300);var sp=out.lastIndexOf(' ');if(sp>200)out=out.slice(0,sp);out+='…'}
   return out;
 }
@@ -489,7 +490,7 @@ async function ixRun(){
       seg=seg.slice();while(seg.length>1&&!String(seg[seg.length-1].text).trim())seg.pop();
       if(j&&pb)out.push({pb:1});
       if(wd&&x.k!=null)out.push({lv:0,text:keyLong(x.k)});
-      seg.forEach(function(p){out.push({lv:p.lv,text:p.text})});
+      seg.forEach(function(p){if(wd&&x.k!=null&&isDateP(p))return;out.push({lv:p.lv,text:p.text})});
     });
     if(!out.length){closeModal();toast('I could not find those chapters in the files. Try the reload button in Read.');return}
     var blob=new Blob([await buildDocx(out)],{type:DOCX_MIME});
@@ -499,6 +500,127 @@ async function ixRun(){
     closeModal();
     if(err&&err.code==='declined')toast('Nothing was exported.');
     else toast('Export failed'+(err&&err.message?': '+err.message:'')+'.');
+  }
+}
+
+
+/* ---------- write anchors and dates into a Word file ---------- */
+async function injectDocx(file,wants,opt){
+  if(typeof JSZip==='undefined')throw new Error('zip');
+  var zip=await JSZip.loadAsync(await file.arrayBuffer());
+  var docF=zip.file('word/document.xml');if(!docF)throw new Error('nodoc');
+  var parse=function(s){return new DOMParser().parseFromString(s,'application/xml')};
+  var styles={}, sf=zip.file('word/styles.xml'), sxml='';
+  if(sf){
+    sxml=await sf.async('string');
+    var sd=parse(sxml), sl=sd.getElementsByTagNameNS(W,'style');
+    for(var i=0;i<sl.length;i++){
+      var st=sl[i], id=st.getAttributeNS(W,'styleId');
+      var ne=st.getElementsByTagNameNS(W,'name')[0], be=st.getElementsByTagNameNS(W,'basedOn')[0], oe=st.getElementsByTagNameNS(W,'outlineLvl')[0];
+      styles[id]={name:ne?ne.getAttributeNS(W,'val'):'',based:be?be.getAttributeNS(W,'val'):'',outline:oe?parseInt(oe.getAttributeNS(W,'val'),10):null};
+    }
+  }
+  var doc=parse(await docF.async('string'));
+  if(doc.getElementsByTagName('parsererror').length)throw new Error('xml');
+  var ps=[].slice.call(doc.getElementsByTagNameNS(W,'p')), info=[], maxId=0;
+  [].forEach.call(doc.getElementsByTagNameNS(W,'bookmarkStart'),function(b){var v=parseInt(b.getAttributeNS(W,'id'),10);if(v>maxId)maxId=v});
+  ps.forEach(function(p){
+    var ts=p.getElementsByTagNameNS(W,'t'),plain='';for(var k=0;k<ts.length;k++)plain+=ts[k].textContent;plain=plain.trim();
+    var pPr=p.getElementsByTagNameNS(W,'pPr')[0], lv=0;
+    if(plain&&pPr){
+      var ol=pPr.getElementsByTagNameNS(W,'outlineLvl')[0], ps2=pPr.getElementsByTagNameNS(W,'pStyle')[0];
+      if(ol){var v=parseInt(ol.getAttributeNS(W,'val'),10);lv=v<9?v+1:0}
+      else if(ps2)lv=lvlOfStyle(ps2.getAttributeNS(W,'val'),styles);
+    }
+    info.push({p:p,lv:lv,plain:plain.toLowerCase(),bm:bmOf(p)});
+  });
+  var mk=function(name,attrs){var e=doc.createElementNS(W,'w:'+name);for(var k in attrs)e.setAttributeNS(W,'w:'+k,attrs[k]);return e};
+  var rep={anchored:0,dated:0,cleared:0,missing:[]}, needSub=false;
+  wants.forEach(function(w){
+    var bn=bmName(w.id), dn=bmName(w.id,true), x=null, i, c=0;
+    for(i=0;i<info.length;i++)if(info[i].bm.indexOf(bn)>-1){x=info[i];break}
+    if(!x)for(i=0;i<info.length;i++){var y=info[i];if(y.lv===w.level&&y.plain===(w.title||'').toLowerCase()){if(c===w.nth){x=y;break}c++}}
+    if(!x){rep.missing.push(w.title);return}
+    var p=x.p;
+    if(opt.anchors&&x.bm.indexOf(bn)<0){
+      var id=++maxId, s=mk('bookmarkStart',{id:id,name:bn}), e=mk('bookmarkEnd',{id:id}), pPr=p.getElementsByTagNameNS(W,'pPr')[0];
+      if(pPr&&pPr.parentNode===p)p.insertBefore(s,pPr.nextSibling);else p.insertBefore(s,p.firstChild);
+      p.appendChild(e);rep.anchored++;
+    }
+    if(opt.sub){
+      var nx=p.nextSibling;while(nx&&nx.nodeType!==1)nx=nx.nextSibling;
+      var sp=(nx&&nx.localName==='p'&&bmOf(nx).indexOf(dn)>-1)?nx:null, want=(w.date||'').trim();
+      if(!want&&sp){sp.parentNode.removeChild(sp);rep.cleared++;return}
+      if(!want)return;
+      if(sp){
+        var cur='';[].forEach.call(sp.getElementsByTagNameNS(W,'t'),function(t){cur+=t.textContent});
+        if(cur.trim()===want)return;
+        [].slice.call(sp.childNodes).forEach(function(n){if(n.localName==='r')sp.removeChild(n)});
+        var be2=[].slice.call(sp.childNodes).filter(function(n){return n.localName==='bookmarkEnd'})[0], r2=mk('r',{}), t2=mk('t',{});
+        t2.setAttributeNS('http://www.w3.org/XML/1998/namespace','xml:space','preserve');t2.textContent=want;r2.appendChild(t2);
+        sp.insertBefore(r2,be2||null);rep.dated++;needSub=true;return;
+      }
+      var np=mk('p',{}), pp=mk('pPr',{}), ps3=mk('pStyle',{val:'Subtitle'}), id2=++maxId, bs=mk('bookmarkStart',{id:id2,name:dn}), be3=mk('bookmarkEnd',{id:id2}), r=mk('r',{}), t=mk('t',{});
+      pp.appendChild(ps3);np.appendChild(pp);np.appendChild(bs);
+      t.setAttributeNS('http://www.w3.org/XML/1998/namespace','xml:space','preserve');t.textContent=want;r.appendChild(t);np.appendChild(r);np.appendChild(be3);
+      p.parentNode.insertBefore(np,p.nextSibling);rep.dated++;needSub=true;
+    }
+  });
+  var total=rep.anchored+rep.dated+rep.cleared;
+  if(!total)return {blob:null,report:rep};
+  if(needSub&&sf&&!styles.Subtitle){
+    var ns=sxml.lastIndexOf('</w:styles>');
+    if(ns>-1){sxml=sxml.slice(0,ns)+'<w:style w:type="paragraph" w:styleId="Subtitle"><w:name w:val="Subtitle"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:uiPriority w:val="11"/><w:qFormat/><w:pPr><w:spacing w:after="160"/></w:pPr><w:rPr><w:i/><w:color w:val="595959"/><w:sz w:val="26"/></w:rPr></w:style>'+sxml.slice(ns);zip.file('word/styles.xml',sxml)}
+  }
+  zip.file('word/document.xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'+new XMLSerializer().serializeToString(doc.documentElement));
+  return {blob:await zip.generateAsync({type:'blob',mimeType:DOCX_MIME,compression:'DEFLATE'}),report:rep};
+}
+function swWants(d,sub){
+  var hs=d.headings||[], out=[];
+  chapters(d).forEach(function(x){
+    var i=hs.indexOf(x), n=0;for(var k=0;k<i;k++){var y=hs[k];if(y.level===x.level&&(y.title||'').toLowerCase()===(x.title||'').toLowerCase())n++}
+    var dt=(x.storyDate||'').trim();
+    out.push({id:x.id,title:x.title,level:x.level,nth:n,date:sub&&dt?longDate(canonDate(dt)||dt):''});
+  });
+  return out;
+}
+function swModal(){
+  var m=S.modal,d=byId('documents',m.id);if(!d)return '';
+  var chs=chapters(d),dated=chs.filter(function(x){return (x.storyDate||'').trim()}).length,auto=EXT.auto(d),ready=xReady(d);
+  return '<h2>Write anchors and dates into Word</h2><p class="hint">'+esc(d.title||'')+' · '+chs.length+' chapter'+(chs.length===1?'':'s')+', '+dated+' with a story date.</p>'+
+    '<label class="chk"><input type="checkbox" id="swA"'+(m.anchors?' checked':'')+'><span><b>Invisible anchors</b><small>A hidden bookmark on each chapter heading. The app then finds chapters even if you rename or move headings. Nothing shows in the text.</small></span></label>'+
+    '<label class="chk"><input type="checkbox" id="swS"'+(m.sub?' checked':'')+'><span><b>Story date as a subtitle</b><small>A line under each chapter heading, in Word’s Subtitle style. Run this again after changing dates and it updates the same line. Chapters with no date get none.</small></span></label>'+
+    '<p class="hint" style="margin:10px 0 0">'+(auto?'A copy of the file is saved first in a hidden “.so-backups” folder next to it. If the file changed in OneDrive meanwhile, nothing is written. Close the file in Word first.':(ready?'The file is changed in a copy that goes to your downloads. Replace the original with it when Word is closed.':'Pick this Word file first. The changed copy goes to your downloads.'))+'</p>'+
+    '<div class="actions"><button class="btn" data-act="close">Cancel</button>'+(ready?'<button class="btn primary" data-act="sw-go"'+(chs.length?'':' disabled')+'>Write to Word</button>':'<button class="btn primary" data-act="sw-pick" data-id="'+d.id+'">Pick the file</button>')+'</div>';
+}
+async function swRun(){
+  var m=S.modal,d=byId('documents',m.id);if(!d)return;
+  var an=!!(document.getElementById('swA')||{}).checked, sb=!!(document.getElementById('swS')||{}).checked;
+  if(!an&&!sb){toast('Tick at least one.');return}
+  var wants=swWants(d,sb), opt={anchors:an,sub:sb};
+  S.modal={type:'busy',msg:'Writing to the Word file.'};renderModal();
+  try{
+    var rep;
+    if(EXT.auto(d)&&EXT.sync){
+      var res=await EXT.sync(d,async function(f){return injectDocx(f,wants,opt)});
+      rep=res.report;
+      if(res.file){await applyRefresh(d,res.file)}else closeModal();
+    }else{
+      var f=RDF[d.id];if(!f){closeModal();toast('Pick the Word file first.');return}
+      var r=await injectDocx(f,wants,opt);rep=r.report;
+      if(r.blob){await downloadBlob(cleanName((d.file&&d.file.name||d.title||'File')+' (with anchors)'),r.blob)}
+      closeModal();
+    }
+    var bits=[];if(rep.anchored)bits.push(rep.anchored+' anchored');if(rep.dated)bits.push(rep.dated+' date line'+(rep.dated===1?'':'s'));if(rep.cleared)bits.push(rep.cleared+' date line'+(rep.cleared===1?'':'s')+' removed');
+    var tail=rep.missing.length?' Not found in the file: '+rep.missing.slice(0,2).join(', ')+(rep.missing.length>2?'…':'')+'.':'';
+    if(!bits.length)toast('Nothing needed changing.'+tail);
+    else toast(bits.join(', ')+'.'+(EXT.auto(d)&&EXT.sync?'':' A changed copy is in your downloads.')+tail);
+    PVC={};
+  }catch(err){
+    closeModal();
+    if(err&&err.code==='changed')toast('The file changed in OneDrive while I was working, so nothing was written. Close it in Word and try again.');
+    else if(err&&err.code==='locked')toast('Word has the file open, so OneDrive would not let me change it. Close it and try again.');
+    else toast('Could not write to the file'+(err&&err.message?' ('+err.message+')':'')+'. Nothing was changed.');
   }
 }
 
@@ -1207,7 +1329,9 @@ function titleSim(a,b){
 function mergeHeads(old,nu,d){
   old=old||[];
   var usedO={}, mN=[], stat={renamed:0,missing:0};
+  nu.forEach(function(x,i){if(!x.bm)return;for(var k=0;k<old.length;k++){if(!usedO[k]&&old[k].id&&bmName(old[k].id)===x.bm){usedO[k]=1;mN[i]=k;break}}});
   nu.forEach(function(x,i){
+    if(mN[i]!=null)return;
     for(var k=0;k<old.length;k++){if(!usedO[k]&&old[k].level===x.level&&(old[k].title||'').toLowerCase()===(x.title||'').toLowerCase()){usedO[k]=1;mN[i]=k;break}}
   });
   var anc=[[-1,-1]];nu.forEach(function(x,i){if(mN[i]!=null)anc.push([i,mN[i]])});anc.push([nu.length,old.length]);
@@ -1227,9 +1351,9 @@ function mergeHeads(old,nu,d){
     if(ru.length===1&&ro.length===1&&nu[ru[0]].level===old[ro[0]].level){mN[ru[0]]=ro[0];usedO[ro[0]]=1}
   }
   var out=nu.map(function(x,i){
-    var k=mN[i];if(k==null)return x;
+    var k=mN[i];if(k==null){delete x.bm;return x}
     var o=old[k];if((o.title||'')!==(x.title||'')){stat.renamed++;if(d)(d.notes||[]).forEach(function(n){if(n.h===o.title)n.h=x.title})}
-    var m=Object.assign({},o,{level:x.level,title:x.title,words:x.words});delete m.missing;return m;
+    var m=Object.assign({},o,{level:x.level,title:x.title,words:x.words});delete m.missing;delete m.bm;return m;
   });
   var lastOut=-1;
   old.forEach(function(o,k){
@@ -1722,7 +1846,7 @@ function docCard(d){
     return '<div class="hl" style="--lv:'+hd.level+'"><span class="hlab">'+esc(label(hd.level)||('H'+hd.level))+'</span><span class="t">'+esc(hd.title)+'</span>'+(oc?'<span class="nb">'+oc+' open</span>':'')+'</div>';
   })(hd)}).join('')+'</div>':'<p class="hint">No headings read yet. Use Heading 1, 2 and 3 styles in Word, then read this file below.</p>')+'</div>';
   h+='<div class="sec"><h3>Word file</h3><dl class="meta"><dt>File</dt><dd>'+esc(f.name||'None attached')+'</dd><dt>Headings read</dt><dd>'+fmtDate(f.analysed)+'</dd><dt>Saved in Word</dt><dd>'+fmtDate(f.modified)+'</dd><dt>Length</dt><dd>'+(f.words!=null?fmtN(f.words)+' words':'not counted')+'</dd></dl>'+
-    '<button class="btn" data-act="'+(f.od&&OD.acct?'od-refresh':'refresh')+'" data-id="'+d.id+'">'+ic('refresh')+(f.od&&OD.acct?'Refresh from OneDrive':(f.analysed?'Refresh headings':'Read headings from a .docx'))+'</button>'+(chs.length?'<button class="btn" style="margin-left:8px" data-act="ext-open" data-id="'+d.id+'">Extract chapters</button>':'')+
+    '<button class="btn" data-act="'+(f.od&&OD.acct?'od-refresh':'refresh')+'" data-id="'+d.id+'">'+ic('refresh')+(f.od&&OD.acct?'Refresh from OneDrive':(f.analysed?'Refresh headings':'Read headings from a .docx'))+'</button>'+(chs.length?'<button class="btn" style="margin-left:8px" data-act="ext-open" data-id="'+d.id+'">Extract chapters</button>':'')+(chs.length?'<button class="btn" style="margin-left:8px" data-act="sw-open" data-id="'+d.id+'">Write anchors and dates to Word</button>':'')+
     '<p class="hint" style="margin-top:8px">Pick the file again after you edit it. Only heading text and a word count are saved.</p></div>';
   return h;
 }
@@ -1885,6 +2009,7 @@ function renderModal(){
   else if(m.type==='schbreak')inner=schBreakModal();
   else if(m.type==='schyear')inner=schYearModal();
   else if(m.type==='ixexp')inner=ixExpModal();
+  else if(m.type==='swsync')inner=swModal();
   else if(m.type==='calset')inner=calModal();
   else if(m.type==='schimp')inner=schImpModal();
   else if(m.type==='revpass')inner=revModal();
@@ -1995,6 +2120,8 @@ function importModal(){
 
 /* ---------- docx reading (headings and word count only) ---------- */
 var W='http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+function bmName(id,date){return (date?'so_d_':'so_')+String(id).replace(/[^A-Za-z0-9]/g,'_').slice(0,32)}
+function bmOf(p){var l=p.getElementsByTagNameNS(W,'bookmarkStart'),o=[],i,n;for(i=0;i<l.length;i++){n=l[i].getAttributeNS(W,'name')||'';if(/^so_/.test(n))o.push(n)}return o}
 function lvlOfStyle(id,styles){
   for(var i=0;i<8&&id;i++){
     var s=styles[id];if(!s)return 0;
@@ -2032,7 +2159,7 @@ async function parseDocx(file){
       if(ol){var v=parseInt(ol.getAttributeNS(W,'val'),10);lv=v<9?v+1:0}
       else if(ps2)lv=lvlOfStyle(ps2.getAttributeNS(W,'val'),styles);
     }
-    if(lv>0){cur={level:lv,title:txt.slice(0,200),words:wc};heads.push(cur)}else if(cur)cur.words+=wc;
+    if(lv>0){cur={level:lv,title:txt.slice(0,200),words:wc};var bb=bmOf(p).filter(function(n){return n.indexOf('so_d_')!==0})[0];if(bb)cur.bm=bb;heads.push(cur)}else if(cur)cur.words+=wc;
   }
   var modified='';
   var cf=zip.file('docProps/core.xml');
@@ -2067,7 +2194,7 @@ async function readParas(file){
       if(ol){var v=parseInt(ol.getAttributeNS(W,'val'),10);lv=v<9?v+1:0}
       else if(ps2)lv=lvlOfStyle(ps2.getAttributeNS(W,'val'),styles);
     }
-    out.push({lv:lv,plain:plain.slice(0,200),text:lv>0?plain:ptext(p)});
+    out.push({lv:lv,plain:plain.slice(0,200),text:lv>0?plain:ptext(p),bm:bmOf(p)});
   }
   return out;
 }
@@ -2077,7 +2204,9 @@ async function extractDocx(file,wants){
   var out=[], missing=[];
   wants.forEach(function(w){
     var n=0, start=-1;
-    for(var k=0;k<heads.length;k++){var x=paras[heads[k]];if(x.lv===w.level&&x.plain.toLowerCase()===(w.title||'').toLowerCase()){if(n===w.nth){start=heads[k];break}n++}}
+    var bn0=w.id?bmName(w.id):'';
+    if(bn0)for(var b0=0;b0<paras.length;b0++)if(paras[b0].bm&&paras[b0].bm.indexOf(bn0)>-1){start=b0;break}
+    if(start<0)for(var k=0;k<heads.length;k++){var x=paras[heads[k]];if(x.lv===w.level&&x.plain.toLowerCase()===(w.title||'').toLowerCase()){if(n===w.nth){start=heads[k];break}n++}}
     if(start<0){missing.push(w.title);return}
     var end=paras.length;
     for(var q=0;q<heads.length;q++){if(heads[q]>start&&paras[heads[q]].lv<=w.level){end=heads[q];break}}
@@ -2100,10 +2229,11 @@ async function buildDocx(paras){
   for(var i=1;i<=6;i++)sty+='<w:style w:type="paragraph" w:styleId="Heading'+i+'"><w:name w:val="heading '+i+'"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/><w:pPr><w:keepNext/><w:spacing w:before="'+(i<3?360:240)+'" w:after="120"/><w:outlineLvl w:val="'+(i-1)+'"/></w:pPr><w:rPr><w:b/><w:sz w:val="'+Math.max(24,36-i*4)+'"/></w:rPr></w:style>';
   sty+='</w:styles>';
   var zip=new JSZip();
-  zip.file('[Content_Types].xml',hd+'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>');
+  zip.file('[Content_Types].xml',hd+'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/><Override PartName="/word/settings.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"/></Types>');
   zip.file('_rels/.rels',hd+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
-  zip.file('word/_rels/document.xml.rels',hd+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>');
+  zip.file('word/_rels/document.xml.rels',hd+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings" Target="settings.xml"/></Relationships>');
   zip.file('word/styles.xml',sty);
+  zip.file('word/settings.xml',hd+'<w:settings '+NS+'><w:zoom w:percent="100"/><w:defaultTabStop w:val="720"/><w:characterSpacingControl w:val="doNotCompress"/><w:compat><w:compatSetting w:name="compatibilityMode" w:uri="http://schemas.microsoft.com/office/word" w:val="15"/><w:compatSetting w:name="overrideTableStyleFontSizeAndJustification" w:uri="http://schemas.microsoft.com/office/word" w:val="1"/><w:compatSetting w:name="enableOpenTypeFeatures" w:uri="http://schemas.microsoft.com/office/word" w:val="1"/><w:compatSetting w:name="doNotFlipMirrorIndents" w:uri="http://schemas.microsoft.com/office/word" w:val="1"/></w:compat></w:settings>');
   zip.file('word/document.xml',hd+'<w:document '+NS+'><w:body>'+body+'</w:body></w:document>');
   return zip.generateAsync({type:'uint8array',compression:'DEFLATE'});
 }
@@ -2137,7 +2267,7 @@ async function runExtract(d,file,sel,name){
       if(!sel[x.id]||x.moved)return;
       var n=0;for(var k=0;k<i;k++){var y=hs[k];if(y.level===x.level&&(y.title||'').toLowerCase()===(x.title||'').toLowerCase())n++}
       var e=i+1;while(e<hs.length&&hs[e].level>x.level)e++;
-      wants.push({i:i,e:e,title:x.title,level:x.level,nth:n});
+      wants.push({i:i,e:e,title:x.title,level:x.level,nth:n,id:x.id});
     });
     if(!wants.length){closeModal();toast('Nothing ticked.');return}
     var res=await extractDocx(file,wants);
@@ -2771,6 +2901,9 @@ clear:function(el){
 },
 /* ---- story calendar ---- */
 'pv-toggle':function(el){var k=el.dataset.k;PVOFF[k]=!PVOFF[k];var b=el.closest('.pv');if(b){b.innerHTML=pvBlock(k);pvHydrate()}},
+'sw-open':function(el){S.modal={type:'swsync',id:el.dataset.id,anchors:true,sub:true};renderModal()},
+'sw-go':function(){swRun()},
+'sw-pick':function(el){S.refreshId=el.dataset.id;$('#fileRead').click()},
 'ix-clear':function(){var s=ixSt();s.from='';s.to='';render()},
 'ix-all':function(el){var s=ixSt(),on=el.dataset.v==='1';ixShown(ixItems(),ixBounds()).forEach(function(x){if(on)delete s.off[x.key];else s.off[x.key]=1});render()},
 'ix-open':function(el){S.view='documents';S.sel=el.dataset.id;render()},
@@ -3441,6 +3574,7 @@ $('#fileRead').addEventListener('change',function(){
   });
   if(!hit)toast('None of those files match a document by name.');
   if(S.modal&&S.modal.type==='xport'){S.modal.err='';renderModal();return}
+  if(S.modal&&S.modal.type==='swsync'){renderModal();return}
   renderReader(true);
 });
 $('#fileExtract').addEventListener('change',function(){
@@ -3521,8 +3655,9 @@ function rdSlice(d,hd,paras){
   var hs=d.headings||[], i=hs.indexOf(hd), n=0;
   for(var k=0;k<i;k++){var y=hs[k];if(y.level===hd.level&&(y.title||'').toLowerCase()===(hd.title||'').toLowerCase())n++}
   var heads=[];paras.forEach(function(x,j){if(x.lv>0)heads.push(j)});
-  var start=-1, c=0;
-  for(var m=0;m<heads.length;m++){var x=paras[heads[m]];if(x.lv===hd.level&&x.plain.toLowerCase()===(hd.title||'').toLowerCase()){if(c===n){start=heads[m];break}c++}}
+  var start=-1, c=0, bn=hd.id?bmName(hd.id):'';
+  if(bn)for(var b=0;b<paras.length;b++)if(paras[b].bm&&paras[b].bm.indexOf(bn)>-1){start=b;break}
+  if(start<0)for(var m=0;m<heads.length;m++){var x=paras[heads[m]];if(x.lv===hd.level&&x.plain.toLowerCase()===(hd.title||'').toLowerCase()){if(c===n){start=heads[m];break}c++}}
   if(start<0)return null;
   var end=paras.length;
   for(var q=0;q<heads.length;q++){if(heads[q]>start&&paras[heads[q]].lv<=hd.level){end=heads[q];break}}
@@ -3584,7 +3719,7 @@ function rdBody(it,paras){
   seg.forEach(function(x){
     var t=x.text;
     if(x.lv>0){var n=Math.min(4,Math.max(1,x.lv-lvl+1));if(!lvl)n=Math.min(4,x.lv);out+='<h'+n+'>'+esc(t)+'<button class="rd-c" data-act="read-target" data-t="'+esc(t)+'" aria-label="Comment on '+esc(t)+'">+ note</button></h'+n+'>';started=true;return}
-    if(!t.trim())return;
+    if(!t.trim()||isDateP(x))return;
     out+='<p>'+esc(t)+'</p>';started=true;
   });
   return out||'<p class="hint">Nothing under this heading yet.</p>';
@@ -4358,6 +4493,33 @@ EXT.save=async function(name,blob,d){
   if(!u.ok)throw new Error('upload '+u.status);
   var o=await u.json();
   return {name:o.name||name,url:o.webUrl||'',od:{id:o.id,etag:o.eTag||'',mtime:o.lastModifiedDateTime||''},where:'in the same OneDrive folder'};
+};
+
+
+/* write into an existing Word file: back it up, then replace it only if nobody changed it meanwhile */
+EXT.sync=async function(d,fn){
+  var od=d.file.od,meta=await gfetch(odPath(od)+'?$select=id,name,eTag,parentReference,webUrl,lastModifiedDateTime');
+  if(!meta.ok)throw new Error('file '+meta.status);
+  var it=await meta.json(),etag=it.eTag;
+  var c=await gfetch(odPath(od)+'/content');if(!c.ok)throw new Error('read '+c.status);
+  var orig=await c.blob(),file=new File([orig],it.name||d.file.name||'file.docx');
+  var res=await fn(file);
+  if(!res||!res.blob)return {res:res,report:(res&&res.report)||{anchored:0,dated:0,cleared:0,missing:[]},file:null};
+  var pr=it.parentReference||{},pid=pr.id,base=pr.driveId&&od.drive&&pr.driveId!==od.drive?'/drives/'+pr.driveId+'/items/':(od.drive?'/drives/'+od.drive+'/items/':'/me/drive/items/');
+  if(pid){
+    var now=new Date(),z=function(n){return (n<10?'0':'')+n},stamp=now.getFullYear()+'-'+z(now.getMonth()+1)+'-'+z(now.getDate())+' '+z(now.getHours())+z(now.getMinutes()),
+        nm=(it.name||'file.docx').replace(/\.docx$/i,'')+' (backup '+stamp+').docx';
+    var b=await gfetch(base+pid+':/.so-backups/'+encodeURIComponent(nm)+':/content?@microsoft.graph.conflictBehavior=rename',{method:'PUT',headers:{'Content-Type':DOCX_MIME},body:orig});
+    if(!b.ok)throw new Error('backup '+b.status);
+  }
+  var u=await gfetch(odPath(od)+'/content',{method:'PUT',headers:{'Content-Type':DOCX_MIME,'If-Match':etag},body:res.blob});
+  if(u.status===412){var e1=new Error('changed');e1.code='changed';throw e1}
+  if(u.status===423){var e2=new Error('locked');e2.code='locked';throw e2}
+  if(!u.ok)throw new Error('upload '+u.status);
+  var o=await u.json();
+  var nf=new File([res.blob],o.name||it.name||'file.docx',{lastModified:Date.parse(o.lastModifiedDateTime)||Date.now()});
+  nf._od={id:o.id||od.id,drive:od.drive||'',url:o.webUrl||it.webUrl||'',etag:o.eTag||'',mtime:o.lastModifiedDateTime||''};
+  return {res:res,report:res.report,file:nf};
 };
 /* ---------- start ---------- */
 (async function init(){
