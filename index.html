@@ -57,7 +57,7 @@ function syncVersions(){var pr=proj(),cu=(pr&&pr.versions)||[];VARIANTS.length=0
 var AUX_KINDS=['outline','notes','research'];
 var ROUTE_COLORS=[['a','Rose'],['b','Blue'],['c','Green'],['d','Amber'],['e','Violet'],['f','Clay']];
 var DEFAULT_LABELS={1:'Section',2:'Chapter',3:'Subsection',4:'Sub-subsection'};
-var NAV=[['documents','Documents','doc'],['characters','Characters','users'],['locations','Locations','pin'],['timeline','Timeline','clock'],['arcs','Arcs','layers'],['calendar','Calendar','cal']];
+var NAV=[['documents','Documents','doc'],['characters','Characters','users'],['locations','Locations','pin'],['timeline','Timeline','clock'],['arcs','Arcs','layers'],['index','Index','list'],['calendar','Calendar','cal']];
 
 var S={projects:[],documents:[],characters:[],locations:[],events:[],arcs:[],routes:[],
   pid:null,view:'documents',sel:null,seg:'chron',filter:{status:'',arc:'',tag:'',q:''},
@@ -405,6 +405,103 @@ function calMonthHtml(y,m,map,list,evm){
   var hd=(CAL.greg?['Mo','Tu','We','Th','Fr','Sa','Su']:WEEKDAYS.map(function(x){return x.slice(0,nw>7?4:2)})).map(function(x){return '<i>'+esc(x)+'</i>'}).join('');
   return '<section class="calmo'+((monthsOf(y)[m-1]||{}).ins?' leap':'')+'"><h3>'+esc(mname(y,m))+((monthsOf(y)[m-1]||{}).ins?'<em class="calleapt">leap month</em>':'')+(cc?'<small>'+cc+' day'+(cc>1?'s':'')+'</small>':'')+'</h3><div class="calgrid" style="grid-template-columns:repeat('+nw+',minmax(0,1fr))">'+hd+cells+'</div></section>';
 }
+
+/* ---------- chapter text preview ---------- */
+var PVC={},PVOFF={};
+function pvBlock(k){
+  var off=!!PVOFF[k];
+  return '<div class="pvh"><span class="lab">Opening lines</span><button type="button" class="btn sm" data-act="pv-toggle" data-k="'+esc(k)+'">'+(off?'Show':'Hide')+'</button></div>'+(off?'':'<div class="pvbox" data-pv="'+esc(k)+'"><p class="hint">Loading…</p></div>');
+}
+function pvSnippet(seg){
+  var out='',i,t;
+  for(i=0;i<seg.length&&out.length<300;i++){if(seg[i].lv>0)continue;t=String(seg[i].text||'').replace(/\s+/g,' ').trim();if(t)out+=(out?' ':'')+t}
+  if(out.length>300){out=out.slice(0,300);var sp=out.lastIndexOf(' ');if(sp>200)out=out.slice(0,sp);out+='…'}
+  return out;
+}
+async function pvFill(box){
+  var k=box.getAttribute('data-pv'),a=k.split('|'),d=byId('documents',a[0]);if(!d)return;
+  var c=PVC[k];if(c&&Date.now()-c.at<120000){box.innerHTML=c.html;return}
+  var html='',ok=false;
+  try{
+    var hd=a[1]?(d.headings||[]).filter(function(x){return x.id===a[1]})[0]:null,paras=await rdParas(d,false);
+    if(paras===null)html='<p class="hint">Not connected to the Word file yet. Press “Read this” once and pick the files.</p>';
+    else{var seg=rdSlice(d,hd,paras);
+      if(!seg)html='<p class="hint">I could not find this heading in the file. Refresh the headings if you renamed it.</p>';
+      else{var sn=pvSnippet(seg);html=sn?'<blockquote class="pvq">'+esc(sn)+'</blockquote>':'<p class="hint">Nothing written under this heading yet.</p>';ok=true}}
+  }catch(e){html='<p class="hint">I could not read the file'+(e&&e.message?' ('+esc(e.message)+')':'')+'.</p>'}
+  if(ok)PVC[k]={html:html,at:Date.now()};
+  if(box.isConnected)box.innerHTML=html;
+}
+function pvHydrate(){Array.prototype.forEach.call(document.querySelectorAll('details[open] .pvbox[data-pv]'),function(b){pvFill(b)})}
+document.addEventListener('toggle',function(e){var t=e.target;if(t&&t.tagName==='DETAILS'&&t.open)Array.prototype.forEach.call(t.querySelectorAll('.pvbox[data-pv]'),function(b){pvFill(b)})},true);
+
+/* ---------- chapter index ---------- */
+function ixSt(){return S.ix=S.ix||{from:'',to:'',off:{}}}
+function ixItems(){return rdByDate(rdItemsBase()).map(function(x){return {d:x.d,h:x.h,k:x.ek,key:rdKey(x)}})}
+function ixBounds(){
+  var s=ixSt(),lo=null,hi=null,bad='';
+  if((s.from||'').trim()){var a=autoKey(s.from);if(a==null)bad='I could not read the “from” date.';else lo=a}
+  if((s.to||'').trim()){var b=autoKey(s.to);if(b==null)bad=bad||'I could not read the “to” date.';else hi=(b%10000===0)?b+9999:(b%100===0?b+99:b)}
+  return {lo:lo,hi:hi,bad:bad,on:lo!=null||hi!=null};
+}
+function ixShown(items,b){
+  return items.filter(function(x){if(!b.on)return true;if(x.k==null)return false;return (b.lo==null||x.k>=b.lo)&&(b.hi==null||x.k<=b.hi)});
+}
+function ixSelected(){var off=ixSt().off;return ixShown(ixItems(),ixBounds()).filter(function(x){return !off[x.key]})}
+function ixView(){
+  var s=ixSt(),all=ixItems(),b=ixBounds(),shown=ixShown(all,b),off=s.off,n=shown.filter(function(x){return !off[x.key]}).length;
+  var head='<div class="lhead"><div class="ltitle"><h1>Chapter index</h1><span class="cnt">'+(b.on?shown.length+' of '+all.length:all.length)+'</span></div><div class="lact"><button class="btn sm" data-act="read-canon" aria-pressed="'+rdCanonOnly()+'">Canon only</button><button class="btn primary" data-act="ix-export"'+(n?'':' disabled')+'>Export '+n+' to Word</button></div></div>'+
+    '<div class="ixf"><label class="ixl"><span class="lab">From</span><input class="in" id="ix-from" value="'+esc(s.from)+'" placeholder="e.g. March 1250" data-change="ix-range"></label><label class="ixl"><span class="lab">To</span><input class="in" id="ix-to" value="'+esc(s.to)+'" placeholder="e.g. 9 June 1250" data-change="ix-range"></label>'+
+    (b.on?'<button class="btn sm" data-act="ix-clear">Clear range</button>':'')+(shown.length?'<button class="btn sm" data-act="ix-all" data-v="1">Tick all</button><button class="btn sm" data-act="ix-all" data-v="0">Untick all</button>':'')+'</div>'+
+    (b.bad?'<p class="hint" style="padding:0 16px">'+esc(b.bad)+' Try a year, a month and year, or a full date.</p>':'<p class="hint" style="padding:0 16px">Chapters in story-date order. A year alone covers the whole year. Tick or untick chapters, then export what is ticked to one Word file.</p>');
+  var rows='',last;
+  if(!all.length)rows='<div class="empty"><h1>No chapters yet</h1><p>Add Word files in the reading order and give their chapters story dates.</p></div>';
+  else if(!shown.length)rows='<div class="empty"><h1>Nothing in that range</h1><p>No chapter has a story date between those two dates.</p></div>';
+  shown.forEach(function(x){
+    var d=x.d,hd=x.h,dt=x.k!=null?keyLong(x.k):'No date',arc=chapArc(d,hd||{}),pov=(hd&&hd.pov)||d.pov||'',sm=(hd&&hd.summary)||'',o=!!off[x.key];
+    if(dt!==last){rows+='<div class="ixg">'+esc(dt)+'</div>';last=dt}
+    rows+='<div class="ixr'+(o?' off':'')+'" role="listitem"><input type="checkbox" data-change="ix-tick" data-k="'+esc(x.key)+'"'+(o?'':' checked')+' aria-label="Include in the export"><div class="ixm"><b>'+esc(hd?hd.title:d.title)+'</b><small>'+esc([d.title,arc?nameOf('arcs',arc):'',pov?'POV '+nameOf('characters',pov):''].filter(Boolean).join(' · '))+'</small>'+(sm?'<p class="ixs">'+esc(sm)+'</p>':'')+'</div><div class="ixa"><button class="btn sm" data-act="read-open" data-id="'+d.id+'" data-hid="'+(hd?hd.id:'')+'">Read</button><button class="btn sm" data-act="ix-open" data-id="'+d.id+'">Details</button></div></div>';
+  });
+  return {head:head,rows:rows};
+}
+function ixExpModal(){
+  var m=S.modal,sel=ixSelected(),docs={};sel.forEach(function(x){docs[x.d.id]=x.d.title});
+  return '<h2>Export to Word</h2><p class="hint">'+sel.length+' chapter'+(sel.length===1?'':'s')+' from '+Object.keys(docs).length+' file'+(Object.keys(docs).length===1?'':'s')+', in story-date order, copied into one new Word file. Nothing in your originals changes. Formatting is simplified.</p>'+
+    '<label class="lab" for="ixName">File name</label><input class="in" id="ixName" value="'+esc(m.name)+'">'+
+    '<label class="chk" style="margin-top:10px"><input type="checkbox" id="ixDate"'+(m.date?' checked':'')+'><span>Put the story date above each chapter</span></label>'+
+    '<label class="chk"><input type="checkbox" id="ixPb"'+(m.pb?' checked':'')+'><span>Start each chapter on a new page</span></label>'+
+    '<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn primary" data-act="ix-export-go">Export</button></div>';
+}
+async function ixRun(){
+  var m=S.modal,nm=(document.getElementById('ixName')||{}).value||m.name,wd=!!(document.getElementById('ixDate')||{}).checked,pb=!!(document.getElementById('ixPb')||{}).checked;
+  var sel=ixSelected();if(!sel.length){closeModal();return}
+  S.modal={type:'busy',msg:'Collecting the chapters.'};renderModal();
+  try{
+    var cache={},missing=[],out=[],skipped=0;
+    for(var i=0;i<sel.length;i++){
+      var d=sel[i].d;
+      if(!(d.id in cache)){var pa=await rdParas(d,false);cache[d.id]=pa;if(pa===null&&missing.indexOf(d.title)<0)missing.push(d.title)}
+    }
+    if(missing.length){closeModal();toast('Connect these Word files first (Read, then Pick the Word files): '+missing.slice(0,3).join(', ')+(missing.length>3?'…':'')+'.');return}
+    sel.forEach(function(x,j){
+      var seg=x.h?rdSlice(x.d,x.h,cache[x.d.id]):cache[x.d.id].slice();
+      if(!seg){skipped++;return}
+      seg=seg.slice();while(seg.length>1&&!String(seg[seg.length-1].text).trim())seg.pop();
+      if(j&&pb)out.push({pb:1});
+      if(wd&&x.k!=null)out.push({lv:0,text:keyLong(x.k)});
+      seg.forEach(function(p){out.push({lv:p.lv,text:p.text})});
+    });
+    if(!out.length){closeModal();toast('I could not find those chapters in the files. Try the reload button in Read.');return}
+    var blob=new Blob([await buildDocx(out)],{type:DOCX_MIME});
+    await downloadBlob(cleanName(nm),blob);
+    closeModal();toast((sel.length-skipped)+' chapter'+(sel.length-skipped===1?'':'s')+' exported'+(skipped?' ('+skipped+' not found in the file)':'')+'. Check your downloads.');
+  }catch(err){
+    closeModal();
+    if(err&&err.code==='declined')toast('Nothing was exported.');
+    else toast('Export failed'+(err&&err.message?': '+err.message:'')+'.');
+  }
+}
+
 /* ---------- school terms ---------- */
 function schoolRaw(){var pr=proj();return (pr&&pr.school)||{years:[],rest:null,nums:false}}
 var SO={sig:'',v:null};
@@ -1185,6 +1282,7 @@ trash:'<path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/>',
 upload:'<path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M5 20h14"/>',
 sliders:'<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>',
 chev:'<path d="M6 9l6 6 6-6"/>',
+list:'<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>',
 check:'<path d="M5 12.5l4.5 4.5L19 7.5"/>',
 folder:'<path d="M3 7a1 1 0 011-1h5l2 2h8a1 1 0 011 1v9a1 1 0 01-1 1H4a1 1 0 01-1-1z"/>',
 box:'<rect x="4.5" y="4.5" width="15" height="15" rx="3"/>',
@@ -1278,8 +1376,8 @@ function render(){
   RDV++;
   if(S.sel&&!selObj())S.sel=null;
   $('#app').classList.toggle('has-sel',!!S.sel);
-  $('#app').classList.toggle('calview',S.view==='calendar');
-  renderTop();renderBanner();renderRail();renderList();renderDetail();
+  $('#app').classList.toggle('calview',S.view==='calendar'||S.view==='index');
+  renderTop();renderBanner();renderRail();renderList();renderDetail();pvHydrate();
 }
 function selObj(){
   if(!S.sel)return null;
@@ -1300,7 +1398,7 @@ function renderBanner(){
   $('#bannerbox').innerHTML=S.banner?'<div class="banner">'+esc(S.banner)+(S.bannerAct||[]).map(function(a){return ' <button class="btn sm" data-act="'+a.act+'">'+esc(a.label)+'</button>'}).join('')+'</div>':'';
 }
 function counts(){
-  return {documents:eff('documents').length,characters:P('characters').length,locations:P('locations').length,timeline:eff('events').length,arcs:eff('arcs').length,calendar:(proj()&&proj().calItems||[]).length};
+  return {documents:eff('documents').length,characters:P('characters').length,locations:P('locations').length,timeline:eff('events').length,arcs:eff('arcs').length,index:rdItemsBase().length,calendar:(proj()&&proj().calItems||[]).length};
 }
 function renderRail(){
   var has=!!proj(), c=counts();
@@ -1482,6 +1580,7 @@ timeline:function(){
   return {head:head,rows:rows};
 },
 calendar:function(){return calView()},
+index:function(){return ixView()},
 arcs:function(){
   var arcs=sortBy(eff('arcs'),'order'), docs=eff('documents'), ap=posMap('arcs','order'), canDrag=S.vis==='all';
   var list=arcs.filter(visOk);
@@ -1550,6 +1649,7 @@ function chapterRow(d,hd,oc){
     '<div><label class="lab" for="cha-'+hd.id+'">Arc</label><select class="in" id="cha-'+hd.id+'" data-chap="'+k+'arcId">'+optList('arcs',hd.arcId,'Same as the file','order')+'</select></div>'+
     '<div><label class="lab" for="chv-'+hd.id+'">Version</label><select class="in" id="chv-'+hd.id+'" data-chap="'+k+'variant"><option value="">Same as the file</option>'+selOpts(VARIANTS.concat([['trashed','Trashed (leave out of reading and timeline)']]),hd.variant||'')+'</select></div>'+
     '<div class="span2"><label class="lab" for="chs-'+hd.id+'">What happens</label><textarea class="in" id="chs-'+hd.id+'" data-chap="'+k+'summary" placeholder="A line or two in your own words">'+esc(hd.summary||'')+'</textarea></div></div>'+
+    '<div class="chapsec pv">'+pvBlock(d.id+'|'+hd.id)+'</div>'+
     '<div class="chapsec"><span class="lab">Tags</span><div class="chips">'+(hd.tags||[]).map(function(t){return '<span class="chip mut">#'+esc(t)+'<button class="x" data-act="ctag-del" data-id="'+d.id+'" data-hid="'+hd.id+'" data-v="'+esc(t)+'" aria-label="Remove tag '+esc(t)+'">'+ic('x',12)+'</button></span>'}).join('')+'</div><div class="addrow"><input class="in" id="ct-'+hd.id+'" data-enter="ctag-add" data-id="'+d.id+'" data-hid="'+hd.id+'" placeholder="Add tags, separated by commas" aria-label="New tags for this chapter"><button class="btn" data-act="ctag-add" data-id="'+d.id+'" data-hid="'+hd.id+'">Add</button></div></div>'+
     '<div class="chapsec"><span class="lab">Characters</span><div class="chips">'+chipsFor(d,hd,'characterIds','characters')+add('characterIds','characters','character')+'</div></div>'+
     '<div class="chapsec"><span class="lab">Locations</span><div class="chips">'+chipsFor(d,hd,'locationIds','locations')+add('locationIds','locations','location')+'</div></div>'+
@@ -1784,6 +1884,7 @@ function renderModal(){
   else if(m.type==='schterm')inner=schTermModal();
   else if(m.type==='schbreak')inner=schBreakModal();
   else if(m.type==='schyear')inner=schYearModal();
+  else if(m.type==='ixexp')inner=ixExpModal();
   else if(m.type==='calset')inner=calModal();
   else if(m.type==='schimp')inner=schImpModal();
   else if(m.type==='revpass')inner=revModal();
@@ -1991,6 +2092,7 @@ function xruns(t){return String(t).split(/(\t|\n)/).map(function(s){return s==='
 async function buildDocx(paras){
   var NS='xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"', hd='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
   var body=paras.map(function(x){
+    if(x.pb)return '<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
     var lv=Math.min(x.lv||0,6);
     return '<w:p>'+(lv?'<w:pPr><w:pStyle w:val="Heading'+lv+'"/></w:pPr>':'')+xruns(x.text)+'</w:p>';
   }).join('');
@@ -2668,6 +2770,12 @@ clear:function(el){
   S._nd=S._nd||{};S._nd[pr.id]=0;save('projects',pr);syncCal();closeModal();render();toast('Calendar saved. Dates written with other month names need picking again.');
 },
 /* ---- story calendar ---- */
+'pv-toggle':function(el){var k=el.dataset.k;PVOFF[k]=!PVOFF[k];var b=el.closest('.pv');if(b){b.innerHTML=pvBlock(k);pvHydrate()}},
+'ix-clear':function(){var s=ixSt();s.from='';s.to='';render()},
+'ix-all':function(el){var s=ixSt(),on=el.dataset.v==='1';ixShown(ixItems(),ixBounds()).forEach(function(x){if(on)delete s.off[x.key];else s.off[x.key]=1});render()},
+'ix-open':function(el){S.view='documents';S.sel=el.dataset.id;render()},
+'ix-export':function(){var s=ixSt(),nm='Chapters';if((s.from||'').trim()||(s.to||'').trim())nm+=' '+((s.from||'').trim()||'start')+' to '+((s.to||'').trim()||'end');else nm+=' in story order';S.modal={type:'ixexp',name:nm,date:true,pb:true};renderModal()},
+'ix-export-go':function(){ixRun()},
 'cal-mode':function(el){S.calMode=el.dataset.v;render()},
 'cal-addyear':function(){var e=document.getElementById('cal-ay'),y=parseInt(e&&e.value,10),pr=proj();if(!pr)return;if(!(y>=100&&y<=9999)){toast('Use a year between 100 and 9999.');return}pr.calYears=(pr.calYears||[]).filter(function(v){return v!==y}).concat([y]).sort(function(a,b){return a-b});save('projects',pr);S.calY=y;render()},
 'sch-rest':function(el){var w=+el.dataset.w,cur=schoolRest().slice(),i=cur.indexOf(w);if(i>-1)cur.splice(i,1);else cur.push(w);schoolWrite(function(s){s.rest=cur.sort(function(a,b){return a-b})});render()},
@@ -3121,6 +3229,9 @@ function selectLink(d){
 
 var CH={
 'cali-sync':function(){A['cali-sync']()},
+'ix-range':function(){var s=ixSt();s.from=document.getElementById('ix-from').value;s.to=document.getElementById('ix-to').value;render()},
+'ix-tick':function(t){var s=ixSt();if(t.checked)delete s.off[t.dataset.k];else s.off[t.dataset.k]=1;var n=ixSelected().length,b=document.querySelector('[data-act="ix-export"]');if(b){b.textContent='Export '+n+' to Word';b.disabled=!n}var r=t.closest('.ixr');if(r)r.classList.toggle('off',!t.checked)},
+
 'sch-sync':function(el){schCapture();var m=S.modal,pe=document.getElementById('sc-prev');
   if(el&&el.tagName==='INPUT'&&pe){
     if(/-y$/.test(el.id)){var ms=document.getElementById(el.id.replace(/-y$/,'-m'));if(ms){var cur=ms.value;ms.innerHTML='<option value="">Month</option>'+yearMonthIds(+el.value||S.calY||0,+cur);}}
