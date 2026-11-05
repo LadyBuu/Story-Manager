@@ -237,13 +237,24 @@ function defYearOf(d){
   var k=autoKey(d.storyDate);return k!=null&&Math.floor(k/10000)>=100?Math.floor(k/10000):'';
 }
 function defYearFor(target){var a=target.split(':');return (a[0]==='c'||a[0]==='d')?defYearOf(byId('documents',a[1])):''}
+function schPickOn(){try{return localStorage.getItem('so-cal-sch')!=='0'}catch(e){return true}}
 function calHtml(target,pt){
   var c=S.cal, y=c.y, m=c.m, nw=CAL.greg?7:WEEKDAYS.length, first=CAL.greg?(wdayOf(y,m,1)+6)%7:wdayOf(y,m,1), n=dim(y,m), sel=(pt.y===y&&pt.m===m)?pt.d:0, cells='';
   for(var i=0;i<first;i++)cells+='<span></span>';
-  for(var d=1;d<=n;d++)cells+='<button type="button" class="cal-d'+(d===sel?' on':'')+'" data-act="cal-pick" data-t="'+target+'" data-d="'+d+'" aria-label="'+d+' '+mname(y,m)+' '+y+', '+WEEKDAYS[wdayOf(y,m,d)]+'">'+d+'</button>';
+  var sc=schoolCalc(), hasSch=sc.order.length>0, showSch=hasSch&&schPickOn(), its0=calItems(), notes=[];
+  for(var d=1;d<=n;d++){
+    var its=its0.length?itemsOn(y,m,d,its0):[], sd=showSch?sc.days[y*10000+m*100+d]:null, dots='', tip=[];
+    its.slice(0,3).forEach(function(it){dots+='<i style="--rc:var(--r-'+ckOf(it.kind)[2]+')"></i>'});
+    its.forEach(function(it){tip.push(it.title);notes.push([d,it])});
+    if(sd)tip.push(sd.kind==='t'?(sd.term.name||'Term')+', school day '+sd.n:sd.kind==='b'?'Break: '+(sd.brk&&sd.brk.name||'Break'):'Rest day');
+    cells+='<button type="button" class="cal-d'+(d===sel?' on':'')+(its.length?' hasit':'')+(sd?' sch-'+sd.kind+(sd.start?' sch-s':'')+(sd.end?' sch-e':''):'')+'" data-act="cal-pick" data-t="'+target+'" data-d="'+d+'" title="'+esc(tip.join(' · '))+'" aria-label="'+d+' '+mname(y,m)+' '+y+', '+WEEKDAYS[wdayOf(y,m,d)]+(tip.length?', '+esc(tip.join(', ')):'')+'"><b>'+d+'</b>'+(dots?'<span class="cal-dots">'+dots+'</span>':'')+'</button>';
+  }
+  var nt=notes.slice(0,6).map(function(x){return '<span class="cal-nt" style="--rc:var(--r-'+ckOf(x[1].kind)[2]+')"><i></i>'+x[0]+' '+esc(x[1].title)+'</span>'}).join('')+(notes.length>6?'<span class="cal-nt more">+'+(notes.length-6)+' more</span>':'');
+  var sw=hasSch?'<label class="chk cal-sw"><input type="checkbox" data-change="cal-sch"'+(showSch?' checked':'')+'><span>School terms</span></label>':'';
   return '<div class="cal" role="group" aria-label="Calendar"><div class="cal-h"><button type="button" class="btn sm" data-act="cal-nav" data-n="-1" aria-label="Previous month">‹</button><b>'+mname(y,m)+' '+y+'</b><button type="button" class="btn sm" data-act="cal-nav" data-n="1" aria-label="Next month">›</button></div>'+
     '<div class="cal-g" style="grid-template-columns:repeat('+nw+',minmax(1.6em,1fr))">'+(CAL.greg?['Mo','Tu','We','Th','Fr','Sa','Su']:WEEKDAYS.map(function(x){return x.slice(0,nw>7?4:2)})).map(function(x){return '<i>'+esc(x)+'</i>'}).join('')+cells+'</div>'+
-    '<div class="cal-f"><small class="hint">'+(CAL.greg?'Weekdays follow the modern calendar, counted back for old years.':'Weekdays follow your calendar.')+'</small><button type="button" class="btn sm" data-act="cal-close">Close</button></div></div>';
+    (nt?'<div class="cal-n">'+nt+'</div>':'')+(showSch?'<div class="cal-lg"><span><i class="calsw sw-t"></i>term</span><span><i class="calsw sw-b"></i>break</span><span><i class="calsw sw-r"></i>rest</span></div>':'')+
+    '<div class="cal-f"><small class="hint">'+(CAL.greg?'Weekdays follow the modern calendar, counted back for old years.':'Weekdays follow your calendar.')+'</small>'+sw+'<button type="button" class="btn sm" data-act="cal-close">Close</button></div></div>';
 }
 function ordinal(n){var t=n%100;if(t>=11&&t<=13)return n+'th';return n+({1:'st',2:'nd',3:'rd'}[n%10]||'th')}
 function longDate(text){
@@ -2040,17 +2051,8 @@ function projectsModal(){
 }
 function settingsModal(){
   var t=curTheme(), p=proj(), h='<h2>Settings</h2>';
-  var THEMES=[
-    ['system','System'],['light','Light'],['dark','Dark'],
-    ['vaporwave','Vaporwave'],['pastel','Pastel'],['carnival','Carnival'],
-    ['maximal','Maximal'],['gits','GITS'],['stained-glass','Stained Glass'],
-    ['nouveau','Nouveau'],['ukiyo-e','Ukiyo-e'],['nature','Nature'],
-    ['kmt','KMT'],['gaslight','Gaslight'],['grotesque','Grotesque'],
-    ['illuminated','Illuminated'],['discowing','Discowing'],['choc-cake','Choc Cake'],
-    ['dada','Dada'],['brutalist','Brutalist'],['orchestrion','Orchestrion'],
-    ['rococo','Rococo'],['nautical-tile','Nautical Tile']
-  ];
-  h+='<div class="sec"><h3>Theme</h3><div class="seg" role="group" aria-label="Theme" style="flex-wrap:wrap">'+THEMES.map(function(v){return '<button data-act="theme" data-v="'+v[0]+'" aria-pressed="'+(t===v[0])+'">'+v[1]+'</button>'}).join('')+'</div></div>';
+  var THEMES=[['system','System','',''],['dark','Dark','#15171b','#b8a27a'],['light','Light','#ece9df','#4f7a12'],['vaporwave','Vaporwave','#100b24','#ff4fd8'],['pastel','Pastel','#fff1f7','#ed72aa'],['carnival','Carnival','#060608','#ff007f'],['maximal','Maximal','#fff0fb','#ff2ea6'],['gits','GITS','#07080c','#ff1a8c'],['nouveau','Nouveau','#f4ebd8','#c45c34'],['stained-glass','Stained Glass','#0a1520','#5ee8ff'],['ukiyo-e','Ukiyo-e','#F4EAD5','#234F70'],['kmt','KMT','#000000','#A30000'],['nature','Nature','#DDE8D8','#C982A0'],['gaslight','Gaslight','#1A1A22','#D4B56C'],['illuminated','Illuminated','#F4EBD5','#2E4D7B'],['grotesque','Grotesque','#0d0a0a','#7A2424'],['discowing','Discowing','#F8A342','#0080FF'],['choc-cake','Choc Cake','#2A0B1F','#FF0000'],['dada','Dada','#E8E5DF','#D4A32A'],['orchestrion','Orchestrion','#1F1410','#A82C2C'],['brutalist','Brutalist','#E6E6E6','#FF3300'],['rococo','Rococo','#E8F0F2','#527F96'],['nautical-tile','Nautical Tile','#E4EAF0','#1F4A8A']];
+  h+='<div class="sec"><h3>Theme</h3><div class="themegrid" role="group" aria-label="Theme">'+THEMES.map(function(v){return '<button data-act="theme" data-v="'+v[0]+'" title="'+esc(v[1])+'" aria-pressed="'+(t===v[0])+'"'+(v[0]==='system'?' style="grid-column:1/-1"':'')+'>'+(v[2]?'<i class="thsw" style="background:'+v[2]+';box-shadow:inset -7px 0 0 '+v[3]+'"></i>':'<i class="thsw sys"></i>')+'<span class="tn">'+esc(v[1])+'</span></button>'}).join('')+'</div></div>';
   if(p){
     h+='<div class="sec"><h3>This project</h3><label class="lab" for="sp-n">Name</label><input class="in" id="sp-n" data-bind="projects:'+p.id+':name" value="'+esc(p.name)+'">'+
       '<label class="lab" for="sp-f" style="margin-top:12px">OneDrive folder link</label><input class="in" id="sp-f" data-bind="projects:'+p.id+':folderUrl" value="'+esc(p.folderUrl||'')+'" placeholder="Optional. Adds an OneDrive button to Documents" inputmode="url">'+
@@ -3362,6 +3364,7 @@ function selectLink(d){
 
 var CH={
 'cali-sync':function(){A['cali-sync']()},
+'cal-sch':function(t){try{localStorage.setItem('so-cal-sch',t.checked?'1':'0')}catch(e){}render()},
 'ix-range':function(){var s=ixSt();s.from=document.getElementById('ix-from').value;s.to=document.getElementById('ix-to').value;render()},
 'ix-tick':function(t){var s=ixSt();if(t.checked)delete s.off[t.dataset.k];else s.off[t.dataset.k]=1;var n=ixSelected().length,b=document.querySelector('[data-act="ix-export"]');if(b){b.textContent='Export '+n+' to Word';b.disabled=!n}var r=t.closest('.ixr');if(r)r.classList.toggle('off',!t.checked)},
 
