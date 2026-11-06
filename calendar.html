@@ -57,7 +57,7 @@ function syncVersions(){var pr=proj(),cu=(pr&&pr.versions)||[];VARIANTS.length=0
 var AUX_KINDS=['outline','notes','research'];
 var ROUTE_COLORS=[['a','Rose'],['b','Blue'],['c','Green'],['d','Amber'],['e','Violet'],['f','Clay']];
 var DEFAULT_LABELS={1:'Section',2:'Chapter',3:'Subsection',4:'Sub-subsection'};
-var NAV=[['documents','Documents','doc'],['characters','Characters','users'],['locations','Locations','pin'],['timeline','Timeline','clock'],['arcs','Arcs','layers'],['index','Index','list'],['calendar','Calendar','cal']];
+var NAV=[['documents','Documents','doc'],['arcs','Arcs','layers'],['index','Chapters','list'],['timeline','Timeline','clock'],['calendar','Calendar','cal'],['characters','Characters','users'],['locations','Locations','pin']];
 
 var S={projects:[],documents:[],characters:[],locations:[],events:[],arcs:[],routes:[],
   pid:null,view:'documents',sel:null,seg:'chron',filter:{status:'',arc:'',tag:'',q:''},
@@ -461,59 +461,104 @@ function ixShown(items,b){
 }
 function ixSelected(){var off=ixSt().off;return ixShown(ixItems(),ixBounds()).filter(function(x){return !off[x.key]})}
 function ixView(){
-  var s=ixSt(),all=ixItems(),b=ixBounds(),shown=ixShown(all,b),off=s.off,n=shown.filter(function(x){return !off[x.key]}).length;
-  var head='<div class="lhead"><div class="ltitle"><h1>Chapter index</h1><span class="cnt">'+(b.on?shown.length+' of '+all.length:all.length)+'</span></div><div class="lact"><button class="btn sm" data-act="read-canon" aria-pressed="'+rdCanonOnly()+'">Canon only</button><button class="btn primary" data-act="ix-export"'+(n?'':' disabled')+'>Export '+n+' to Word</button></div></div>'+
+  var s=ixSt(), mode=s.sort==='read'?'read':'date', b=ixBounds();
+  var all=mode==='read'?rdItemsBase().map(function(x){return {d:x.d,h:x.h,k:x.h?itemKey(x.h):(itemKey(x.d)),key:rdKey(x)}}):ixItems();
+  var shown=ixShown(all,b), off=s.off, n=shown.filter(function(x){return !off[x.key]}).length, canDrag=mode==='read'&&!b.on;
+  var head='<div class="lhead"><div class="ltitle"><h1>Chapters</h1><span class="cnt">'+(b.on?shown.length+' of '+all.length:all.length)+'</span></div><div class="lact"><button class="btn primary" data-act="ix-export"'+(n?'':' disabled')+'>Export '+n+' to Word</button></div></div>'+
+    '<div class="ixf"><div class="seg ixsort" role="group" aria-label="Order"><button data-act="ix-sort" data-v="date" aria-pressed="'+(mode==='date')+'">Story date</button><button data-act="ix-sort" data-v="read" aria-pressed="'+(mode==='read')+'">Reading order</button></div><button class="btn sm" data-act="read-canon" aria-pressed="'+rdCanonOnly()+'">Canon only</button></div>'+
     '<div class="ixf"><label class="ixl"><span class="lab">From</span><input class="in" id="ix-from" value="'+esc(s.from)+'" placeholder="e.g. March 1250" data-change="ix-range"></label><label class="ixl"><span class="lab">To</span><input class="in" id="ix-to" value="'+esc(s.to)+'" placeholder="e.g. 9 June 1250" data-change="ix-range"></label>'+
     (b.on?'<button class="btn sm" data-act="ix-clear">Clear range</button>':'')+(shown.length?'<button class="btn sm" data-act="ix-all" data-v="1">Tick all</button><button class="btn sm" data-act="ix-all" data-v="0">Untick all</button>':'')+'</div>'+
-    (b.bad?'<p class="hint" style="padding:0 16px">'+esc(b.bad)+' Try a year, a month and year, or a full date.</p>':'<p class="hint" style="padding:0 16px">Chapters in story-date order. A year alone covers the whole year. Tick or untick chapters, then export what is ticked to one Word file.</p>');
+    (b.bad?'<p class="hint" style="padding:0 16px">'+esc(b.bad)+' Try a year, a month and year, or a full date.</p>':'<p class="hint" style="padding:0 16px">Every chapter, edited here exactly as in Documents. '+(mode==='read'?(canDrag?'Drag the grip to change the reading order. Files move to match.':'Clear the range to drag chapters.'):'Sorted by story date.')+' Tick chapters to export them to one Word file.</p>');
   var rows='',last;
   if(!all.length)rows='<div class="empty"><h1>No chapters yet</h1><p>Add Word files in the reading order and give their chapters story dates.</p></div>';
   else if(!shown.length)rows='<div class="empty"><h1>Nothing in that range</h1><p>No chapter has a story date between those two dates.</p></div>';
   shown.forEach(function(x){
-    var d=x.d,hd=x.h,dt=x.k!=null?keyLong(x.k):'No date',arc=chapArc(d,hd||{}),pov=(hd&&hd.pov)||d.pov||'',sm=(hd&&hd.summary)||'',o=!!off[x.key];
-    if(dt!==last){rows+='<div class="ixg">'+esc(dt)+'</div>';last=dt}
-    rows+='<div class="ixr'+(o?' off':'')+'" role="listitem"><input type="checkbox" data-change="ix-tick" data-k="'+esc(x.key)+'"'+(o?'':' checked')+' aria-label="Include in the export"><div class="ixm"><b>'+esc(hd?hd.title:d.title)+'</b><small>'+esc([d.title,arc?nameOf('arcs',arc):'',pov?'POV '+nameOf('characters',pov):''].filter(Boolean).join(' · '))+'</small>'+(sm?'<p class="ixs">'+esc(sm)+'</p>':'')+'</div><div class="ixa"><button class="btn sm" data-act="read-open" data-id="'+d.id+'" data-hid="'+(hd?hd.id:'')+'">Read</button><button class="btn sm" data-act="ix-open" data-id="'+d.id+'">Details</button></div></div>';
+    var d=x.d,hd=x.h,dt=x.k!=null?keyLong(x.k):'No date',arc=chapArc(d,hd||{}),pov=(hd&&hd.pov)||d.pov||'',o=!!off[x.key], pos=rdPosOf(d,hd);
+    if(mode==='date'&&dt!==last){rows+='<div class="ixg">'+esc(dt)+'</div>';last=dt}
+    rows+='<div class="row'+(canDrag?'':' nohandle')+(S.sel===x.key?' sel':'')+(o?' off':'')+'" role="listitem" tabindex="0" data-act="ix-sel" data-id="'+esc(x.key)+'">'+(canDrag?'<button class="handle" data-handle aria-label="Move '+esc(hd?hd.title:d.title)+'. Use arrow keys or drag.">'+ic('grip',16)+'</button>':'')+
+      '<div class="folio"><b>'+(pos?pad(pos):'')+'</b></div><div class="rb"><div class="rt">'+(esc(hd?hd.title:d.title)||'Untitled')+'</div><div class="rm">'+esc([mode==='read'?dt:'',d.title,arc?nameOf('arcs',arc):'',pov?'POV '+nameOf('characters',pov):''].filter(function(v){return v&&v!=='No date'||false}).join(' · '))+'</div></div>'+
+      '<label class="ixck" title="Include in the export"><input type="checkbox" data-change="ix-tick" data-k="'+esc(x.key)+'"'+(o?'':' checked')+' aria-label="Include in the export"></label></div>';
   });
+  if(canDrag&&rows.indexOf('class="row')>-1)rows='<div data-sort="chapters:read">'+rows+'</div>';
   return {head:head,rows:rows};
+}
+function chapOpenN(d,hd){return (d.notes||[]).filter(function(n){return n.state!=='done'&&n.h===hd.title}).length}
+function idxCard(){
+  var a=String(S.sel||'').split('|'), d=byId('documents',a[0]);
+  if(!d)return '<div class="empty-detail">Select a chapter to see and edit it.</div>';
+  var hs=d.headings||[], hd=a[1]?hs.filter(function(x){return x.id===a[1]})[0]:null;
+  if(!hd)return docCard(d);
+  var i=hs.indexOf(hd), e=i+1;while(e<hs.length&&hs[e].level>hd.level)e++;
+  var h='<div class="dbar"><button class="back" data-act="back">'+ic('back')+'Back</button><span class="crumb">Chapter</span><button class="btn sm" data-act="goto" data-view="documents" data-id="'+d.id+'">Open the file</button></div>';
+  h+='<p class="hint" style="margin:0 0 8px">From <b>'+esc(d.title)+'</b>. Same fields as in Documents.</p>';
+  S.chapOpen=S.chapOpen||{};S.chapOpen[hd.id]=true;
+  h+='<div class="chaps">'+hs.slice(i,e).filter(function(x){return !x.missing&&!x.moved}).map(function(x){return chapterRow(d,x,chapOpenN(d,x))}).join('')+'</div>';
+  return h;
 }
 function ixExpModal(){
   var m=S.modal,sel=ixSelected(),docs={};sel.forEach(function(x){docs[x.d.id]=x.d.title});
-  return '<h2>Export to Word</h2><p class="hint">'+sel.length+' chapter'+(sel.length===1?'':'s')+' from '+Object.keys(docs).length+' file'+(Object.keys(docs).length===1?'':'s')+', in story-date order, copied into one new Word file. Nothing in your originals changes. Formatting is simplified.</p>'+
+  var nd=Object.keys(docs).length;
+  return '<h2>Export to Word</h2><p class="hint">'+sel.length+' chapter'+(sel.length===1?'':'s')+' from '+nd+' file'+(nd===1?'':'s')+', in story-date order, written to one new Word file. It is saved next to your files and added to Documents.</p>'+
     '<label class="lab" for="ixName">File name</label><input class="in" id="ixName" value="'+esc(m.name)+'">'+
     '<label class="chk" style="margin-top:10px"><input type="checkbox" id="ixDate"'+(m.date?' checked':'')+'><span>Put the story date above each chapter</span></label>'+
     '<label class="chk"><input type="checkbox" id="ixPb"'+(m.pb?' checked':'')+'><span>Start each chapter on a new page</span></label>'+
+    '<label class="chk"><input type="checkbox" id="ixMark"'+(m.mark?' checked':'')+'><span><b>Mark them as extracted in the originals</b><small>Off: the new file is added but left out of reading order and the timeline, so nothing counts twice. On: the new file takes over from the originals, like Extract.</small></span></label>'+
     '<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn primary" data-act="ix-export-go">Export</button></div>';
 }
 async function ixRun(){
-  var m=S.modal,nm=(document.getElementById('ixName')||{}).value||m.name,wd=!!(document.getElementById('ixDate')||{}).checked,pb=!!(document.getElementById('ixPb')||{}).checked;
+  var m=S.modal,nm=(document.getElementById('ixName')||{}).value||m.name,wd=!!(document.getElementById('ixDate')||{}).checked,pb=!!(document.getElementById('ixPb')||{}).checked,mark=!!(document.getElementById('ixMark')||{}).checked;
   var sel=ixSelected();if(!sel.length){closeModal();return}
+  var docs=[],seen={};sel.forEach(function(x){if(!seen[x.d.id]){seen[x.d.id]=1;docs.push(x.d)}});
+  if(docs.some(function(d){return !xReady(d)})){
+    var names=docs.filter(function(d){return !xReady(d)}).map(function(d){return d.title});
+    closeModal();toast('Connect these Word files first (Read, then Pick the Word files): '+names.slice(0,3).join(', ')+(names.length>3?'…':'')+'.');return;
+  }
   S.modal={type:'busy',msg:'Collecting the chapters.'};renderModal();
   try{
-    var cache={},missing=[],out=[],skipped=0;
-    for(var i=0;i<sel.length;i++){
-      var d=sel[i].d;
-      if(!(d.id in cache)){var pa=await rdParas(d,false);cache[d.id]=pa;if(pa===null&&missing.indexOf(d.title)<0)missing.push(d.title)}
+    var cache={},out=[],skipped=0,name=cleanName(nm||'Chapters');
+    for(var i=0;i<docs.length;i++){
+      S.modal={type:'busy',msg:'Reading file '+(i+1)+' of '+docs.length+'.'};renderModal();
+      var pa=await rdParas(docs[i],true);if(!pa)throw new Error('No text for '+docs[i].title);cache[docs[i].id]=pa;
     }
-    if(missing.length){closeModal();toast('Connect these Word files first (Read, then Pick the Word files): '+missing.slice(0,3).join(', ')+(missing.length>3?'…':'')+'.');return}
+    var used=[];
     sel.forEach(function(x,j){
       var seg=x.h?rdSlice(x.d,x.h,cache[x.d.id]):cache[x.d.id].slice();
       if(!seg){skipped++;return}
       seg=seg.slice();while(seg.length>1&&!String(seg[seg.length-1].text).trim())seg.pop();
-      if(j&&pb)out.push({pb:1});
+      if(out.length&&pb)out.push({pb:1});
       if(wd&&x.k!=null)out.push({lv:0,text:keyLong(x.k)});
       seg.forEach(function(p){if(wd&&x.k!=null&&isDateP(p))return;out.push({lv:p.lv,text:p.text})});
+      used.push(x);
     });
     if(!out.length){closeModal();toast('I could not find those chapters in the files. Try the reload button in Read.');return}
     var blob=new Blob([await buildDocx(out)],{type:DOCX_MIME});
-    await downloadBlob(cleanName(nm),blob);
-    closeModal();toast((sel.length-skipped)+' chapter'+(sel.length-skipped===1?'':'s')+' exported'+(skipped?' ('+skipped+' not found in the file)':'')+'. Check your downloads.');
+    var saved=(await EXT.save(name,blob,sel[0].d))||{}, fname=saved.name||name, ts=new Date().toISOString(), words=0, nd=null, moved=0;
+    out.forEach(function(x){if(x.text&&String(x.text).trim())words+=String(x.text).trim().split(/\s+/).length});
+    withBulk(function(){
+      var heads=[],touched={};
+      used.forEach(function(it){
+        if(!it.h)return;
+        var hs=it.d.headings,i0=hs.indexOf(it.h),e=i0+1;while(e<hs.length&&hs[e].level>it.h.level)e++;
+        for(var j=i0;j<e;j++){var c=JSON.parse(JSON.stringify(hs[j]));delete c.moved;delete c.missing;c.id='h'+uid();heads.push(c)}
+        touched[it.d.id]=it.d;
+      });
+      nd=mk('documents',newDoc({title:fname.replace(/\.docx$/i,''),file:Object.assign({name:fname,url:saved.url||'',words:words,modified:ts,analysed:ts,size:blob.size},saved.od?{od:saved.od}:{}),headings:heads,kind:'draft',variant:'canon',routeId:routeOf(sel[0].d),status:'Idea',inOrder:mark?true:false}));
+      if(mark){
+        used.forEach(function(it){
+          if(!it.h)return;var hs=it.d.headings,i0=hs.indexOf(it.h),e=i0+1;while(e<hs.length&&hs[e].level>it.h.level)e++;
+          for(var j=i0;j<e;j++)hs[j].moved={to:nd.id,name:fname,at:ts};moved++;
+        });
+        Object.keys(touched).forEach(function(k){save('documents',touched[k],true)});
+      }
+    });
+    closeModal();S.view='documents';S.sel=nd?nd.id:null;S.vis='all';S.filter={status:'',arc:'',tag:'',q:''};render();
+    toast((sel.length-skipped)+' chapter'+(sel.length-skipped===1?'':'s')+' written to “'+fname+'”'+(saved.where?', saved '+saved.where:'')+'. It is in Documents now'+(mark?(moved?', and '+moved+' marked as extracted.':'.'):', left out of the reading order.')+(skipped?' '+skipped+' not found in the file.':''));
   }catch(err){
     closeModal();
     if(err&&err.code==='declined')toast('Nothing was exported.');
     else toast('Export failed'+(err&&err.message?': '+err.message:'')+'.');
   }
 }
-
 
 /* ---------- write anchors and dates into a Word file ---------- */
 async function injectDocx(file,wants,opt){
@@ -1511,11 +1556,12 @@ function render(){
   RDV++;
   if(S.sel&&!selObj())S.sel=null;
   $('#app').classList.toggle('has-sel',!!S.sel);
-  $('#app').classList.toggle('calview',S.view==='calendar'||S.view==='index');
+  $('#app').classList.toggle('calview',S.view==='calendar');
   renderTop();renderBanner();renderRail();renderList();renderDetail();pvHydrate();
 }
 function selObj(){
   if(!S.sel)return null;
+  if(S.view==='index')return byId('documents',String(S.sel).split('|')[0]);
   var c=S.view==='documents'?'documents':S.view==='characters'?'characters':S.view==='locations'?'locations':S.view==='arcs'?'arcs':(S.seg==='events'?'events':'documents');
   return byId(c,S.sel);
 }
@@ -1720,10 +1766,10 @@ arcs:function(){
   var arcs=sortBy(eff('arcs'),'order'), docs=eff('documents'), ap=posMap('arcs','order'), canDrag=S.vis==='all';
   var list=arcs.filter(visOk);
   var head='<div class="lhead"><div class="ltitle"><h1>Arcs</h1><span class="cnt">'+arcs.length+'</span></div><div class="lact"><button class="btn primary" data-act="new-arc">'+ic('plus')+'New arc</button>'+clearBtn('arcs',P('arcs').length)+'<button class="btn" data-act="routes">'+ic('layers')+'Routes</button></div></div>'+routeBar()+
-    '<div class="sbwrap"><p class="hint">Acts, storylines or sections within a route. Assign each document to one from its detail card.</p></div><div class="filters">'+visSel()+'</div>';
+    '<div class="sbwrap"><p class="hint">Acts, storylines or sections within a route. Open an arc to see and edit its chapters, or assign arcs to chapters in Documents.</p></div><div class="filters">'+visSel()+'</div>';
   var rows=list.length?'<div data-sort="arcs:order">'+list.map(function(a){
-    var n=docs.filter(function(d){return d.arcId===a.id}).length;
-    return '<div class="row'+(canDrag?'':' nohandle')+(S.sel===a.id?' sel':'')+'" role="listitem" tabindex="0" data-act="select" data-id="'+a.id+'">'+(canDrag?'<button class="handle" data-handle aria-label="Reorder '+esc(a.name)+'. Use arrow keys or drag.">'+ic('grip',16)+'</button>':'')+'<div class="folio"><b>'+pad(ap[a.id])+'</b></div><div class="rb"><div class="rt">'+(esc(a.name)||'Unnamed arc')+'</div>'+entTags(a)+'</div><span class="num">'+n+' doc'+(n===1?'':'s')+'</span></div>';
+    var n=0;docs.forEach(function(d){if(isTrashed(d))return;var cs=chapters(d);if(cs.length)cs.forEach(function(x){if(chapArc(d,x)===a.id)n++});else if(d.arcId===a.id)n++});
+    return '<div class="row'+(canDrag?'':' nohandle')+(S.sel===a.id?' sel':'')+'" role="listitem" tabindex="0" data-act="select" data-id="'+a.id+'">'+(canDrag?'<button class="handle" data-handle aria-label="Reorder '+esc(a.name)+'. Use arrow keys or drag.">'+ic('grip',16)+'</button>':'')+'<div class="folio"><b>'+pad(ap[a.id])+'</b></div><div class="rb"><div class="rt">'+(esc(a.name)||'Unnamed arc')+'</div>'+entTags(a)+'</div><span class="num">'+n+' chapter'+(n===1?'':'s')+'</span></div>';
   }).join('')+'</div>':'<div class="empty"><h1>No arcs</h1><p>Create an arc, or choose a folder of Word files and let folder names become arcs.</p></div>';
   return {head:head,rows:rows};
 }
@@ -1734,6 +1780,7 @@ function renderDetail(){
   var el=$('#detail');
   var o=selObj();
   if(!o){el.innerHTML=proj()?'<div class="empty-detail">Select an item to see its details.</div>':'';return}
+  if(S.view==='index'){el.innerHTML='<div class="detail-in">'+idxCard()+'</div>';return}
   var c=selColl();
   el.innerHTML='<div class="detail-in">'+({documents:docCard,characters:charCard,locations:locCard,events:eventCard,arcs:arcCard})[c](o)+'</div>';
 }
@@ -1983,8 +2030,17 @@ function arcCard(a){
   if(aw)h+='<p class="hint">About '+fmtN(aw)+' words in this arc, counted by chapter.</p>';
   if(mine.length)h+='<div class="sbar" role="img" aria-label="Progress by status">'+STATUSES.filter(function(s){return cnt[s]}).map(function(s){return '<i style="flex:'+cnt[s]+';--st:var(--st-'+s.toLowerCase()+')"></i>'}).join('')+'</div><div class="legend">'+STATUSES.filter(function(s){return cnt[s]}).map(function(s){return '<span><i style="--st:var(--st-'+s.toLowerCase()+')"></i>'+cnt[s]+' '+s+'</span>'}).join('')+'</div>';
   h+='<div class="fgrid"><div class="span2"><label class="lab" for="an-'+a.id+'">Notes</label><textarea class="in" id="an-'+a.id+'" data-bind="arcs:'+a.id+':notes">'+esc(a.notes||'')+'</textarea></div></div>';
-  h+='<div class="sec"><h3>Documents</h3><div class="links">'+(mine.length?mine.map(function(d){return linkRow('documents','',d.id,rp[d.id],d.title,d.status)}).join(''):'<p class="hint">No documents in this arc. Set the arc from a document card.</p>')+'</div></div>';
-  if(achs.length)h+='<div class="sec"><h3>Chapters in this arc</h3><div class="links">'+achs.map(function(x){return '<button class="lk" data-act="chap-go" data-id="'+x.d.id+'" data-hid="'+x.h.id+'"><span class="n"></span><span><span class="lkt">'+(esc(x.h.title)||'Untitled')+'</span><small>'+esc([x.d.title,x.h.storyDate].filter(Boolean).join(' · '))+'</small></span></button>'}).join('')+'</div></div>';
+  var bare=mine.filter(function(d){return !chapters(d).length});
+  var byDoc={};achs.forEach(function(x){(byDoc[x.d.id]=byDoc[x.d.id]||{d:x.d,l:[]}).l.push(x.h)});
+  var ords=Object.keys(byDoc).map(function(k){return byDoc[k]});
+  h+='<div class="sec"><h3>Chapters in this arc</h3>'+(ords.length?ords.map(function(g){
+    var hs=g.d.headings||[];
+    return '<div class="arcdoc"><div class="arcdoc-h"><b>'+esc(g.d.title)+'</b><button class="btn sm" data-act="goto" data-view="documents" data-id="'+g.d.id+'">Open the file</button></div>'+g.l.map(function(x){
+      var i=hs.indexOf(x),e=i+1;while(e<hs.length&&hs[e].level>x.level)e++;
+      return hs.slice(i,e).filter(function(y){return !y.missing&&!y.moved}).map(function(y){return chapterRow(g.d,y,chapOpenN(g.d,y))}).join('');
+    }).join('')+'</div>';
+  }).join(''):'<p class="hint">No chapters in this arc yet. Set the arc on a chapter, in Documents, Chapters or here.</p>')+'</div>';
+  if(bare.length)h+='<div class="sec"><h3>Files without chapters</h3><div class="links">'+bare.map(function(d){return linkRow('documents','',d.id,rp[d.id],d.title,d.status)}).join('')+'</div></div>';
   return h;
 }
 
@@ -2909,7 +2965,9 @@ clear:function(el){
 'ix-clear':function(){var s=ixSt();s.from='';s.to='';render()},
 'ix-all':function(el){var s=ixSt(),on=el.dataset.v==='1';ixShown(ixItems(),ixBounds()).forEach(function(x){if(on)delete s.off[x.key];else s.off[x.key]=1});render()},
 'ix-open':function(el){S.view='documents';S.sel=el.dataset.id;render()},
-'ix-export':function(){var s=ixSt(),nm='Chapters';if((s.from||'').trim()||(s.to||'').trim())nm+=' '+((s.from||'').trim()||'start')+' to '+((s.to||'').trim()||'end');else nm+=' in story order';S.modal={type:'ixexp',name:nm,date:true,pb:true};renderModal()},
+'ix-sel':function(el){S.sel=el.dataset.id;render();var dt=$('#detail');if(dt)dt.scrollTop=0},
+'ix-sort':function(el){ixSt().sort=el.dataset.v;render()},
+'ix-export':function(){var s=ixSt(),nm='Chapters';if((s.from||'').trim()||(s.to||'').trim())nm+=' '+((s.from||'').trim()||'start')+' to '+((s.to||'').trim()||'end');else nm+=' in story order';S.modal={type:'ixexp',name:nm,date:true,pb:true,mark:false};renderModal()},
 'ix-export-go':function(){ixRun()},
 'cal-mode':function(el){S.calMode=el.dataset.v;render()},
 'cal-addyear':function(){var e=document.getElementById('cal-ay'),y=parseInt(e&&e.value,10),pr=proj();if(!pr)return;if(!(y>=100&&y<=9999)){toast('Use a year between 100 and 9999.');return}pr.calYears=(pr.calYears||[]).filter(function(v){return v!==y}).concat([y]).sort(function(a,b){return a-b});save('projects',pr);S.calY=y;render()},
@@ -3392,7 +3450,7 @@ var CH={
 'hol-ow':function(t){S.modal.overwrite=t.checked;S.modal.rows.forEach(function(r){if(r.ex)r.on=t.checked});renderModal()},
 'ext-row':function(t){var m=S.modal,d=byId('documents',m.id),n=$('#extName'),cur=n?n.value:m.name;if(!cur||cur===m.sug)cur=null;m.sel[t.dataset.hid]=t.checked;var s=extSug(d,m.sel);m.name=cur==null?s:cur;m.sug=s;holKeep()},
 'read-pos':function(t){var n=parseInt(t.value,10);if(!n||rdChron())return;rdMoveTo(t.dataset.k,n-1);rdRefresh()},
-'rd-pos':function(t){var n=parseInt(t.value,10);if(!n)return;rdMoveTo(t.dataset.id+'|'+t.dataset.hid,n-1);render()},
+'rd-pos':function(t){var n=parseInt(t.value,10);if(!n)return;rdMoveBlock(t.dataset.id+'|'+t.dataset.hid,n-1);render()},
 'x-f':function(t){var m=S.modal;if(!m||m.type!=='xport')return;var nm=$('#xName');if(nm)m.name=nm.value;m.sel[t.dataset.f][t.dataset.v]=t.checked;m.err='';holKeep()},
 'x-mark':function(t){var m=S.modal;if(m&&m.type==='xport'){var nm=$('#xName');if(nm)m.name=nm.value;m.mark=t.checked}},
 'cgap':function(t){S.cgap=parseInt(t.value,10)||30;render()},
@@ -3423,7 +3481,7 @@ pos:function(t){
 
 /* ---------- events ---------- */
 document.addEventListener('click',function(e){
-  if(e.target.closest('[data-handle]'))return;
+  if(e.target.closest('[data-handle]')||e.target.closest('.ixck'))return;
   var el=e.target.closest('[data-act]');if(!el)return;
   var f=A[el.dataset.act];if(f)f(el,e);
 });
@@ -3499,9 +3557,9 @@ document.addEventListener('keydown',function(e){
   if(h&&(e.key==='ArrowUp'||e.key==='ArrowDown')){
     e.preventDefault();
     var row=h.closest('.row'), wrap=row.closest('[data-sort]'), s=wrap.dataset.sort.split(':'), id=row.dataset.id;
-    var idx=sortBy(eff(s[0]),s[1]).findIndex(function(x){return x.id===id});
-    reorderU(s[0],s[1],id,e.key==='ArrowUp'?idx-1:idx+1);render();
-    var nh=$('.row[data-id="'+id+'"] [data-handle]');if(nh)nh.focus();
+    var idx=s[0]==='chapters'?0:sortBy(eff(s[0]),s[1]).findIndex(function(x){return x.id===id});
+    if(s[0]==='chapters'){var ks=rdItemsBase().map(rdKey);idx=ks.indexOf(id);rdMoveTo(id,e.key==='ArrowUp'?idx-1:idx+1)}else reorderU(s[0],s[1],id,e.key==='ArrowUp'?idx-1:idx+1);render();
+    var nh=$('.row[data-id="'+id.replace(/"/g,'')+'"] [data-handle]');if(nh)nh.focus();
   }
 });
 document.addEventListener('pointerdown',function(e){
@@ -3529,7 +3587,7 @@ document.addEventListener('pointerdown',function(e){
     cancelAnimationFrame(raf);
     h.removeEventListener('pointermove',move);h.removeEventListener('pointerup',end);h.removeEventListener('pointercancel',end);
     clear();row.classList.remove('dragging');
-    if(ev.type==='pointerup'&&target!=null)reorderU(s[0],s[1],id,target);
+    if(ev.type==='pointerup'&&target!=null){if(s[0]==='chapters')rdMoveTo(id,target);else reorderU(s[0],s[1],id,target)}
     render();
   }
   h.addEventListener('pointermove',move);h.addEventListener('pointerup',end);h.addEventListener('pointercancel',end);
@@ -3625,6 +3683,18 @@ function rdMoveTo(key,idx){
   var pr=proj();if(!pr)return;var ks=rdItemsBase().map(rdKey), i=ks.indexOf(key);if(i<0)return;
   ks.splice(i,1);idx=Math.max(0,Math.min(ks.length,idx));ks.splice(idx,0,key);
   pr.readSeq=ks;save('projects',pr);rdWriteBack();
+}
+function rdMoveBlock(key,idx){
+  var pr=proj();if(!pr)return;
+  var ks=rdItemsBase().map(rdKey), did=key.split('|')[0], mine=ks.filter(function(k){return k.split('|')[0]===did}), rest=ks.filter(function(k){return k.split('|')[0]!==did}), j=mine.indexOf(key);
+  if(j<0)return;
+  var s=Math.max(0,Math.min(rest.length,idx-j)), best=0, bd=1e9;
+  for(var i=0;i<=rest.length;i++){
+    if(i>0&&i<rest.length&&rest[i-1].split('|')[0]===rest[i].split('|')[0])continue;
+    var dd=Math.abs(i-s);if(dd<bd){bd=dd;best=i}
+  }
+  rest.splice.apply(rest,[best,0].concat(mine));
+  pr.readSeq=rest;save('projects',pr);rdWriteBack();
 }
 function rdWriteBack(){
   var its=rdItemsBase(), rank={}, n=0;
