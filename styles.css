@@ -1433,6 +1433,13 @@ textarea.in{min-height:88px;resize:vertical;line-height:1.5}
 .ixf{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;padding:0 16px 6px}
 .ixl{display:grid;gap:2px;min-width:140px;flex:1 1 140px;max-width:220px}
 .ixg{padding:10px 16px 4px;font:600 11px var(--f-mono,monospace);letter-spacing:.06em;text-transform:uppercase;color:var(--fg-3)}
+.ixck{display:inline-flex;align-items:center;justify-content:center;padding:6px;margin:-6px}
+.ixck input{width:18px;height:18px}
+.row.off{opacity:.55}
+.ixsort{width:auto;flex:none}
+.ixsort button{padding:6px 12px}
+.arcdoc{margin:0 0 14px}
+.arcdoc-h{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:0 0 6px}
 .ixr{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:start;padding:8px 16px;border-top:1px solid var(--line)}
 .ixr.off{opacity:.5}
 .ixr input[type=checkbox]{margin-top:4px;width:18px;height:18px}
