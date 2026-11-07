@@ -2107,7 +2107,7 @@ function projectsModal(){
 }
 function settingsModal(){
   var t=curTheme(), p=proj(), h='<h2>Settings</h2>';
-  var THEMES=[['system','System','',''],['dark','Dark','#15171b','#b8a27a'],['light','Light','#ece9df','#4f7a12'],['vaporwave','Vaporwave','#100b24','#ff4fd8'],['pastel','Pastel','#fff1f7','#ed72aa'],['carnival','Carnival','#060608','#ff007f'],['maximal','Maximal','#fff0fb','#ff2ea6'],['gits','GITS','#07080c','#ff1a8c'],['nouveau','Nouveau','#f4ebd8','#c45c34'],['stained-glass','Stained Glass','#0a1520','#5ee8ff'],['ukiyo-e','Ukiyo-e','#F4EAD5','#234F70'],['kmt','KMT','#000000','#A30000'],['nature','Nature','#DDE8D8','#C982A0'],['gaslight','Gaslight','#1A1A22','#D4B56C'],['illuminated','Illuminated','#F4EBD5','#2E4D7B'],['grotesque','Grotesque','#0d0a0a','#7A2424'],['discowing','Discowing','#F8A342','#0080FF'],['choc-cake','Choc Cake','#2A0B1F','#FF0000'],['dada','Dada','#E8E5DF','#D4A32A'],['orchestrion','Orchestrion','#1F1410','#A82C2C'],['brutalist','Brutalist','#E6E6E6','#FF3300'],['rococo','Rococo','#E8F0F2','#527F96'],['nautical-tile','Nautical Tile','#E4EAF0','#1F4A8A']];
+  var THEMES=[['system','System','',''],['dark','Dark','#15171b','#b8a27a'],['light','Light','#ece9df','#4f7a12'],['vaporwave','Vaporwave','#100b24','#ff4fd8'],['pastel','Pastel','#fff1f7','#ed72aa'],['carnival','Carnival','#060608','#ff007f'],['maximal','Maximal','#fff0fb','#ff2ea6'],['gits','GITS','#07080c','#ff1a8c'],['nouveau','Nouveau','#f4ebd8','#c45c34'],['stained-glass','Stained Glass','#0a1520','#5ee8ff'],['ukiyo-e','Ukiyo-e','#F4EAD5','#234F70'],['kmt','KMT','#000000','#A30000'],['nature','Nature','#DDE8D8','#C982A0'],['gaslight','Gaslight','#1A1A22','#D4B56C'],['illuminated','Illuminated','#F4EBD5','#2E4D7B'],['grotesque','Grotesque','#0d0a0a','#7A2424'],['discowing','Discowing','#F8A342','#0080FF'],['choc-cake','Choc Cake','#2A0B1F','#FF0000'],['dada','Dada','#E8E5DF','#D4A32A'],['orchestrion','Orchestrion','#1F1410','#A82C2C'],['brutalist','Brutalist','#E6E6E6','#FF3300'],['rococo','Rococo','#E8F0F2','#527F96'],['nautical-tile','Nautical Tile','#E4EAF0','#1F4A8A'],['ulk','ULK','#0a0000','#ff0000'],['gabe','Gabe','#040814','#ffd700']];
   h+='<div class="sec"><h3>Theme</h3><div class="themegrid" role="group" aria-label="Theme">'+THEMES.map(function(v){return '<button data-act="theme" data-v="'+v[0]+'" title="'+esc(v[1])+'" aria-pressed="'+(t===v[0])+'"'+(v[0]==='system'?' style="grid-column:1/-1"':'')+'>'+(v[2]?'<i class="thsw" style="background:'+v[2]+';box-shadow:inset -7px 0 0 '+v[3]+'"></i>':'<i class="thsw sys"></i>')+'<span class="tn">'+esc(v[1])+'</span></button>'}).join('')+'</div></div>';
   if(p){
     h+='<div class="sec"><h3>This project</h3><label class="lab" for="sp-n">Name</label><input class="in" id="sp-n" data-bind="projects:'+p.id+':name" value="'+esc(p.name)+'">'+
@@ -2448,7 +2448,7 @@ function setRouteParent(id,pid){
   r.parentId=pid;save('routes',r,true);render();renderModal();
 }
 function selOpts(list,sel){return list.map(function(x){return '<option value="'+esc(x[0])+'"'+(sel===x[0]?' selected':'')+'>'+esc(x[1])+'</option>'}).join('')}
-function routeOpts(sel){return routeList().map(function(x){return '<option value="'+x.r.id+'"'+(sel===x.r.id?' selected':'')+'>'+'  '.repeat(x.d)+esc(x.r.name)+'</option>'}).join('')}
+function routeOpts(sel){return routeList().map(function(x){return '<option value="'+x.r.id+'"'+(sel===x.r.id?' selected':'')+'>'+'  '.repeat(x.d)+esc(x.r.name)+'</option>'}).join('')}
 function posInput(d,k,idp,labelTxt,mapObj,n){
   var v=mapObj[d.id];
   return '<div><label class="lab" for="'+idp+d.id+'">'+labelTxt+'</label>'+(v!=null?'<input class="in mono" id="'+idp+d.id+'" type="number" min="1" max="'+n+'" value="'+v+'" data-change="pos" data-coll="documents" data-key="'+k+'" data-id="'+d.id+'">':'<input class="in mono" id="'+idp+d.id+'" value="" placeholder="'+(inOrder(d)?'Not on this route':'Left out')+'" disabled>')+'</div>';
@@ -4192,7 +4192,7 @@ async function odBoot(){
     var localRaw='';try{localRaw=localStorage.getItem('story-organiser-v1')||''}catch(e){}
     var n0;
     if(remote){
-      if(localRaw){try{localStorage.setItem('so-prelink-backup',localRaw)}catch(e){}}
+      if(localRaw){try{localStorage.setItem('so-prelink-backup',localRaw)}catch(e){}}}
       odApply(remote);n0=S.routes.length;ensureRoutes();
       S.mode='od';OD.state='saved';cacheLocal();
       if(S.routes.length!==n0)odSchedule();
