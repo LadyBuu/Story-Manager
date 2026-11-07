@@ -4196,7 +4196,7 @@ async function odBoot(){
       odApply(remote);n0=S.routes.length;ensureRoutes();
       S.mode='od';OD.state='saved';cacheLocal();
       if(S.routes.length!==n0)odSchedule();
-    }else{
+    else{
       loadLocal();ensureRoutes();S.mode='od';cacheLocal();odSchedule();
     }
   }
