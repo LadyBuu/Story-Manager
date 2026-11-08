@@ -588,16 +588,24 @@ async function injectDocx(file,wants,opt){
       if(ol){var v=parseInt(ol.getAttributeNS(W,'val'),10);lv=v<9?v+1:0}
       else if(ps2)lv=lvlOfStyle(ps2.getAttributeNS(W,'val'),styles);
     }
-    info.push({p:p,lv:lv,plain:plain.toLowerCase(),bm:bmOf(p)});
+    info.push({p:p,lv:lv,plain:plain.toLowerCase(),bm:bmOf(p),rawText:plain});
   });
   var mk=function(name,attrs){var e=doc.createElementNS(W,'w:'+name);for(var k in attrs)e.setAttributeNS(W,'w:'+k,attrs[k]);return e};
-  var rep={anchored:0,dated:0,cleared:0,missing:[]}, needSub=false;
+  var rep={anchored:0,dated:0,cleared:0,renamed:0,missing:[]}, needSub=false;
   wants.forEach(function(w){
     var bn=bmName(w.id), dn=bmName(w.id,true), x=null, i, c=0;
     for(i=0;i<info.length;i++)if(info[i].bm.indexOf(bn)>-1){x=info[i];break}
     if(!x)for(i=0;i<info.length;i++){var y=info[i];if(y.lv===w.level&&y.plain===(w.title||'').toLowerCase()){if(c===w.nth){x=y;break}c++}}
     if(!x){rep.missing.push(w.title);return}
     var p=x.p;
+    if(opt.rename&&w.rename&&w.rename!==x.rawText){
+      var runs=[].slice.call(p.childNodes).filter(function(n){return n.localName==='r'}), r0=runs[0], rp0=r0?[].slice.call(r0.childNodes).filter(function(n){return n.localName==='rPr'})[0]:null;
+      [].slice.call(p.childNodes).forEach(function(n){if(n.localName==='r'||n.localName==='hyperlink'||n.localName==='ins'||n.localName==='del'||n.localName==='proofErr')p.removeChild(n)});
+      var nr=mk('r',{}), nt=mk('t',{});if(rp0)nr.appendChild(rp0.cloneNode(true));
+      nt.setAttributeNS('http://www.w3.org/XML/1998/namespace','xml:space','preserve');nt.textContent=w.rename;nr.appendChild(nt);
+      var be0=[].slice.call(p.childNodes).filter(function(n){return n.localName==='bookmarkEnd'}).pop();
+      p.insertBefore(nr,be0||null);x.plain=w.rename.trim().toLowerCase();x.rawText=w.rename;rep.renamed++;
+    }
     if(opt.anchors&&x.bm.indexOf(bn)<0){
       var id=++maxId, s=mk('bookmarkStart',{id:id,name:bn}), e=mk('bookmarkEnd',{id:id}), pPr=p.getElementsByTagNameNS(W,'pPr')[0];
       if(pPr&&pPr.parentNode===p)p.insertBefore(s,pPr.nextSibling);else p.insertBefore(s,p.firstChild);
@@ -622,7 +630,7 @@ async function injectDocx(file,wants,opt){
       p.parentNode.insertBefore(np,p.nextSibling);rep.dated++;needSub=true;
     }
   });
-  var total=rep.anchored+rep.dated+rep.cleared;
+  var total=rep.anchored+rep.dated+rep.cleared+rep.renamed;
   if(!total)return {blob:null,report:rep};
   if(needSub&&sf&&!styles.Subtitle){
     var ns=sxml.lastIndexOf('</w:styles>');
@@ -631,29 +639,30 @@ async function injectDocx(file,wants,opt){
   zip.file('word/document.xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'+new XMLSerializer().serializeToString(doc.documentElement));
   return {blob:await zip.generateAsync({type:'blob',mimeType:DOCX_MIME,compression:'DEFLATE'}),report:rep};
 }
-function swWants(d,sub){
+function swWants(d,sub,opt0){
   var hs=d.headings||[], out=[];
-  chapters(d).forEach(function(x){
-    var i=hs.indexOf(x), n=0;for(var k=0;k<i;k++){var y=hs[k];if(y.level===x.level&&(y.title||'').toLowerCase()===(x.title||'').toLowerCase())n++}
+  (opt0&&opt0.all?hs.filter(function(x){return !x.missing&&!x.moved}):chapters(d)).forEach(function(x){
+    var i=hs.indexOf(x), n=0;for(var k=0;k<i;k++){var y=hs[k];if(y.level===x.level&&ftitle(y).toLowerCase()===ftitle(x).toLowerCase())n++}
     var dt=(x.storyDate||'').trim();
-    out.push({id:x.id,title:x.title,level:x.level,nth:n,date:sub&&dt?longDate(canonDate(dt)||dt):''});
+    out.push({id:x.id,title:ftitle(x),level:x.level,nth:n,date:sub&&dt?longDate(canonDate(dt)||dt):'',rename:x.fileTitle?x.title:''});
   });
   return out;
 }
 function swModal(){
   var m=S.modal,d=byId('documents',m.id);if(!d)return '';
-  var chs=chapters(d),dated=chs.filter(function(x){return (x.storyDate||'').trim()}).length,auto=EXT.auto(d),ready=xReady(d);
+  var chs=chapters(d),dated=chs.filter(function(x){return (x.storyDate||'').trim()}).length,auto=EXT.auto(d),ready=xReady(d),pend=(d.headings||[]).filter(function(x){return x.fileTitle&&!x.missing&&!x.moved});
   return '<h2>Write anchors and dates into Word</h2><p class="hint">'+esc(d.title||'')+' · '+chs.length+' chapter'+(chs.length===1?'':'s')+', '+dated+' with a story date.</p>'+
     '<label class="chk"><input type="checkbox" id="swA"'+(m.anchors?' checked':'')+'><span><b>Invisible anchors</b><small>A hidden bookmark on each chapter heading. The app then finds chapters even if you rename or move headings. Nothing shows in the text.</small></span></label>'+
     '<label class="chk"><input type="checkbox" id="swS"'+(m.sub?' checked':'')+'><span><b>Story date as a subtitle</b><small>A line under each chapter heading, in Word’s Subtitle style. Run this again after changing dates and it updates the same line. Chapters with no date get none.</small></span></label>'+
+    (pend.length?'<label class="chk"><input type="checkbox" id="swR"'+(m.rename!==false?' checked':'')+'><span><b>Rename headings in Word</b><small>'+pend.slice(0,6).map(function(x){return esc(x.fileTitle)+' → '+esc(x.title)}).join('<br>')+(pend.length>6?'<br>and '+(pend.length-6)+' more':'')+'</small></span></label>':'')+
     '<p class="hint" style="margin:10px 0 0">'+(auto?'A copy of the file is saved first in a hidden “.so-backups” folder next to it. If the file changed in OneDrive meanwhile, nothing is written. Close the file in Word first.':(ready?'The file is changed in a copy that goes to your downloads. Replace the original with it when Word is closed.':'Pick this Word file first. The changed copy goes to your downloads.'))+'</p>'+
     '<div class="actions"><button class="btn" data-act="close">Cancel</button>'+(ready?'<button class="btn primary" data-act="sw-go"'+(chs.length?'':' disabled')+'>Write to Word</button>':'<button class="btn primary" data-act="sw-pick" data-id="'+d.id+'">Pick the file</button>')+'</div>';
 }
 async function swRun(){
   var m=S.modal,d=byId('documents',m.id);if(!d)return;
-  var an=!!(document.getElementById('swA')||{}).checked, sb=!!(document.getElementById('swS')||{}).checked;
-  if(!an&&!sb){toast('Tick at least one.');return}
-  var wants=swWants(d,sb), opt={anchors:an,sub:sb};
+  var an=!!(document.getElementById('swA')||{}).checked, sb=!!(document.getElementById('swS')||{}).checked, rn=!!(document.getElementById('swR')||{}).checked;
+  if(!an&&!sb&&!rn){toast('Tick at least one.');return}
+  var wants=swWants(d,sb,{all:rn}), opt={anchors:an,sub:sb,rename:rn};
   S.modal={type:'busy',msg:'Writing to the Word file.'};renderModal();
   try{
     var rep;
@@ -667,7 +676,7 @@ async function swRun(){
       if(r.blob){await downloadBlob(cleanName((d.file&&d.file.name||d.title||'File')+' (with anchors)'),r.blob)}
       closeModal();
     }
-    var bits=[];if(rep.anchored)bits.push(rep.anchored+' anchored');if(rep.dated)bits.push(rep.dated+' date line'+(rep.dated===1?'':'s'));if(rep.cleared)bits.push(rep.cleared+' date line'+(rep.cleared===1?'':'s')+' removed');
+    var bits=[];if(rep.renamed)bits.push(rep.renamed+' renamed');if(rep.anchored)bits.push(rep.anchored+' anchored');if(rep.dated)bits.push(rep.dated+' date line'+(rep.dated===1?'':'s'));if(rep.cleared)bits.push(rep.cleared+' date line'+(rep.cleared===1?'':'s')+' removed');
     var tail=rep.missing.length?' Not found in the file: '+rep.missing.slice(0,2).join(', ')+(rep.missing.length>2?'…':'')+'.':'';
     if(!bits.length)toast('Nothing needed changing.'+tail);
     else toast(bits.join(', ')+'.'+(EXT.auto(d)&&EXT.sync?'':' A changed copy is in your downloads.')+tail);
@@ -1388,7 +1397,7 @@ function mergeHeads(old,nu,d){
   nu.forEach(function(x,i){if(!x.bm)return;for(var k=0;k<old.length;k++){if(!usedO[k]&&old[k].id&&bmName(old[k].id)===x.bm){usedO[k]=1;mN[i]=k;break}}});
   nu.forEach(function(x,i){
     if(mN[i]!=null)return;
-    for(var k=0;k<old.length;k++){if(!usedO[k]&&old[k].level===x.level&&(old[k].title||'').toLowerCase()===(x.title||'').toLowerCase()){usedO[k]=1;mN[i]=k;break}}
+    for(var k=0;k<old.length;k++){if(!usedO[k]&&old[k].level===x.level&&ftitle(old[k]).toLowerCase()===(x.title||'').toLowerCase()){usedO[k]=1;mN[i]=k;break}}
   });
   var anc=[[-1,-1]];nu.forEach(function(x,i){if(mN[i]!=null)anc.push([i,mN[i]])});anc.push([nu.length,old.length]);
   for(var g=0;g<anc.length-1;g++){
@@ -1400,7 +1409,7 @@ function mergeHeads(old,nu,d){
       un.forEach(function(i,n){mN[i]=uo[n];usedO[uo[n]]=1});continue;
     }
     var cand=[];
-    uo.forEach(function(k){un.forEach(function(i){if(nu[i].level!==old[k].level)return;var s=titleSim(old[k].title,nu[i].title);if(s>=.34)cand.push([s,k,i])})});
+    uo.forEach(function(k){un.forEach(function(i){if(nu[i].level!==old[k].level)return;var s=titleSim(ftitle(old[k]),nu[i].title);if(s>=.34)cand.push([s,k,i])})});
     cand.sort(function(p,q){return q[0]-p[0]});
     cand.forEach(function(c){if(!usedO[c[1]]&&mN[c[2]]==null){mN[c[2]]=c[1];usedO[c[1]]=1}});
     var ru=un.filter(function(i){return mN[i]==null}), ro=uo.filter(function(k){return !usedO[k]});
@@ -1408,8 +1417,9 @@ function mergeHeads(old,nu,d){
   }
   var out=nu.map(function(x,i){
     var k=mN[i];if(k==null){delete x.bm;return x}
-    var o=old[k];if((o.title||'')!==(x.title||'')){stat.renamed++;if(d)(d.notes||[]).forEach(function(n){if(n.h===o.title)n.h=x.title})}
-    var m=Object.assign({},o,{level:x.level,title:x.title,words:x.words});delete m.missing;delete m.bm;return m;
+    var o=old[k], pend=o.fileTitle, keep=!!pend&&(x.title||'').trim()===pend.trim(), nt=keep?o.title:x.title;
+    if((o.title||'')!==(nt||'')){stat.renamed++;if(d)(d.notes||[]).forEach(function(n){if(n.h===o.title)n.h=nt})}
+    var m=Object.assign({},o,{level:x.level,title:nt,words:x.words});delete m.missing;delete m.bm;if(keep)m.fileTitle=pend;else delete m.fileTitle;return m;
   });
   var lastOut=-1;
   old.forEach(function(o,k){
@@ -1815,6 +1825,7 @@ function chipsFor(d,hd,field,coll){
     return '<span class="chip"><button data-act="goto" data-view="'+coll+'" data-id="'+id+'">'+esc(nm)+'</button><button class="x" data-act="chap-unlink" data-id="'+d.id+'" data-hid="'+hd.id+'" data-field="'+field+'" data-v="'+id+'" aria-label="Remove '+esc(nm)+'">'+ic('x',12)+'</button></span>';
   }).join('');
 }
+function rnHint(hd){return hd.fileTitle?'Word still says “'+esc(hd.fileTitle)+'”. Use “Write anchors and dates to Word” on the file to rename it there too.':''}
 function chapterRow(d,hd,oc){
   var pv=nameOf('characters',hd.pov), n=(hd.characterIds||[]).length, k=d.id+':'+hd.id+':';
   var cw=chapWords(d,hd), ak=nameOf('arcs',chapArc(d,hd));
@@ -1823,7 +1834,7 @@ function chapterRow(d,hd,oc){
   function add(field,coll,noun){return '<button class="btn sm" data-act="chap-pick" data-id="'+d.id+'" data-hid="'+hd.id+'" data-field="'+field+'" data-coll="'+coll+'" data-noun="'+noun+'">'+ic('plus',14)+'Add</button>'}
   var trashed=chapVariant(d,hd)==='trashed';
   return '<details class="chap'+(trashed?' trash':'')+'" style="margin-left:'+Math.min(Math.max(hd.level-1,0),4)*10+'px" data-hid="'+hd.id+'"'+(S.chapOpen&&S.chapOpen[hd.id]?' open':'')+'><summary><span class="hlab">'+esc(label(hd.level)||('H'+hd.level))+'</span><span class="t">'+esc(hd.title)+'</span>'+(trashed?'<span class="trash-pill">Trashed</span>':'')+(oc?'<span class="nb">'+oc+' open</span>':'')+(sum?'<small>'+esc(sum)+'</small>':'')+'</summary><div class="chapbody">'+
-    '<div class="fgrid"><div class="span2"><label class="lab" for="chd-'+hd.id+'">Story date</label>'+(dateMode()==='auto'?dateField('c:'+d.id+':'+hd.id,hd.storyDate,'chd-'+hd.id)+'<small class="hint" id="dh-'+hd.id+'" style="display:block;margin-top:4px">'+esc(dateHint(hd.storyDate))+'</small>':'<input class="in" id="chd-'+hd.id+'" data-chap="'+k+'storyDate" value="'+esc(hd.storyDate||'')+'" placeholder="Any label, for example Year 3, spring" aria-describedby="dh-'+hd.id+'"><small class="hint" id="dh-'+hd.id+'" style="display:block;margin-top:4px">'+esc(dateHint(hd.storyDate))+'</small>')+'</div>'+
+    '<div class="fgrid"><div class="span2"><label class="lab" for="chn-'+hd.id+'">Name</label><input class="in" id="chn-'+hd.id+'" data-chap="'+k+'title" value="'+esc(hd.title)+'" maxlength="200"><small class="hint rnhint" style="display:block;margin-top:4px">'+rnHint(hd)+'</small></div><div class="span2"><label class="lab" for="chd-'+hd.id+'">Story date</label>'+(dateMode()==='auto'?dateField('c:'+d.id+':'+hd.id,hd.storyDate,'chd-'+hd.id)+'<small class="hint" id="dh-'+hd.id+'" style="display:block;margin-top:4px">'+esc(dateHint(hd.storyDate))+'</small>':'<input class="in" id="chd-'+hd.id+'" data-chap="'+k+'storyDate" value="'+esc(hd.storyDate||'')+'" placeholder="Any label, for example Year 3, spring" aria-describedby="dh-'+hd.id+'"><small class="hint" id="dh-'+hd.id+'" style="display:block;margin-top:4px">'+esc(dateHint(hd.storyDate))+'</small>')+'</div>'+
     (dateMode()==='manual'?'<div><label class="lab" for="chk-'+hd.id+'">Sort number</label><input class="in" id="chk-'+hd.id+'" type="number" inputmode="decimal" data-chap="'+k+'dateKey" value="'+esc(hd.dateKey==null?'':hd.dateKey)+'" placeholder="For example story day 340"></div>':'')+
     (unread?'<p class="hint span2" style="margin:0">That date is not one I can sort, so this chapter follows its file. Write it like 12 August 1248, or switch to sort numbers in Settings.</p>':'')+
     (hd.level===chapLvl(d)&&rdPosOf(d,hd)?'<div><label class="lab" for="chr-'+hd.id+'">Reading position</label><input class="in mono" id="chr-'+hd.id+'" type="number" min="1" max="'+RDM.n+'" value="'+rdPosOf(d,hd)+'" data-change="rd-pos" data-id="'+d.id+'" data-hid="'+hd.id+'"></div>':'')+
@@ -2061,6 +2072,7 @@ function renderModal(){
   else if(m.type==='odpick')inner=odPickModal();
   else if(m.type==='odfiles')inner=odFilesModal();
   else if(m.type==='odrep')inner=odReportModal();
+  else if(m.type==='odbk')inner=odBkModal();
   else if(m.type==='clear')inner=clearModal();
   else if(m.type==='hollow')inner=hollowModal();
   else if(m.type==='extract')inner=extractModal();
@@ -2178,6 +2190,7 @@ function importModal(){
 
 /* ---------- docx reading (headings and word count only) ---------- */
 var W='http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+function ftitle(x){return (x&&(x.fileTitle||x.title))||''}
 function bmName(id,date){return (date?'so_d_':'so_')+String(id).replace(/[^A-Za-z0-9]/g,'_').slice(0,32)}
 function bmOf(p){var l=p.getElementsByTagNameNS(W,'bookmarkStart'),o=[],i,n;for(i=0;i<l.length;i++){n=l[i].getAttributeNS(W,'name')||'';if(/^so_/.test(n))o.push(n)}return o}
 function lvlOfStyle(id,styles){
@@ -2323,9 +2336,9 @@ async function runExtract(d,file,sel,name){
     var hs=d.headings||[], wants=[];
     hs.forEach(function(x,i){
       if(!sel[x.id]||x.moved)return;
-      var n=0;for(var k=0;k<i;k++){var y=hs[k];if(y.level===x.level&&(y.title||'').toLowerCase()===(x.title||'').toLowerCase())n++}
+      var n=0;for(var k=0;k<i;k++){var y=hs[k];if(y.level===x.level&&ftitle(y).toLowerCase()===ftitle(x).toLowerCase())n++}
       var e=i+1;while(e<hs.length&&hs[e].level>x.level)e++;
-      wants.push({i:i,e:e,title:x.title,level:x.level,nth:n,id:x.id});
+      wants.push({i:i,e:e,title:ftitle(x),level:x.level,nth:n,id:x.id});
     });
     if(!wants.length){closeModal();toast('Nothing ticked.');return}
     var res=await extractDocx(file,wants);
@@ -2731,6 +2744,7 @@ function mapHollow(c){
 function holChars(o){
   if(Array.isArray(o)){var l=o.filter(function(c){return c&&typeof c==='object'&&(c.firstName||c.lastName||c.nickname)});return l.length?l:null}
   if(!o||typeof o!=='object')return null;
+  if(o.app==='story-organiser')return null;
   if(o.data&&Array.isArray(o.data.characters))return o.data.characters;
   if(Array.isArray(o.characters))return o.characters;
   if(o.format==='hollow-blades')return [];
@@ -2804,19 +2818,21 @@ function exportHollow(){
 }
 function restoreBackup(text){
   var o;try{o=JSON.parse(text)}catch(e){toast('That file is not valid JSON.');return}
-  var hl=holChars(o);if(hl){importHollow(hl);return}
-  if(!o||o.app!=='story-organiser'||!Array.isArray(o.projects)){toast('That file is not a Story Organiser backup.');return}
-  var n=0;COLLS.forEach(function(c){n+=(o[c]||[]).length});
-  S.modal={type:'confirm',title:'Restore backup',msg:'This adds '+o.projects.length+' project'+(o.projects.length===1?'':'s')+' and '+n+' items. Anything with the same id is replaced.',label:'Restore',fn:function(){
-    COLLS.forEach(function(c){(o[c]||[]).forEach(function(x){
+  var so=!!o&&o.app==='story-organiser';
+  if(so&&!Array.isArray(o.projects)&&o.data&&typeof o.data==='object')o=Object.assign({app:o.app,version:2},o.data);
+  if(!so){var hl=holChars(o);if(hl){importHollow(hl);return}}
+  if(!so||!Array.isArray(o.projects)){toast('That file is not a Story Organiser backup.');return}
+  var n=0,bits=[];COLLS.forEach(function(c){var k=(o[c]||[]).length;n+=k;if(k&&c!=='projects')bits.push(k+' '+(c==='events'?'timeline events':c))});
+  S.modal={type:'confirm',title:'Restore backup',msg:'This brings back '+o.projects.length+' project'+(o.projects.length===1?'':'s')+' with '+(bits.join(', ')||'no other items')+'. Anything with the same id is replaced by the backup. Nothing else is removed.',label:'Restore',fn:function(){
+    withBulk(function(){COLLS.forEach(function(c){(o[c]||[]).forEach(function(x){
       if(!x||!x.id)return;
       var i=S[c].findIndex(function(y){return y.id===x.id});
       if(i>-1)S[c][i]=x;else S[c].push(x);
       save(c,x,true);
-    })});
+    })})});
     ensureRoutes();
     if(!proj()&&S.projects.length)setProject(S.projects[0].id);
-    closeModal();render();toast('Backup restored');
+    closeModal();render();toast('Backup restored: '+n+' items.');
   }};
   renderModal();
 }
@@ -2959,7 +2975,7 @@ clear:function(el){
 },
 /* ---- story calendar ---- */
 'pv-toggle':function(el){var k=el.dataset.k;PVOFF[k]=!PVOFF[k];var b=el.closest('.pv');if(b){b.innerHTML=pvBlock(k);pvHydrate()}},
-'sw-open':function(el){S.modal={type:'swsync',id:el.dataset.id,anchors:true,sub:true};renderModal()},
+'sw-open':function(el){S.modal={type:'swsync',id:el.dataset.id,anchors:true,sub:true,rename:true};renderModal()},
 'sw-go':function(){swRun()},
 'sw-pick':function(el){S.refreshId=el.dataset.id;$('#fileRead').click()},
 'ix-clear':function(){var s=ixSt();s.from='';s.to='';render()},
@@ -3274,7 +3290,7 @@ theme:function(el){applyTheme(el.dataset.v);renderModal()},
 search:function(){S.modal={type:'search'};renderModal()},
 close:function(){closeModal()},
 scrim:function(el,e){if(e.target===el)closeModal()},
-'confirm-ok':function(){var f=S.modal&&S.modal.fn;if(f){var m=S.modal;f();if(S.modal===m)closeModal()}},
+'confirm-ok':function(){var f=S.modal&&S.modal.fn;if(f){var m=S.modal;OD.okShrink=Date.now()+20000;f();if(S.modal===m)closeModal()}},
 'name-ok':function(){
   var v=($('#nameIn').value||'').trim();if(!v){$('#nameIn').focus();return}
   var f=S.modal.fn;f(v);
@@ -3509,6 +3525,16 @@ document.addEventListener('input',function(e){
   if(d.chap){
     var cp=d.chap.split(':'), cd=byId('documents',cp[0]);if(!cd)return;
     var ch=(cd.headings||[]).find(function(x){return x.id===cp[1]});if(!ch)return;
+    if(cp[2]==='title'){
+      var nv=t.value.replace(/\s+/g,' ').trim().slice(0,200);if(!nv)return;
+      var ot=ch.title;if(nv===ot)return;
+      if(!ch.fileTitle)ch.fileTitle=ot;
+      (cd.notes||[]).forEach(function(n){if(n.h===ot)n.h=nv});
+      ch.title=nv;if(ch.fileTitle===nv)delete ch.fileTitle;
+      save('documents',cd);
+      var dt0=t.closest('details.chap');if(dt0){var tt0=dt0.querySelector('summary .t');if(tt0)tt0.textContent=nv;var ph0=dt0.querySelector('.rnhint');if(ph0)ph0.innerHTML=rnHint(ch)}
+      renderRows();return;
+    }
     ch[cp[2]]=t.value;save('documents',cd);
     if(cp[2]==='storyDate'){var dh=document.getElementById('dh-'+cp[1]);if(dh)dh.textContent=dateHint(t.value)}
     if(t.tagName==='SELECT'){render();return}
@@ -3620,7 +3646,8 @@ $('#fileBackup').addEventListener('change',function(){
   var files=[].slice.call(this.files||[]);this.value='';if(!files.length)return;
   Promise.all(files.map(function(f){return new Promise(function(ok){var r=new FileReader();r.onload=function(){ok(String(r.result))};r.onerror=function(){ok('')};r.readAsText(f)})})).then(function(ts){
     if(ts.length===1){restoreBackup(ts[0]);return}
-    var all=[];ts.forEach(function(t){try{var l=holChars(JSON.parse(t));if(l)all=all.concat(l)}catch(e){}});
+    var all=[],full=0;ts.forEach(function(t){try{var j=JSON.parse(t);if(j&&j.app==='story-organiser'){full++;return}var l=holChars(j);if(l)all=all.concat(l)}catch(e){}});
+    if(full&&!all.length){toast('Restore one backup at a time.');return}
     if(!all.length){toast('No characters found in those files.');return}
     importHollow(all);
   });
@@ -3726,11 +3753,11 @@ async function rdParas(d,force){
 function rdSlice(d,hd,paras){
   if(!hd)return paras;
   var hs=d.headings||[], i=hs.indexOf(hd), n=0;
-  for(var k=0;k<i;k++){var y=hs[k];if(y.level===hd.level&&(y.title||'').toLowerCase()===(hd.title||'').toLowerCase())n++}
+  for(var k=0;k<i;k++){var y=hs[k];if(y.level===hd.level&&ftitle(y).toLowerCase()===ftitle(hd).toLowerCase())n++}
   var heads=[];paras.forEach(function(x,j){if(x.lv>0)heads.push(j)});
   var start=-1, c=0, bn=hd.id?bmName(hd.id):'';
   if(bn)for(var b=0;b<paras.length;b++)if(paras[b].bm&&paras[b].bm.indexOf(bn)>-1){start=b;break}
-  if(start<0)for(var m=0;m<heads.length;m++){var x=paras[heads[m]];if(x.lv===hd.level&&x.plain.toLowerCase()===(hd.title||'').toLowerCase()){if(c===n){start=heads[m];break}c++}}
+  if(start<0)for(var m=0;m<heads.length;m++){var x=paras[heads[m]];if(x.lv===hd.level&&x.plain.toLowerCase()===ftitle(hd).toLowerCase()){if(c===n){start=heads[m];break}c++}}
   if(start<0)return null;
   var end=paras.length;
   for(var q=0;q<heads.length;q++){if(heads[q]>start&&paras[heads[q]].lv<=hd.level){end=heads[q];break}}
@@ -4140,15 +4167,78 @@ function odApply(o){
   var d=(o&&o.data)||{};
   COLLS.forEach(function(c){S[c]=d[c]||[]});
 }
-async function odLoad(){
+async function odLoad(hold){
   var m=await gfetch(DATA_PATH);
-  if(m.status===404)return null;
+  if(m.status===404){OD.last=null;return null}
   if(!m.ok)throw new Error('load '+m.status);
-  var meta=await m.json();OD.etag=meta.eTag;
+  var meta=await m.json();
   var r=await gfetch(DATA_PATH+':/content');
   if(!r.ok)throw new Error('content '+r.status);
-  return JSON.parse(await r.text());
+  var txt=await r.text(),j=JSON.parse(txt);
+  OD.last={etag:meta.eTag,text:txt,counts:odCounts(j)};
+  if(!hold)odAdopt();
+  return j;
 }
+/* The saved-version tag only moves forward when the app really takes on the content it belongs to.
+   Otherwise a later save could slip past the 'changed elsewhere' check and overwrite newer work. */
+function odAdopt(){var l=OD.last;if(l){OD.etag=l.etag;OD.baseText=l.text;OD.baseCounts=l.counts}}
+/* ---- safety net: counts, shrink guard, rolling backups ---- */
+var BK_DIR='/me/drive/root:/Story%20Organiser/backups';
+function odCounts(o){
+  var d=(o&&o.data)||o||{},c={total:0};
+  COLLS.forEach(function(k){c[k]=Array.isArray(d[k])?d[k].length:0;if(k!=='projects')c.total+=c[k]});
+  return c;
+}
+function odShrinkWhy(now,len){
+  var b=OD.baseCounts;if(!b)return '';
+  var drop=b.total-now.total;
+  if(b.total>=5&&now.total===0)return 'this save would empty your library ('+b.total+' items).';
+  if(drop>=10&&now.total<b.total*0.75)return 'this save would cut your library from '+b.total+' to '+now.total+' items.';
+  var w='';['documents','characters','events'].forEach(function(k){if(!w&&b[k]-now[k]>=8&&now[k]<b[k]*0.6)w='this save would cut '+k+' from '+b[k]+' to '+now[k]+'.'});
+  if(w)return w;
+  if(OD.baseText&&OD.baseText.length>30000&&len<OD.baseText.length*0.6)return 'this save is much smaller than the one in OneDrive ('+Math.round(len/1024)+' KB against '+Math.round(OD.baseText.length/1024)+' KB).';
+  return '';
+}
+function odStamp(){var d=new Date(),p=function(n){return String(n).padStart(2,'0')};return ''+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'-'+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds())}
+async function odBackup(text,why){
+  if(!text)return false;
+  var name='data-'+odStamp()+(why?'-'+why:'')+'.json';
+  var r=await gfetch(BK_DIR+'/'+name+':/content',{method:'PUT',headers:{'Content-Type':'application/json'},body:text});
+  if(!r.ok)return false;
+  OD.lastBackup=Date.now();try{localStorage.setItem('so-last-backup',String(OD.lastBackup))}catch(e){}
+  odPrune().catch(function(){});
+  return true;
+}
+async function odBkList(){
+  var r=await gfetch(BK_DIR+':/children?$select=id,name,size,lastModifiedDateTime&$top=500');
+  if(r.status===404)return [];
+  if(!r.ok)throw new Error('backups '+r.status);
+  var j=await r.json();
+  return j.value.map(function(f){
+    var m=/^data-(\d{4})(\d\d)(\d\d)-(\d\d)(\d\d)(\d\d)(?:-([a-z-]+))?\.json$/.exec(f.name);if(!m)return null;
+    return {id:f.id,name:f.name,size:f.size||0,why:m[7]||'',day:m[1]+m[2]+m[3],t:new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+m[6]).getTime()};
+  }).filter(Boolean).sort(function(a,b){return b.t-a.t});
+}
+function odKeepSet(list){
+  var keep={},big={},cut=Date.now()-30*86400000;
+  list.forEach(function(f,i){
+    if(i<10)keep[f.id]=1;
+    if(f.t>=cut&&(!big[f.day]||f.size>big[f.day].size))big[f.day]=f;
+    if(f.why&&f.why!=='auto'&&f.t>=cut)keep[f.id]=1;
+  });
+  Object.keys(big).forEach(function(d){keep[big[d].id]=1});
+  return keep;
+}
+async function odPrune(){
+  var l=await odBkList();if(l.length<=12)return;
+  var keep=odKeepSet(l);
+  for(var i=0;i<l.length;i++){if(!keep[l[i].id]&&Date.now()-l[i].t>3600000)await gfetch('/me/drive/items/'+l[i].id,{method:'DELETE'})}
+}
+function odHold(msg,acts){
+  OD.conflict=true;OD.held=true;OD.state='error';
+  S.banner=msg;S.bannerAct=acts;renderBanner();setSync();
+}
+function odRelease(){OD.conflict=false;OD.held=false;S.banner='';S.bannerAct=null;renderBanner()}
 function syncText(){
   if(S.mode==='od')return OD.state==='saving'?'Saving to OneDrive':(OD.state==='error'?'Not saved. Will retry':'Synced with OneDrive');
   return S.mode==='local'?'Saved in this browser only':'Connecting';
@@ -4166,16 +4256,23 @@ async function odPush(){
   if(OD.saving){clearTimeout(OD.timer);OD.timer=setTimeout(odPush,500);return}
   OD.saving=true;OD.dirty=false;
   try{
+    var pl=odPayload(),body=JSON.stringify(pl),why=odShrinkWhy(odCounts(pl),body.length);
+    if(why&&!(OD.okShrink&&OD.okShrink>Date.now())){
+      if(OD.baseText&&Date.now()-(OD.lastBackup||0)>60000){try{await odBackup(OD.baseText,'held')}catch(e){}}
+      odHold('Saving is paused to protect your library: '+why+' OneDrive still has the full copy, and a backup of it was made.',[{label:'Save anyway',act:'od-shrink-ok'},{label:'Reload from OneDrive',act:'od-reload'},{label:'Download this device\'s copy',act:'od-dl'}]);
+      OD.saving=false;return;
+    }
+    if(OD.baseText&&Date.now()-(OD.lastBackup||parseInt(localStorage.getItem('so-last-backup')||'0',10)||0)>3600000){try{await odBackup(OD.baseText,'')}catch(e){}}
     var h={'Content-Type':'application/json'};
     if(OD.etag)h['If-Match']=OD.etag;
-    var r=await gfetch(DATA_PATH+':/content',{method:'PUT',headers:h,body:JSON.stringify(odPayload())});
+    var r=await gfetch(DATA_PATH+':/content',{method:'PUT',headers:h,body:body});
     if(r.status===412){
       OD.conflict=true;OD.state='error';
       S.banner='This library was changed on another device, so saving is paused.';
       S.bannerAct=[{label:'Load the other version',act:'od-reload'},{label:'Keep mine',act:'od-overwrite'}];
       renderBanner();
     }else if(!r.ok)throw new Error('save '+r.status);
-    else{var j=await r.json();OD.etag=j.eTag;OD.state=OD.dirty?'saving':'saved'}
+    else{var j=await r.json();OD.etag=j.eTag;OD.baseText=body;OD.baseCounts=odCounts(pl);OD.state=OD.dirty?'saving':'saved'}
   }catch(e){
     OD.state='error';OD.dirty=true;clearTimeout(OD.timer);OD.timer=setTimeout(odPush,8000);
   }
@@ -4191,13 +4288,20 @@ async function odBoot(){
   }else{
     var localRaw='';try{localRaw=localStorage.getItem('story-organiser-v1')||''}catch(e){}
     var n0;
-    if(remote){
-      if(localRaw){try{localStorage.setItem('so-prelink-backup',localRaw)}catch(e){}}}
+    var lc=0;try{lc=odCounts(JSON.parse(localRaw||'{}')).total}catch(e){}
+    if(remote&&odCounts(remote).total===0&&lc>=5){
+      loadLocal();ensureRoutes();S.mode='od';OD.state='error';
+      odHold('The copy of your library in OneDrive is empty, but this device has '+lc+' items from earlier. Nothing has been saved.',[{label:'Use this device\'s copy',act:'od-use-local'},{label:'Choose a backup',act:'od-bk-open'}]);
+    }else if(remote){
+      if(localRaw){try{localStorage.setItem('so-prelink-backup',localRaw)}catch(e){}}
       odApply(remote);n0=S.routes.length;ensureRoutes();
       S.mode='od';OD.state='saved';cacheLocal();
       if(S.routes.length!==n0)odSchedule();
-    else{
-      loadLocal();ensureRoutes();S.mode='od';cacheLocal();odSchedule();
+    }else{
+      var bl=[];try{bl=await odBkList()}catch(e){}
+      loadLocal();ensureRoutes();S.mode='od';
+      if(bl.length){odHold('data.json is missing from OneDrive, but '+bl.length+' backup'+(bl.length===1?'':'s')+' exist. Nothing has been saved.',[{label:'Choose a backup',act:'od-bk-open'},{label:'Start from this device',act:'od-use-local'}])}
+      else{cacheLocal();odSchedule()}
     }
   }
   var want='';try{want=localStorage.getItem('so-pid')||''}catch(e){}
@@ -4213,9 +4317,9 @@ async function odPoll(){
     var m=await gfetch(DATA_PATH);if(!m.ok)return;
     var meta=await m.json();
     if(meta.eTag&&meta.eTag!==OD.etag){
-      var remote=await odLoad();
+      var remote=await odLoad(true);
       if(remote&&!OD.dirty&&!Object.keys(pending).length){
-        var keep=S.pid;odApply(remote);ensureRoutes();
+        odAdopt();var keep=S.pid;odApply(remote);ensureRoutes();
         if(!byId('projects',keep))S.pid=(S.projects[0]||{}).id||null;
         cacheLocal();render();toast('Updated from another device.');
       }
@@ -4320,6 +4424,16 @@ function odReportModal(){
     '<div class="actions"><button class="btn" data-act="close">Close</button>'+((r.fresh.length||r.changed.length)?'<button class="btn primary" data-act="od-sync">Add and refresh '+(r.fresh.length+chg.length)+'</button>':'')+'</div>';
 }
 function odBusy(msg){S.modal={type:'busy',msg:msg};renderModal()}
+function odBkModal(){
+  var m=S.modal,h='<h2>Backups in OneDrive</h2><p class="hint">Copies of your library in Story Organiser/backups. The app adds one at most once an hour while you work, and keeps the latest 10 plus the biggest of each of the last 30 days.</p>';
+  if(m.err)h+='<p class="hint" role="alert">'+esc(m.err)+'</p>';
+  if(!m.items)return h+'<p class="hint">Looking.</p>';
+  if(!m.items.length)h+='<p class="hint">No backups yet. Use Back up now, or just keep working.</p>';
+  else h+='<div data-hl style="max-height:50vh;overflow:auto;border-top:1px solid var(--line)">'+m.items.map(function(f,i){
+    return '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)"><div style="flex:1;min-width:0"><b>'+esc(new Date(f.t).toLocaleString())+'</b><br><small class="hint">'+Math.round(f.size/1024)+' KB'+(f.why?' · '+esc(f.why.replace(/-/g,' ')):'')+'</small></div><button class="btn sm" data-act="od-bk-restore" data-i="'+i+'">Restore</button></div>';
+  }).join('')+'</div>';
+  return h+'<div class="actions"><button class="btn" data-act="od-bk-now">Back up now</button><button class="btn primary" data-act="close">Close</button></div>';
+}
 async function odSyncNow(){
   var p=proj();if(!p||!p.odFolder||S.mode!=='od')return;
   odBusy('Looking in OneDrive.');
@@ -4460,6 +4574,8 @@ function odSettings(){
       h+='<p class="hint" style="margin-top:8px">Manuscript folder: <b>'+esc(p.odFolder?p.odFolder.name:'not chosen')+'</b></p><div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn" data-act="od-pick">'+ic('folder')+(p.odFolder?'Change folder':'Choose folder')+'</button>'+(p.odFolder?'<button class="btn" data-act="od-sync">'+ic('refresh')+'Sync now</button><button class="btn" data-act="od-report">What do you see?</button>':'')+'</div>'+
         '<p class="hint" style="margin-top:12px">Portraits folder: <b>'+esc(p.portraitFolder?p.portraitFolder.name:'not chosen')+'</b>. Name each image after the character, for example Danielle Stewart.jpg.</p><div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn" data-act="od-pick-portraits">'+ic('folder')+(p.portraitFolder?'Change folder':'Choose folder')+'</button></div>';
     }
+    var lb=0;try{lb=parseInt(localStorage.getItem('so-last-backup')||'0',10)||0}catch(e){}
+    h+='<p class="hint" style="margin-top:12px"><b>Safety net.</b> Before saving over data.json, the app copies the old version into Story Organiser/backups (at most hourly). If a save would shrink your library sharply, it pauses and asks first. Last backup from this device: '+(lb?esc(new Date(lb).toLocaleString()):'none yet')+'.</p><div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn" data-act="od-bk-now">Back up now</button><button class="btn" data-act="od-bk-open">Restore an earlier version</button></div>';
     h+='<div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn danger" data-act="od-signout">Sign out and clear this device</button></div>';
   }else{
     h+='<p class="hint">Sign in with Microsoft to read your manuscript folder and keep your library in sync across devices. Register a free Azure app (single-page app) and paste its Application (client) ID here. Redirect URI to register: <code>'+esc(redirectUri())+'</code></p>'+
@@ -4506,8 +4622,41 @@ Object.assign(A,{
   },
   'od-reload':function(){location.reload()},
   'od-overwrite':async function(){
-    try{var m=await gfetch(DATA_PATH);if(m.ok){OD.etag=(await m.json()).eTag}}catch(e){}
-    OD.conflict=false;S.banner='';S.bannerAct=null;renderBanner();odSchedule();
+    try{
+      var m=await gfetch(DATA_PATH);if(m.ok){OD.etag=(await m.json()).eTag}
+      var r=await gfetch(DATA_PATH+':/content');
+      if(r.ok){var t=await r.text();await odBackup(t,'before-overwrite');try{OD.baseText=t;OD.baseCounts=odCounts(JSON.parse(t))}catch(e){}}
+    }catch(e){}
+    odRelease();odSchedule();
+  },
+  'od-shrink-ok':function(){OD.okShrink=Date.now()+30000;odRelease();odSchedule()},
+  'od-use-local':function(){odRelease();OD.state='saving';cacheLocal();odSchedule();render()},
+  'od-dl':function(){exportData(true)},
+  'od-bk-now':async function(){
+    toast('Backing up.');
+    try{var ok=await odBackup(JSON.stringify(odPayload()),'manual');toast(ok?'Backup saved in OneDrive.':'Could not save the backup.');if(S.modal&&S.modal.type==='odbk')A['od-bk-open']();else render()}
+    catch(e){toast('Could not save the backup.')}
+  },
+  'od-bk-open':function(){
+    S.modal={type:'odbk',items:null,err:''};renderModal();
+    odBkList().then(function(l){if(S.modal&&S.modal.type==='odbk'){S.modal.items=l;renderModal()}}).catch(function(){if(S.modal&&S.modal.type==='odbk'){S.modal.items=[];S.modal.err='Could not read the backups folder.';renderModal()}});
+  },
+  'od-bk-restore':async function(el){
+    var m=S.modal,f=m&&m.items&&m.items[+el.dataset.i];if(!f)return;
+    odBusy('Reading that backup.');
+    var txt='',j=null;
+    try{var r=await gfetch('/me/drive/items/'+f.id+'/content');if(!r.ok)throw 0;txt=await r.text();j=JSON.parse(txt)}catch(e){A['od-bk-open']();toast('Could not read that backup.');return}
+    var data=(j&&j.data)||j;if(!data||!Array.isArray(data.projects)){A['od-bk-open']();toast('That backup does not look like a library.');return}
+    var bc=odCounts(data),cc=odCounts(odPayload());
+    S.modal={type:'confirm',danger:true,title:'Restore this backup',msg:'Replace your whole library with the backup from '+new Date(f.t).toLocaleString()+'? It has '+data.projects.length+' project'+(data.projects.length===1?'':'s')+' and '+bc.total+' items; your library now has '+cc.total+'. Your current library is backed up first, so you can come back.',label:'Replace everything',fn:function(){
+      (async function(){
+        try{await odBackup(JSON.stringify(odPayload()),'before-restore')}catch(e){}
+        var keep=S.pid;odApply({data:data});ensureRoutes();
+        S.pid=(byId('projects',keep)||S.projects[0]||{}).id||null;
+        OD.okShrink=Date.now()+30000;odRelease();cacheLocal();render();odSchedule();toast('Backup restored.');
+      })();
+    }};
+    renderModal();
   },
   'od-pick':function(){S.modal={type:'odpick',stack:[{id:'root',name:'OneDrive'}],items:[],loading:true,err:''};renderModal();odList()},
   'od-pick-portraits':function(){S.modal={type:'odpick',target:'portraits',stack:[{id:'root',name:'OneDrive'}],items:[],loading:true,err:''};renderModal();odList()},
