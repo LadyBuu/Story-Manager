@@ -236,7 +236,7 @@ function defYearOf(d){
   if(!d)return '';var n=parseInt(d.defaultYear,10);if(n>=100&&n<=9999)return n;
   var k=autoKey(d.storyDate);return k!=null&&Math.floor(k/10000)>=100?Math.floor(k/10000):'';
 }
-function defYearFor(target){var a=target.split(':');return (a[0]==='c'||a[0]==='d')?defYearOf(byId('documents',a[1])):''}
+function defYearFor(target){var a=target.split(':');if(a[0]==='r'){var ev=byId('events',a[1]),k=ev&&autoKey(ev.dateText);return k?String(Math.floor(k/10000)):''}return (a[0]==='c'||a[0]==='d')?defYearOf(byId('documents',a[1])):''}
 function schPickOn(){try{return localStorage.getItem('so-cal-sch')!=='0'}catch(e){return true}}
 function calHtml(target,pt){
   var c=S.cal, y=c.y, m=c.m, nw=CAL.greg?7:WEEKDAYS.length, first=CAL.greg?(wdayOf(y,m,1)+6)%7:wdayOf(y,m,1), n=dim(y,m), sel=(pt.y===y&&pt.m===m)?pt.d:0, cells='';
@@ -246,14 +246,14 @@ function calHtml(target,pt){
     var its=its0.length?itemsOn(y,m,d,its0):[], sd=showSch?sc.days[y*10000+m*100+d]:null, dots='', tip=[];
     its.slice(0,3).forEach(function(it){dots+='<i style="--rc:var(--r-'+ckOf(it.kind)[2]+')"></i>'});
     its.forEach(function(it){tip.push(it.title);notes.push([d,it])});
-    if(sd)tip.push(sd.kind==='t'?(sd.term.name||'Term')+', school day '+sd.n:sd.kind==='b'?'Break: '+(sd.brk&&sd.brk.name||'Break'):'Rest day');
-    cells+='<button type="button" class="cal-d'+(d===sel?' on':'')+(its.length?' hasit':'')+(sd?' sch-'+sd.kind+(sd.start?' sch-s':'')+(sd.end?' sch-e':''):'')+'" data-act="cal-pick" data-t="'+target+'" data-d="'+d+'" title="'+esc(tip.join(' · '))+'" aria-label="'+d+' '+mname(y,m)+' '+y+', '+WEEKDAYS[wdayOf(y,m,d)]+(tip.length?', '+esc(tip.join(', ')):'')+'"><b>'+d+'</b>'+(dots?'<span class="cal-dots">'+dots+'</span>':'')+'</button>';
+    if(sd)(sd.all||[sd]).forEach(function(z){tip.push((z.term.school?z.term.school+': ':'')+(z.kind==='t'?(z.term.name||'Term')+', school day '+z.n:z.kind==='b'?'Break: '+(z.brk&&z.brk.name||'Break'):'Rest day'))});
+    cells+='<button type="button" class="cal-d'+(d===sel?' on':'')+(its.length?' hasit':'')+(sd?' sch-'+sd.kind+(sd.start?' sch-s':'')+(sd.end?' sch-e':'')+(sd.all&&sd.all.length>1?' sch-x sch-x-'+sd.all[1].kind:''):'')+'" data-act="cal-pick" data-t="'+target+'" data-d="'+d+'" title="'+esc(tip.join(' · '))+'" aria-label="'+d+' '+mname(y,m)+' '+y+', '+WEEKDAYS[wdayOf(y,m,d)]+(tip.length?', '+esc(tip.join(', ')):'')+'"><b>'+d+'</b>'+(dots?'<span class="cal-dots">'+dots+'</span>':'')+'</button>';
   }
   var nt=notes.slice(0,6).map(function(x){return '<span class="cal-nt" style="--rc:var(--r-'+ckOf(x[1].kind)[2]+')"><i></i>'+x[0]+' '+esc(x[1].title)+'</span>'}).join('')+(notes.length>6?'<span class="cal-nt more">+'+(notes.length-6)+' more</span>':'');
   var sw=hasSch?'<label class="chk cal-sw"><input type="checkbox" data-change="cal-sch"'+(showSch?' checked':'')+'><span>School terms</span></label>':'';
   return '<div class="cal" role="group" aria-label="Calendar"><div class="cal-h"><button type="button" class="btn sm" data-act="cal-nav" data-n="-1" aria-label="Previous month">‹</button><b>'+mname(y,m)+' '+y+'</b><button type="button" class="btn sm" data-act="cal-nav" data-n="1" aria-label="Next month">›</button></div>'+
     '<div class="cal-g" style="grid-template-columns:repeat('+nw+',minmax(1.6em,1fr))">'+(CAL.greg?['Mo','Tu','We','Th','Fr','Sa','Su']:WEEKDAYS.map(function(x){return x.slice(0,nw>7?4:2)})).map(function(x){return '<i>'+esc(x)+'</i>'}).join('')+cells+'</div>'+
-    (nt?'<div class="cal-n">'+nt+'</div>':'')+(showSch?'<div class="cal-lg"><span><i class="calsw sw-t"></i>term</span><span><i class="calsw sw-b"></i>break</span><span><i class="calsw sw-r"></i>rest</span></div>':'')+
+    (nt?'<div class="cal-n">'+nt+'</div>':'')+(showSch?'<div class="cal-lg"><span><i class="calsw sw-t"></i>term</span><span><i class="calsw sw-b"></i>break</span><span><i class="calsw sw-r"></i>rest</span>'+(sc.multi?'<span><i class="calsw sw-x"></i>second school</span>':'')+'</div>':'')+
     '<div class="cal-f"><small class="hint">'+(CAL.greg?'Weekdays follow the modern calendar, counted back for old years.':'Weekdays follow your calendar.')+'</small>'+sw+'<button type="button" class="btn sm" data-act="cal-close">Close</button></div></div>';
 }
 function ordinal(n){var t=n%100;if(t>=11&&t<=13)return n+'th';return n+({1:'st',2:'nd',3:'rd'}[n%10]||'th')}
@@ -318,6 +318,51 @@ function calEvMap(){
     (map[k]=map[k]||[]).push(e);
   });
   return map;
+}
+/* relationships: an event that starts one, with an optional end */
+function kY(k){return Math.floor(k/10000)}function kO(k){return Math.floor(k/100)%100}function kD(k){return k%100}
+function relFull(k){return k!=null&&kY(k)>=1&&kO(k)>0&&kD(k)>0&&dim(kY(k),kO(k))>=kD(k)}
+function relDayN(k){return dayCount(kY(k),kO(k),kD(k))}
+function relAnn(sk,n){var y=kY(sk)+n,o=Math.min(kO(sk),nmOf(y)),d=Math.min(kD(sk),dim(y,o));return y*10000+o*100+d}
+function relSpan(sk,ck){var n=kY(ck)-kY(sk);if(n<0)return null;while(n>0&&relAnn(sk,n)>ck)n--;return {y:n,d:relDayN(ck)-relDayN(relAnn(sk,n)),all:relDayN(ck)-relDayN(sk)}}
+function relSpanTxt(sp){if(!sp.all)return 'no time at all';var p=[];if(sp.y)p.push(sp.y+' year'+(sp.y>1?'s':''));if(sp.d)p.push(sp.d+' day'+(sp.d>1?'s':''));return p.join(' and ')}
+function relInfo(e){
+  var t=(e.relType||'').trim();if(!t)return null;
+  var sk=autoKey(e.dateText);if(!relFull(sk))return {e:e,type:t,bad:'start'};
+  var ek=null,txt=(e.relEnd||'').trim();
+  if(txt)ek=autoKey(txt);else if(e.relEndEvent){var ev=byId('events',e.relEndEvent);if(ev)ek=autoKey(ev.dateText)}
+  if(ek!=null&&!relFull(ek))ek=null;
+  var ch=e.characterIds||[];
+  return {e:e,type:t,sk:sk,ek:ek,a:e.relA||ch[0]||'',b:e.relB||ch[1]||'',bad:(ek!=null&&ek<sk)?'order':''};
+}
+function relWho(r){var n=[r.a,r.b].map(function(i){return i?nameOf('characters',i):''}).filter(Boolean).join(' & ');return n||r.e.title||'Relationship'}
+function relDayHtml(y,mo,d){
+  if(PL||dateMode()!=='auto')return '';
+  var k=y*10000+mo*100+d,rows=[];
+  eff('events').forEach(function(e){
+    var r=relInfo(e);if(!r||r.bad||k<r.sk||(r.ek!=null&&k>r.ek))return;
+    var line=k===r.sk?'Begins today':k===r.ek?'Ends today, after '+relSpanTxt(relSpan(r.sk,r.ek)):relSpanTxt(relSpan(r.sk,k))+' in'+(r.ek==null?', no end date':'');
+    rows.push('<button class="lk" data-act="goto" data-view="timeline" data-seg="events" data-id="'+e.id+'"><span class="n"><i class="calsw calev"></i></span><span><span class="lkt">'+esc(relWho(r))+'</span><small>'+esc(r.type+' · '+line)+'</small></span></button>');
+  });
+  return rows.length?'<div class="sec"><h3>Relationships</h3>'+rows.join('')+'</div>':'';
+}
+function relCard(e){
+  var r=relInfo(e),types={},h;
+  eff('events').forEach(function(x){var t=(x.relType||'').trim();if(t)types[t]=1});
+  h='<div class="sec"><h3>Relationship</h3><p class="hint" style="margin:0 0 6px">Fill in a type when this event is where a relationship begins. The calendar then tells you how long it has run when you open any day. Squares are not coloured.</p><div class="fgrid">'+
+    '<div class="span2"><label class="lab" for="rt-'+e.id+'">Type</label><input class="in" id="rt-'+e.id+'" list="rtl-'+e.id+'" data-bind="events:'+e.id+':relType" value="'+esc(e.relType||'')+'" placeholder="Romance, friendship, rivalry…" autocomplete="off"><datalist id="rtl-'+e.id+'">'+Object.keys(types).map(function(t){return '<option value="'+esc(t)+'">'}).join('')+'</datalist></div>';
+  if(!r)return h+'</div></div>';
+  var others=sortBy(eff('events').filter(function(x){return x.id!==e.id}),'order');
+  h+='<div><label class="lab" for="ra-'+e.id+'">First person</label><select class="in" id="ra-'+e.id+'" data-bind="events:'+e.id+':relA">'+optList('characters',r.a,'Choose')+'</select></div>'+
+    '<div><label class="lab" for="rb-'+e.id+'">Second person</label><select class="in" id="rb-'+e.id+'" data-bind="events:'+e.id+':relB">'+optList('characters',r.b,'Choose')+'</select></div>'+
+    '<div class="span2"><label class="lab" for="re-'+e.id+'">Ends on</label>'+(dateMode()==='auto'?dateField('r:'+e.id,e.relEnd,'re-'+e.id):'<input class="in" id="re-'+e.id+'" data-bind="events:'+e.id+':relEnd" value="'+esc(e.relEnd||'')+'" placeholder="Leave empty if it is still going">')+'</div>'+
+    '<div class="span2"><label class="lab" for="rv-'+e.id+'">or ends when this event happens</label><select class="in" id="rv-'+e.id+'" data-bind="events:'+e.id+':relEndEvent"><option value="">No end event</option>'+others.map(function(x){return '<option value="'+x.id+'"'+(e.relEndEvent===x.id?' selected':'')+'>'+esc(x.title||'Untitled')+(x.dateText?' ('+esc(x.dateText)+')':'')+'</option>'}).join('')+'</select></div></div>';
+  var msg='';
+  if(r.bad==='start')msg='Give this event a real date (day, month and year) so the length can be worked out.';
+  else if(r.bad==='order')msg='The end is before the start.';
+  else if(r.ek!=null)msg='Ran from '+keyLong(r.sk)+' to '+keyLong(r.ek)+': '+relSpanTxt(relSpan(r.sk,r.ek))+'.';
+  else msg='Ongoing since '+keyLong(r.sk)+'.';
+  return h+'<p class="hint" style="margin:6px 0 0" role="status">'+esc(msg)+'</p></div>';
 }
 function itemInYear(it,y){
   if(it.rule==='dates')return (it.occ||[]).some(function(o){var e=+o.ey||((o.em&&o.em*100+o.ed<o.m*100+o.d)?+o.y+1:+o.y);return y>=+o.y&&y<=e});
@@ -409,9 +454,9 @@ function calMonthHtml(y,m,map,list,evm){
     if(ch.length)cc++;
     ch.forEach(function(c){var a=chArc(c);if(a&&ARCC[a]&&!seen[a]&&Object.keys(seen).length<4){seen[a]=1;bars+='<u style="background:'+ARCC[a]+'"></u>'}});
     var dots=its.slice(0,3).map(function(it){return '<i style="--rc:var(--r-'+ckOf(it.kind)[2]+')"></i>'}).join('')+(evs.length?'<i class="ev"></i>':'');
-    var sd=sc.days[k], lab0=sd?', '+(sd.kind==='t'?'school day '+sd.n+' of '+sd.st.teach:sd.kind==='b'?'break':'rest day'):'';
+    var sd=sc.days[k], lab0=sd?(sd.all||[sd]).map(function(z){return ', '+(z.term.school?z.term.school+' ':'')+(z.kind==='t'?'school day '+z.n+' of '+z.st.teach:z.kind==='b'?'break':'rest day')}).join(''):'';
     var lab=d+' '+mname(y,m)+' '+y+lab0+(ch.length?', '+ch.length+' chapter'+(ch.length>1?'s':''):'')+its.map(function(it){return ', '+it.title}).join('')+evs.map(function(e){return ', event '+e.title}).join('');
-    cells+='<button type="button" class="calday'+(ch.length?' hasch':'')+(sd?' sch-'+sd.kind+(sd.start?' sch-s':'')+(sd.end?' sch-e':''):'')+'" data-act="cal-day" data-y="'+y+'" data-m="'+m+'" data-d="'+d+'" aria-label="'+esc(lab)+'">'+(bars?'<span class="calarcs">'+bars+'</span>':'')+'<b>'+d+'</b>'+(sd&&sd.kind==='t'&&schoolOf().nums?'<small class="calnum">'+sd.n+'</small>':'')+(ch.length>1?'<sup class="calct">'+ch.length+'</sup>':'')+(dots?'<span class="calmk">'+dots+'</span>':'')+'</button>';
+    cells+='<button type="button" class="calday'+(ch.length?' hasch':'')+(sd?' sch-'+sd.kind+(sd.start?' sch-s':'')+(sd.end?' sch-e':'')+(sd.all&&sd.all.length>1?' sch-x sch-x-'+sd.all[1].kind:''):'')+'" data-act="cal-day" data-y="'+y+'" data-m="'+m+'" data-d="'+d+'" aria-label="'+esc(lab)+'">'+(bars?'<span class="calarcs">'+bars+'</span>':'')+'<b>'+d+'</b>'+(sd&&sd.kind==='t'&&schoolOf().nums?'<small class="calnum">'+sd.n+'</small>':'')+(ch.length>1?'<sup class="calct">'+ch.length+'</sup>':'')+(dots?'<span class="calmk">'+dots+'</span>':'')+'</button>';
   }
   var hd=(CAL.greg?['Mo','Tu','We','Th','Fr','Sa','Su']:WEEKDAYS.map(function(x){return x.slice(0,nw>7?4:2)})).map(function(x){return '<i>'+esc(x)+'</i>'}).join('');
   return '<section class="calmo'+((monthsOf(y)[m-1]||{}).ins?' leap':'')+'"><h3>'+esc(mname(y,m))+((monthsOf(y)[m-1]||{}).ins?'<em class="calleapt">leap month</em>':'')+(cc?'<small>'+cc+' day'+(cc>1?'s':'')+'</small>':'')+'</h3><div class="calgrid" style="grid-template-columns:repeat('+nw+',minmax(0,1fr))">'+hd+cells+'</div></section>';
@@ -787,7 +832,7 @@ function schoolCalc(){
   var pr=proj(),s=schoolOf();syncCal();
   var sig=(pr?pr.id:'')+'|'+CAL.sig+'|'+JSON.stringify(s)+'|'+schoolRest().join(',');
   if(SC.sig===sig&&SC.v)return SC.v;
-  var rest={},days={},stats={},order=[];
+  var rest={},days={},stats={},order=[],multi=false;
   schoolRest().forEach(function(w){rest[w]=1});
   (s.years||[]).forEach(function(yr){
     var ys={total:0,rest:0,brk:0,teach:0,first:0,last:0,fv:null,lv:null};
@@ -800,7 +845,8 @@ function schoolCalc(){
         for(i=0;i<bk.length;i++)if(key>=bk[i][0]&&key<=bk[i][1]){br=bk[i][2];break}
         st.total++;
         if(rest[wd]){kind='r';st.rest++}else if(br){kind='b';st.brk++}else{st.teach++;n=st.teach}
-        if(!days[key])days[key]={term:t,year:yr,kind:kind,n:n,brk:br,st:st,start:key===st.first,end:key===st.last};
+        var en={term:t,year:yr,kind:kind,n:n,brk:br,st:st,start:key===st.first,end:key===st.last};
+        if(!days[key]){days[key]=en;en.all=[en]}else{days[key].all.push(en);multi=true}
       });
       stats[t.id]=st;ys.total+=st.total;ys.rest+=st.rest;ys.brk+=st.brk;ys.teach+=st.teach;
       if(!ys.first||st.first<ys.first){ys.first=st.first;ys.fv=t.s}
@@ -809,7 +855,7 @@ function schoolCalc(){
     stats[yr.id]=ys;
   });
   order=(s.years||[]).slice().sort(function(a,b){var x=(stats[a.id]||{}).first||1e12,y=(stats[b.id]||{}).first||1e12;return x-y});
-  return (SC.sig=sig,SC.v={days:days,stats:stats,order:order});
+  return (SC.sig=sig,SC.v={days:days,stats:stats,order:order,multi:multi});
 }
 function schoolYearName(yr){
   if(yr.name)return yr.name;
@@ -818,7 +864,8 @@ function schoolYearName(yr){
 }
 function schStat(st){return st?st.teach+' school day'+(st.teach===1?'':'s')+' · '+st.total+' in all · '+st.rest+' rest · '+st.brk+' break':'Needs valid dates'}
 function schTermFind(id){var r=null;schoolOf().years.forEach(function(yr){(yr.terms||[]).forEach(function(t){if(t.id===id)r={yr:yr,t:t}})});return r}
-function schLegend(){return '<span><i class="calsw sw-t"></i>term</span><span><i class="calsw sw-b"></i>break</span><span><i class="calsw sw-r"></i>rest day</span>'}
+function schLegend(){return '<span><i class="calsw sw-t"></i>term</span><span><i class="calsw sw-b"></i>break</span><span><i class="calsw sw-r"></i>rest day</span>'+(schoolCalc().multi?'<span><i class="calsw sw-x"></i>second school</span>':'')}
+function schoolNames(){var o={};schoolOf().years.forEach(function(y){(y.terms||[]).forEach(function(t){if((t.school||'').trim())o[t.school.trim()]=1})});return Object.keys(o).sort()}
 function schYearOpen(yr,ys){
   var o=S.schOpen||{};if(o[yr.id]!==undefined)return !!o[yr.id];
   var cy=S.calY;if(!cy||!ys||!ys.fv)return true;
@@ -839,7 +886,7 @@ function schoolPanel(){
       h+='<div class="schy-body">';
       ts.forEach(function(t){
         var st=sc.stats[t.id],rt=schRuleTxt(t,terms);
-        h+='<div class="scht"><div class="scht-m"><button type="button" class="scht-n" data-act="sch-go" data-y="'+esc(t.s&&t.s.y||'')+'"><b>'+esc(t.name||'Term')+'</b><small>'+esc(ymdTxt(t.s)+' to '+ymdTxt(t.e))+'</small></button><button class="btn sm" data-act="sch-term-edit" data-id="'+t.id+'">Edit</button></div>'+
+        h+='<div class="scht"><div class="scht-m"><button type="button" class="scht-n" data-act="sch-go" data-y="'+esc(t.s&&t.s.y||'')+'"><b>'+esc(t.name||'Term')+'</b><small>'+esc((t.school?t.school+' · ':'')+ymdTxt(t.s)+' to '+ymdTxt(t.e))+'</small></button><button class="btn sm" data-act="sch-term-edit" data-id="'+t.id+'">Edit</button></div>'+
           '<div class="scht-s">'+esc(schStat(st))+(rt?'<br><i>'+esc(rt)+'</i>':'')+'</div>'+
           '<div class="scht-b">'+(t.breaks||[]).slice().sort(function(a,b){return (ymdKey(a.s)||1e12)-(ymdKey(b.s)||1e12)}).map(function(b){var tk=ymdKey(t.s),te=ymdKey(t.e),bk=ymdKey(b.s),be=ymdKey(b.e),out=!bk||!be||bk<tk||be>te;return '<button type="button" class="schbk'+(out?' bad':'')+'" data-act="sch-break-edit" data-tid="'+t.id+'" data-id="'+b.id+'"><b>'+esc(b.name||'Break')+'</b><small>'+esc(ymdTxt(b.s)+(ymdKey(b.s)===ymdKey(b.e)?'':' to '+ymdTxt(b.e))+(out?' (outside the term)':''))+'</small></button>'}).join('')+
           '<button type="button" class="btn sm" data-act="sch-break-new" data-tid="'+t.id+'">'+ic('plus',14)+'Break</button></div></div>';
@@ -856,8 +903,10 @@ function schoolDayHtml(y,mo,d){
   if(!x&&!PL)return '';
   h='<div class="sec"><h3>School</h3>';
   if(x){
-    var line=x.kind==='t'?'School day '+x.n+' of '+x.st.teach:x.kind==='b'?'Break: '+(x.brk&&x.brk.name||'Break'):'Rest day';
-    h+='<button class="lk" data-act="sch-term-edit" data-id="'+x.term.id+'"><span class="n"><i class="calsw sw-'+x.kind+'"></i></span><span><span class="lkt">'+esc(x.term.name||'Term')+' · '+esc(schoolYearName(x.year))+'</span><small>'+esc([line,x.start?'Term starts':'',x.end?'Term ends':''].filter(Boolean).join(' · '))+'</small></span></button>';
+    (x.all||[x]).forEach(function(z){
+      var line=z.kind==='t'?'School day '+z.n+' of '+z.st.teach:z.kind==='b'?'Break: '+(z.brk&&z.brk.name||'Break'):'Rest day';
+      h+='<button class="lk" data-act="sch-term-edit" data-id="'+z.term.id+'"><span class="n"><i class="calsw sw-'+z.kind+'"></i></span><span><span class="lkt">'+esc((z.term.school?z.term.school+' · ':'')+(z.term.name||'Term'))+' · '+esc(schoolYearName(z.year))+'</span><small>'+esc([line,z.start?'Term starts':'',z.end?'Term ends':''].filter(Boolean).join(' · '))+'</small></span></button>';
+    });
   }else h+='<p class="hint" style="margin:0 0 6px">Not in a term.</p>';
   h+='<div class="actions" style="justify-content:flex-start;margin:6px 0 0"><button class="btn sm" data-act="sch-term-new" data-y="'+y+'" data-m="'+idOrd(y,mo)+'" data-d="'+d+'">'+ic('plus',14)+'Term starts here</button>'+(x?'<button class="btn sm" data-act="sch-break-new" data-tid="'+x.term.id+'" data-y="'+y+'" data-m="'+idOrd(y,mo)+'" data-d="'+d+'">'+ic('plus',14)+'Break starts here</button>':'')+'</div></div>';
   return h;
@@ -870,6 +919,7 @@ function schCapture(){
   var m=S.modal;if(!m)return;
   var g=function(id){var e=document.getElementById(id);return e?e.value:undefined},v;
   if((v=g('sc-n'))!==undefined)m.name=v;
+  if((v=g('sc-sch'))!==undefined)m.school=v;
   if((v=g('sc-yr'))!==undefined)m.yid=v;
   if((v=g('sc-term'))!==undefined)m.tid=v;
   if((v=g('sc-sm'))!==undefined)m.sMode=v;
@@ -915,6 +965,7 @@ function schTermModal(){
   var sel=function(id,opts,cur,ch){return '<select class="in" id="'+id+'"'+(ch===false?'':' data-change="sch-sync"')+'>'+opts.map(function(o){return '<option value="'+o[0]+'"'+(String(cur)===String(o[0])?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select>'};
   var h='<h2>'+(m.id?'Edit term':'New term')+'</h2>'+
     '<label class="lab" for="sc-n">Name</label><input class="in" id="sc-n" value="'+esc(m.name)+'" placeholder="Autumn term">'+
+    '<label class="lab" for="sc-sch" style="margin-top:10px">School <small>(optional)</small></label><input class="in" id="sc-sch" list="sc-schl" value="'+esc(m.school||'')+'" placeholder="Leave empty if there is only one" autocomplete="off"><datalist id="sc-schl">'+schoolNames().map(function(n){return '<option value="'+esc(n)+'">'}).join('')+'</datalist><small class="hint" style="display:block;margin-top:4px">Terms from different schools may overlap. Terms from the same school may not.</small>'+
     '<label class="lab" for="sc-yr" style="margin-top:10px">School year</label><select class="in" id="sc-yr">'+yrs.map(function(y){return '<option value="'+y.id+'"'+(m.yid===y.id?' selected':'')+'>'+esc(schoolYearName(y))+'</option>'}).join('')+'<option value="new"'+(m.yid==='new'||!yrs.length?' selected':'')+'>A new school year</option></select>';
   h+='<fieldset class="schf"><legend>First day</legend>'+sel('sc-sm',[['date','On a date']].concat(others.length?[['after','After another term']]:[]),md.s);
   if(md.s==='after')h+='<div class="calrow sch2"><input class="in" id="sc-sn" type="number" min="0" max="365" inputmode="numeric" value="'+esc(m.sN===''||m.sN==null?1:m.sN)+'" aria-label="Days after" data-change="sch-sync"><span class="schw">day(s) after the end of</span></div>'+sel('sc-sref',others.map(function(x){return [x.id,esc(x.name||'Term')]}),m.sRef);
@@ -1033,6 +1084,7 @@ function calDayModal(){
   var h='<h2>'+esc(keyLong(k))+'</h2>';arcColors();
   if(!PL)h+='<div class="sec"><h3>Chapters</h3>'+(ch.length?ch.map(function(c){var pv=(c.h&&c.h.pov)||c.d.pov;return '<button class="lk" data-act="cal-chap" data-id="'+c.d.id+'" data-hid="'+(c.h?c.h.id:'')+'"><span class="n">'+(ARCC[chArc(c)]?'<i class="calsw" style="--rc:'+ARCC[chArc(c)]+'"></i>':'')+'</span><span><span class="lkt">'+(esc(c.h?c.h.title:c.d.title)||'Untitled')+'</span><small>'+esc([c.d.title,chArc(c)?nameOf('arcs',chArc(c)):'',pv?'POV '+nameOf('characters',pv):''].filter(Boolean).join(' · '))+'</small></span></button>'}).join(''):'<p class="hint">No chapter is set on this day.</p>')+'</div>';
   h+=schoolDayHtml(y,mo,d);
+  h+=relDayHtml(y,mo,d);
   h+='<div class="sec"><h3>Calendar items</h3>'+(its.length?its.map(function(it){
     var who=it.charId?nameOf('characters',it.charId):'', ag=itemAge(it,y);
     return '<button class="lk" data-act="cal-edit" data-id="'+it.id+'"><span class="n"><i class="calsw" style="--rc:var(--r-'+ckOf(it.kind)[2]+')"></i></span><span><span class="lkt">'+(esc(it.title)||'Untitled')+'</span><small>'+esc([ckOf(it.kind)[1],who,ag,spanPos(it,y,mo,d),it.note].filter(Boolean).join(' · '))+'</small></span></button>';
@@ -1295,6 +1347,7 @@ function dpSet(target,val){
   if(a[0]==='c'){var d=byId('documents',a[1]),x=d&&(d.headings||[]).find(function(y){return y.id===a[2]});if(!x)return;x.storyDate=val;save('documents',d)}
   else if(a[0]==='d'){o=byId('documents',a[1]);if(!o)return;o.storyDate=val;save('documents',o)}
   else if(a[0]==='e'){o=byId('events',a[1]);if(!o)return;o.dateText=val;save('events',o)}
+  else if(a[0]==='r'){o=byId('events',a[1]);if(!o)return;o.relEnd=val;save('events',o)}
 }
 function normDates(){
   var pr=proj();if(!pr||dateMode()!=='auto')return;
@@ -1306,7 +1359,7 @@ function normDates(){
       (d.headings||[]).forEach(function(x){var c2=canonDate(x.storyDate);if(c2&&c2!==x.storyDate){x.storyDate=c2;ch=true}});
       if(ch)save('documents',d);
     });
-    evs.forEach(function(e){var c=canonDate(e.dateText);if(c&&c!==e.dateText){e.dateText=c;save('events',e)}});
+    evs.forEach(function(e){var c=canonDate(e.dateText);if(c&&c!==e.dateText){e.dateText=c;save('events',e)}var c2=canonDate(e.relEnd);if(c2&&c2!==e.relEnd){e.relEnd=c2;save('events',e)}});
   });
 }
 function dateHint(text){
@@ -2025,6 +2078,7 @@ function eventCard(e){
     '<div class="span2"><label class="lab" for="el-'+e.id+'">Location</label><select class="in" id="el-'+e.id+'" data-bind="events:'+e.id+':locationId">'+optList('locations',e.locationId,'No location')+'</select></div>'+
     '<div class="span2"><label class="lab" for="en-'+e.id+'">Notes</label><textarea class="in" id="en-'+e.id+'" data-bind="events:'+e.id+':notes">'+esc(e.notes||'')+'</textarea></div></div>';
   h+=relSec('Characters involved','events',e.id,'characterIds','characters',e.characterIds||[],'character');
+  h+=relCard(e);
   h+='<div class="sec"><h3>Shown in</h3><div class="links">'+(shown.length?shown.map(function(d){return linkRow('documents','',d.id,rp[d.id],d.title)}).join(''):'<p class="hint">No document shows this event yet.</p>')+'</div><div style="margin-top:8px"><button class="btn sm" data-act="pick-docs" data-id="'+e.id+'" data-field="eventIds">'+ic('plus',14)+'Choose documents</button></div></div>';
   h+='<div class="sec"><h3>Referenced in</h3><div class="links">'+(refd.length?refd.map(function(d){return linkRow('documents','',d.id,rp[d.id],d.title)}).join(''):'<p class="hint">Not referenced elsewhere.</p>')+'</div><div style="margin-top:8px"><button class="btn sm" data-act="pick-docs" data-id="'+e.id+'" data-field="refEventIds">'+ic('plus',14)+'Choose documents</button></div></div>';
   return h;
@@ -2822,8 +2876,9 @@ function restoreBackup(text){
   if(so&&!Array.isArray(o.projects)&&o.data&&typeof o.data==='object')o=Object.assign({app:o.app,version:2},o.data);
   if(!so){var hl=holChars(o);if(hl){importHollow(hl);return}}
   if(!so||!Array.isArray(o.projects)){toast('That file is not a Story Organiser backup.');return}
+  var dupN='';o.projects.forEach(function(p){if(S.projects.some(function(q){return q.id!==p.id&&(q.name||'').toLowerCase()===(p.name||'').toLowerCase()}))dupN=p.name});
   var n=0,bits=[];COLLS.forEach(function(c){var k=(o[c]||[]).length;n+=k;if(k&&c!=='projects')bits.push(k+' '+(c==='events'?'timeline events':c))});
-  S.modal={type:'confirm',title:'Restore backup',msg:'This brings back '+o.projects.length+' project'+(o.projects.length===1?'':'s')+' with '+(bits.join(', ')||'no other items')+'. Anything with the same id is replaced by the backup. Nothing else is removed.',label:'Restore',fn:function(){
+  S.modal={type:'confirm',title:'Restore backup',msg:'This brings back '+o.projects.length+' project'+(o.projects.length===1?'':'s')+' with '+(bits.join(', ')||'no other items')+'. Anything with the same id is replaced by the backup. Nothing else is removed.'+(dupN?' You already have a different project called “'+dupN+'”, so you will end up with two of them.':''),label:'Restore',fn:function(){
     withBulk(function(){COLLS.forEach(function(c){(o[c]||[]).forEach(function(x){
       if(!x||!x.id)return;
       var i=S[c].findIndex(function(y){return y.id===x.id});
@@ -2831,8 +2886,8 @@ function restoreBackup(text){
       save(c,x,true);
     })})});
     ensureRoutes();
-    if(!proj()&&S.projects.length)setProject(S.projects[0].id);
-    closeModal();render();toast('Backup restored: '+n+' items.');
+    var rp=o.projects[0];if(rp&&byId('projects',rp.id))setProject(rp.id);else if(!proj()&&S.projects.length)setProject(S.projects[0].id);
+    closeModal();render();toast('Backup restored: '+n+' items. Now showing “'+((proj()||{}).name||'')+'”.');
   }};
   renderModal();
 }
@@ -2952,7 +3007,7 @@ clear:function(el){
 'cal-open':function(el){
   var t=el.dataset.t;if(S.cal&&S.cal.t===t){S.cal=null;render();return}
   var txt='',a=t.split(':'),dd=byId('documents',a[1]);
-  if(a[0]==='c'){var x=dd&&(dd.headings||[]).find(function(y){return y.id===a[2]});txt=x?x.storyDate:''}else if(a[0]==='d')txt=dd?dd.storyDate:'';else if(a[0]==='e'){var ev=byId('events',a[1]);txt=ev?ev.dateText:''}
+  if(a[0]==='c'){var x=dd&&(dd.headings||[]).find(function(y){return y.id===a[2]});txt=x?x.storyDate:''}else if(a[0]==='d')txt=dd?dd.storyDate:'';else if(a[0]==='e'){var ev=byId('events',a[1]);txt=ev?ev.dateText:''}else if(a[0]==='r'){var ev3=byId('events',a[1]);txt=ev3?(ev3.relEnd||ev3.dateText):''}
   var pt=dateParts(txt), y=pt.y||defYearFor(t)||new Date().getFullYear(), m=pt.m||1;
   S.cal={t:t,y:+y,m:+m};render();
 },
@@ -3005,7 +3060,7 @@ clear:function(el){
 },
 'sch-term-edit':function(el){
   var f=schTermFind(el.dataset.id);if(!f)return;var t=f.t,er=t.er||{};
-  S.modal={type:'schterm',id:t.id,yid:f.yr.id,name:t.name||'',s:Object.assign({},t.s),e:Object.assign({},t.e),sMode:t.sr?'after':'date',sRef:t.sr?t.sr.ref:'',sN:t.sr?t.sr.n:1,eMode:er.mode||'date',eN:er.n||'',eUnit:er.unit||'school',eDir:er.dir||'before',eRef:er.ref||''};
+  S.modal={type:'schterm',id:t.id,yid:f.yr.id,name:t.name||'',school:t.school||'',s:Object.assign({},t.s),e:Object.assign({},t.e),sMode:t.sr?'after':'date',sRef:t.sr?t.sr.ref:'',sN:t.sr?t.sr.n:1,eMode:er.mode||'date',eN:er.n||'',eUnit:er.unit||'school',eDir:er.dir||'before',eRef:er.ref||''};
   renderModal();
 },
 'sch-term-save':function(el){
@@ -3014,8 +3069,8 @@ clear:function(el){
   if(!ymdOk(t.s)||!ymdOk(t.e)){toast('Those settings do not give a real first and last day yet.');return}
   if(ymdKey(t.e)<ymdKey(t.s)){toast('The term ends before it starts.');return}
   var clash=null,a=ymdKey(t.s),b=ymdKey(t.e);
-  schoolOf().years.forEach(function(yr){(yr.terms||[]).forEach(function(x){if(x.id!==m.id&&ymdOk(x.s)&&ymdOk(x.e)&&!(ymdKey(x.e)<a||ymdKey(x.s)>b))clash=x})});
-  if(clash){toast('That overlaps '+(clash.name||'another term')+'.');return}
+  schoolOf().years.forEach(function(yr){(yr.terms||[]).forEach(function(x){if(x.id!==m.id&&(x.school||'').trim()===(m.school||'').trim()&&ymdOk(x.s)&&ymdOk(x.e)&&!(ymdKey(x.e)<a||ymdKey(x.s)>b))clash=x})});
+  if(clash){toast('That overlaps '+(clash.name||'another term')+(m.school&&m.school.trim()?' at '+m.school.trim():'')+'. If it is a different school, put its name in the School box.');return}
   var newId=m.id||uid(),yidNew=m.yid,goNext=!!(el&&el.dataset&&el.dataset.next);
   schoolWrite(function(s){
     var yr=m.yid&&m.yid!=='new'?s.years.filter(function(y){return y.id===m.yid})[0]:null;
@@ -3024,6 +3079,7 @@ clear:function(el){
     var cur=null;
     s.years.forEach(function(yy){yy.terms=yy.terms||[];var i=yy.terms.findIndex(function(x){return x.id===newId});if(i>-1){cur=yy.terms[i];if(yy!==yr)yy.terms.splice(i,1)}});
     if(!cur)cur={id:newId,breaks:[]};
+    if((m.school||'').trim())cur.school=m.school.trim();else delete cur.school;
     cur.name=nm;cur.s={y:+t.s.y,m:+t.s.m,d:+t.s.d};cur.e={y:+t.e.y,m:+t.e.m,d:+t.e.d};
     if(t.sr)cur.sr=t.sr;else delete cur.sr;
     if(t.er)cur.er=t.er;else delete cur.er;
@@ -3034,7 +3090,7 @@ clear:function(el){
   S.calY=+t.s.y||S.calY;S.schOpen=S.schOpen||{};S.schOpen[yidNew]=true;
   closeModal();
   if(goNext){
-    S.modal={type:'schterm',id:'',yid:yidNew,name:'',s:{y:'',m:'',d:''},e:{y:'',m:'',d:''},sMode:'after',sRef:newId,sN:1,eMode:m.eMode==='date'?'date':m.eMode,eN:m.eN,eUnit:m.eUnit||'school',eDir:m.eDir||'before',eRef:m.eMode==='rel'?'':m.eRef};
+    S.modal={type:'schterm',id:'',yid:yidNew,name:'',school:m.school||'',s:{y:'',m:'',d:''},e:{y:'',m:'',d:''},sMode:'after',sRef:newId,sN:1,eMode:m.eMode==='date'?'date':m.eMode,eN:m.eN,eUnit:m.eUnit||'school',eDir:m.eDir||'before',eRef:m.eMode==='rel'?'':m.eRef};
     render();renderModal();return;
   }
   render();toast('Saved.');
