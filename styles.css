@@ -1863,3 +1863,5 @@ textarea.in{min-height:88px;resize:vertical;line-height:1.5}
 .sch-x-b::after{background:repeating-linear-gradient(135deg,var(--r-a) 0 2px,transparent 2px 4px)!important}
 .sch-x-r::after{background:color-mix(in srgb,var(--r-a) 30%,transparent)!important}
 .calsw.sw-x{background:var(--r-a);border-radius:2px}
+.schvis{margin:0 4px 0 auto;font-size:12px;white-space:nowrap}
+.scht-m{align-items:center}
