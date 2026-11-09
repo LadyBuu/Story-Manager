@@ -97,6 +97,7 @@ function charHay(c){
 }
 var nameOf=function(c,id){var o=byId(c,id);return o?(o.name||o.title||''):''};
 var proj=function(){return byId('projects',S.pid)};
+var PAINT=['#c9809a','#e0a15b','#d9c35a','#7fb58a','#5fb3c4','#7f9ad1','#a98ad1','#8a8a8a'];
 var pad=function(n){return n==null?'--':String(n).padStart(2,'0')};
 var fmtN=function(n){return (n||0).toLocaleString('en-GB')};
 var fmtDate=function(iso){if(!iso)return 'not recorded';var d=new Date(iso);return isNaN(d)?'not recorded':d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})};
@@ -456,7 +457,8 @@ function calMonthHtml(y,m,map,list,evm){
     var dots=its.slice(0,3).map(function(it){return '<i style="--rc:var(--r-'+ckOf(it.kind)[2]+')"></i>'}).join('')+(evs.length?'<i class="ev"></i>':'');
     var sd=sc.days[k], lab0=sd?(sd.all||[sd]).map(function(z){return ', '+(z.term.school?z.term.school+' ':'')+(z.kind==='t'?'school day '+z.n+' of '+z.st.teach:z.kind==='b'?'break':'rest day')}).join(''):'';
     var lab=d+' '+mname(y,m)+' '+y+lab0+(ch.length?', '+ch.length+' chapter'+(ch.length>1?'s':''):'')+its.map(function(it){return ', '+it.title}).join('')+evs.map(function(e){return ', event '+e.title}).join('');
-    cells+='<button type="button" class="calday'+(ch.length?' hasch':'')+(sd?' sch-'+sd.kind+(sd.start?' sch-s':'')+(sd.end?' sch-e':'')+(sd.all&&sd.all.length>1?' sch-x sch-x-'+sd.all[1].kind:''):'')+'" data-act="cal-day" data-y="'+y+'" data-m="'+m+'" data-d="'+d+'" aria-label="'+esc(lab)+'">'+(bars?'<span class="calarcs">'+bars+'</span>':'')+'<b>'+d+'</b>'+(sd&&sd.kind==='t'&&schoolOf().nums?'<small class="calnum">'+sd.n+'</small>':'')+(ch.length>1?'<sup class="calct">'+ch.length+'</sup>':'')+(dots?'<span class="calmk">'+dots+'</span>':'')+'</button>';
+    var pcol=PAINT[((proj()||{}).paint||{})[k]];
+    cells+='<button type="button" class="calday'+(pcol?' paint':'')+(ch.length?' hasch':'')+(sd?' sch-'+sd.kind+(sd.start?' sch-s':'')+(sd.end?' sch-e':'')+(sd.all&&sd.all.length>1?' sch-x sch-x-'+sd.all[1].kind:''):'')+'" data-act="cal-day" data-y="'+y+'" data-m="'+m+'" data-d="'+d+'"'+(pcol?' style="--pc:'+pcol+'"':'')+' aria-label="'+esc(lab+(pcol?', coloured':''))+'">'+(bars?'<span class="calarcs">'+bars+'</span>':'')+'<b>'+d+'</b>'+(sd&&sd.kind==='t'&&schoolOf().nums?'<small class="calnum">'+sd.n+'</small>':'')+(ch.length>1?'<sup class="calct">'+ch.length+'</sup>':'')+(dots?'<span class="calmk">'+dots+'</span>':'')+'</button>';
   }
   var hd=(CAL.greg?['Mo','Tu','We','Th','Fr','Sa','Su']:WEEKDAYS.map(function(x){return x.slice(0,nw>7?4:2)})).map(function(x){return '<i>'+esc(x)+'</i>'}).join('');
   return '<section class="calmo'+((monthsOf(y)[m-1]||{}).ins?' leap':'')+'"><h3>'+esc(mname(y,m))+((monthsOf(y)[m-1]||{}).ins?'<em class="calleapt">leap month</em>':'')+(cc?'<small>'+cc+' day'+(cc>1?'s':'')+'</small>':'')+'</h3><div class="calgrid" style="grid-template-columns:repeat('+nw+',minmax(0,1fr))">'+hd+cells+'</div></section>';
@@ -692,6 +694,166 @@ function swWants(d,sub,opt0){
     out.push({id:x.id,title:ftitle(x),level:x.level,nth:n,date:sub&&dt?longDate(canonDate(dt)||dt):'',rename:x.fileTitle?x.title:''});
   });
   return out;
+}
+
+/* ---------- add a chapter to a Word file ---------- */
+var AC_LV=1;
+function hdWant(d,x){
+  var hs=d.headings||[], i=hs.indexOf(x), n=0;
+  for(var k=0;k<i;k++){var y=hs[k];if(y.level===x.level&&ftitle(y).toLowerCase()===ftitle(x).toLowerCase())n++}
+  return {id:x.id,title:ftitle(x),level:x.level,nth:n};
+}
+async function injectChapter(file,items,after){
+  if(typeof JSZip==='undefined')throw new Error('zip');
+  var zip=await JSZip.loadAsync(await file.arrayBuffer());
+  var docF=zip.file('word/document.xml');if(!docF)throw new Error('nodoc');
+  var parse=function(s){return new DOMParser().parseFromString(s,'application/xml')};
+  var styles={}, byName={}, sf=zip.file('word/styles.xml');
+  if(sf){
+    var sd=parse(await sf.async('string')), sl=sd.getElementsByTagNameNS(W,'style');
+    for(var i=0;i<sl.length;i++){
+      var st=sl[i], id=st.getAttributeNS(W,'styleId');
+      var ne=st.getElementsByTagNameNS(W,'name')[0], be=st.getElementsByTagNameNS(W,'basedOn')[0], oe=st.getElementsByTagNameNS(W,'outlineLvl')[0], nm=ne?ne.getAttributeNS(W,'val'):'';
+      styles[id]={name:nm,based:be?be.getAttributeNS(W,'val'):'',outline:oe?parseInt(oe.getAttributeNS(W,'val'),10):null};
+      if(nm)byName[nm.toLowerCase()]=id;
+    }
+  }
+  var doc=parse(await docF.async('string'));
+  if(doc.getElementsByTagName('parsererror').length)throw new Error('xml');
+  var body=doc.getElementsByTagNameNS(W,'body')[0];if(!body)throw new Error('nobody');
+  var kids=[].slice.call(body.childNodes).filter(function(n){return n.nodeType===1}), info=[];
+  kids.forEach(function(p){
+    var o={p:p,lv:0,plain:'',bm:[]};
+    if(p.localName==='p'){
+      var ts=p.getElementsByTagNameNS(W,'t'),pl='';for(var k=0;k<ts.length;k++)pl+=ts[k].textContent;pl=pl.trim();
+      var pPr=p.getElementsByTagNameNS(W,'pPr')[0];
+      if(pl&&pPr){
+        var ol=pPr.getElementsByTagNameNS(W,'outlineLvl')[0], ps2=pPr.getElementsByTagNameNS(W,'pStyle')[0];
+        if(ol){var v=parseInt(ol.getAttributeNS(W,'val'),10);o.lv=v<9?v+1:0}
+        else if(ps2)o.lv=lvlOfStyle(ps2.getAttributeNS(W,'val'),styles);
+      }
+      o.plain=pl.toLowerCase();o.bm=bmOf(p);
+    }
+    info.push(o);
+  });
+  var limit=kids.length;if(limit&&kids[limit-1].localName==='sectPr')limit--;
+  var at=limit;
+  if(after){
+    var bn=bmName(after.id), s0=-1, c=0, j;
+    for(j=0;j<info.length;j++)if(info[j].bm.indexOf(bn)>-1){s0=j;break}
+    if(s0<0)for(j=0;j<info.length;j++){var y=info[j];if(y.lv===after.level&&y.plain===(after.title||'').toLowerCase()){if(c===after.nth){s0=j;break}c++}}
+    if(s0<0){var e0=new Error('anchor');e0.code='anchor';throw e0}
+    at=limit;
+    for(j=s0+1;j<limit;j++)if(info[j].lv>0&&info[j].lv<=after.level){at=j;break}
+  }
+  /* borrow the paragraph look from the nearest ordinary paragraph above the spot */
+  var tpl=null;
+  for(var q=Math.min(at,limit)-1;q>=0&&!tpl;q--)if(info[q].p.localName==='p'&&info[q].lv===0&&info[q].plain)tpl=info[q].p;
+  if(!tpl)for(q=0;q<info.length&&!tpl;q++)if(info[q].p.localName==='p'&&info[q].lv===0&&info[q].plain)tpl=info[q].p;
+  var tplPr=tpl&&tpl.getElementsByTagNameNS(W,'pPr')[0];
+  var mk=function(name,attrs){var e=doc.createElementNS(W,'w:'+name);for(var k in attrs)e.setAttributeNS(W,'w:'+k,attrs[k]);return e};
+  var ref=at<kids.length?kids[at]:null, made=0;
+  items.forEach(function(it){
+    var p=mk('p',{});
+    if(it.lv>0){
+      var pp=mk('pPr',{}), sid=byName['heading '+it.lv]||('Heading'+it.lv);
+      pp.appendChild(mk('pStyle',{val:sid}));p.appendChild(pp);
+    }else if(tplPr)p.appendChild(tplPr.cloneNode(true));
+    var parts=String(it.text||'').split('\n');
+    if(String(it.text||'').trim()||it.lv>0){
+      var r=mk('r',{});
+      parts.forEach(function(t,i){
+        if(i)r.appendChild(mk('br',{}));
+        var te=mk('t',{});te.setAttributeNS('http://www.w3.org/XML/1998/namespace','xml:space','preserve');te.textContent=t;r.appendChild(te);
+      });
+      p.appendChild(r);
+    }
+    body.insertBefore(p,ref);made++;
+  });
+  if(!made)return {blob:null,report:{added:0,missing:[]}};
+  zip.file('word/document.xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'+new XMLSerializer().serializeToString(doc.documentElement));
+  return {blob:await zip.generateAsync({type:'blob',mimeType:DOCX_MIME,compression:'DEFLATE'}),report:{added:made,missing:[]}};
+}
+function acCapture(){
+  var m=S.modal;if(!m||m.type!=='addch')return;
+  var g=function(id){var e=document.getElementById(id);return e?e.value:null};
+  var v;
+  if((v=g('acT'))!==null)m.title=v;
+  if((v=g('acX'))!==null)m.text=v;
+  if((v=g('acSD'))!==null)m.sdoc=v;
+  if((v=g('acSH'))!==null)m.shid=v;
+  if((v=g('acAf'))!==null)m.after=v;
+  if((v=g('acLv'))!==null)m.level=+v;
+}
+function acModal(){
+  var m=S.modal,d=byId('documents',m.id);if(!d)return '';
+  var docs=sortBy(eff('documents'),'order').filter(function(x){return x.id!==d.id&&x.file&&(EXT.auto(x)||RDF[x.id])});
+  var heads=(d.headings||[]).filter(liveH);
+  var sd=m.sdoc&&byId('documents',m.sdoc), shs=sd?(sd.headings||[]).filter(liveH):[];
+  var lv=m.level||chapLvl(d)||1;
+  var h='<h2>Add a chapter to this Word file</h2><p class="hint">'+esc(d.title||'')+'. The text goes straight into the file. You do not need to open it.</p>'+
+    '<div class="seg" role="group" aria-label="Source" style="margin-bottom:10px"><button data-act="ac-src" data-v="paste" aria-pressed="'+(m.src!=='doc')+'">Paste text</button><button data-act="ac-src" data-v="doc" aria-pressed="'+(m.src==='doc')+'">From another document</button></div>';
+  if(m.src==='doc'){
+    h+='<label class="lab" for="acSD">Document</label><select class="in" id="acSD" data-change="ac-sync"><option value="">Choose a document</option>'+docs.map(function(x){return '<option value="'+x.id+'"'+(m.sdoc===x.id?' selected':'')+'>'+esc(x.title||x.file.name||'Untitled')+'</option>'}).join('')+'</select>'+
+      (sd?'<label class="lab" for="acSH" style="margin-top:8px">Chapter</label><select class="in" id="acSH"><option value="">Whole document</option>'+shs.map(function(x){return '<option value="'+x.id+'"'+(m.shid===x.id?' selected':'')+'>'+esc('  '.repeat(Math.max(0,x.level-1))+ftitle(x))+'</option>'}).join('')+'</select>':'')+
+      '<p class="hint" style="margin-top:6px">Text and headings are copied as plain paragraphs. Italics, images and footnotes are not carried over.</p>';
+  }else{
+    h+='<label class="lab" for="acT">Chapter title</label><input class="in" id="acT" value="'+esc(m.title||'')+'" placeholder="Leave empty to add text with no heading">'+
+      '<label class="lab" for="acX" style="margin-top:8px">Text</label><textarea class="in" id="acX" rows="9" placeholder="Paste the chapter here. A new line starts a new paragraph.">'+esc(m.text||'')+'</textarea>';
+  }
+  h+='<label class="lab" for="acAf" style="margin-top:8px">Put it</label><select class="in" id="acAf"><option value="">At the end of the file</option>'+heads.map(function(x){return '<option value="'+x.id+'"'+(m.after===x.id?' selected':'')+'>After '+esc('  '.repeat(Math.max(0,x.level-1))+ftitle(x))+'</option>'}).join('')+'</select>'+
+    '<label class="lab" for="acLv" style="margin-top:8px">Heading level</label><select class="in" id="acLv">'+[1,2,3,4].map(function(n){return '<option value="'+n+'"'+(lv===n?' selected':'')+'>Heading '+n+'</option>'}).join('')+'</select>'+
+    '<p class="hint" style="margin:10px 0 0">'+(EXT.auto(d)?'A copy of the file is saved first in a hidden “.so-backups” folder next to it. If the file changed in OneDrive meanwhile, nothing is written. Close it in Word first.':(RDF[d.id]?'The change goes into a copy in your downloads.':'Pick the Word file first (use Refresh on this document).'))+'</p>'+
+    '<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn primary" data-act="ac-go"'+(xReady(d)?'':' disabled')+'>Add to Word</button></div>';
+  return h;
+}
+async function acRun(){
+  acCapture();
+  var m=S.modal,d=byId('documents',m.id);if(!d)return;
+  var items=[];
+  try{
+    var lv=m.level||chapLvl(d)||1;
+    if(m.src==='doc'){
+      var sd=byId('documents',m.sdoc);if(!sd){toast('Choose a document.');return}
+      var paras=await rdParas(sd,true);if(!paras){toast('Could not read that document.');return}
+      var hd=m.shid&&(sd.headings||[]).find(function(x){return x.id===m.shid}), sl=hd?rdSlice(sd,hd,paras):paras;
+      if(!sl){toast('Could not find that chapter in its file. Refresh that document and try again.');return}
+      var top=9;sl.forEach(function(x){if(x.lv>0&&x.lv<top)top=x.lv});if(top===9)top=lv;
+      sl.forEach(function(x){
+        var t=String(x.text||'');
+        if(x.lv>0)items.push({lv:Math.max(1,Math.min(9,x.lv-top+lv)),text:x.plain&&x.plain.length<200?x.text:t});
+        else items.push({lv:0,text:t});
+      });
+      while(items.length&&!items[items.length-1].text.trim()&&!items[items.length-1].lv)items.pop();
+    }else{
+      var ti=(m.title||'').trim();
+      if(ti)items.push({lv:lv,text:ti});
+      String(m.text||'').replace(/\r/g,'').split('\n').forEach(function(l){items.push({lv:0,text:l})});
+      while(items.length&&!items[items.length-1].text.trim()&&!items[items.length-1].lv)items.pop();
+      if(!items.length||(items.length===1&&ti)){toast('Paste some text first.');return}
+    }
+  }catch(e){toast('Could not read the source ('+((e&&e.message)||'error')+').');return}
+  var ah=m.after&&(d.headings||[]).find(function(x){return x.id===m.after}), after=ah?hdWant(d,ah):null;
+  S.modal={type:'busy',msg:'Writing to the Word file.'};renderModal();
+  try{
+    if(EXT.auto(d)&&EXT.sync){
+      var res=await EXT.sync(d,async function(f){return injectChapter(f,items,after)});
+      if(res.file){await applyRefresh(d,res.file)}else closeModal();
+    }else{
+      var f=RDF[d.id];if(!f){closeModal();toast('Pick the Word file first.');return}
+      var r=await injectChapter(f,items,after);
+      if(r.blob)await downloadBlob(cleanName((d.file&&d.file.name||d.title||'File')+' (with new chapter)'),r.blob);
+      closeModal();
+    }
+    PVC={};delete RDP[d.id];
+    toast('Chapter added'+(EXT.auto(d)&&EXT.sync?'.':'. A changed copy is in your downloads.'));
+  }catch(err){
+    closeModal();
+    if(err&&err.code==='anchor')toast('I could not find that chapter in the file, so nothing was written. Refresh the document and try again.');
+    else if(err&&err.code==='changed')toast('The file changed in OneDrive while I was working, so nothing was written. Close it in Word and try again.');
+    else if(err&&err.code==='locked')toast('Word has the file open, so OneDrive would not let me change it. Close it and try again.');
+    else toast('Could not write to the file'+(err&&err.message?' ('+err.message+')':'')+'. Nothing was changed.');
+  }
 }
 function swModal(){
   var m=S.modal,d=byId('documents',m.id);if(!d)return '';
@@ -1076,6 +1238,7 @@ function calView(){
     var nm=[];for(var m=1;m<=nmOf(S.calY);m++)nm.push(calMonthHtml(S.calY,m,cm.map,list,evm));
     var arcChips=Object.keys(arcIn).filter(function(a){return ARCC[a]}).sort(function(a,b){return Object.keys(ARCC).indexOf(a)-Object.keys(ARCC).indexOf(b)}).map(function(a){return '<button type="button" class="calarcb" data-act="cal-arc" data-id="'+a+'" aria-pressed="'+(f.arc===a)+'"><i class="calsw" style="--rc:'+ARCC[a]+'"></i>'+esc(nameOf('arcs',a))+' <small>'+arcIn[a]+'</small></button>'}).join('');
     rows+='<div class="calmeta"><span class="calsum">'+(PL?S.calY:nChap+' chapter'+(nChap===1?'':'s')+' in '+S.calY+(yrs.length>1&&yrs[yrs.length-1]-yrs[0]>25?' (empty years skipped)':''))+'. Tap a day to open it.</span>'+
+      paintBar()+
       '<div class="callg">'+(PL?'':'<span><i class="calsw" style="--rc:var(--accent)"></i>chapter</span>')+schLegend()+CK.map(function(k){return '<span><i class="calsw" style="--rc:var(--r-'+k[2]+')"></i>'+k[1].toLowerCase()+'</span>'}).join('')+(PL?'':'<span><i class="calsw calev"></i>event</span>')+'</div></div>'+
       (arcChips?'<div class="calarcl" role="group" aria-label="Arcs">'+arcChips+(f.arc?'<button type="button" class="btn sm" data-act="cal-arc" data-id="">Show all arcs</button>':'')+'</div>':'')+
       '<div class="calmonths">'+nm.join('')+'</div>';
@@ -1088,9 +1251,22 @@ function calView(){
   }).join('')+'</div>':'<p class="hint" style="padding:8px 16px">'+(list.length?'Nothing happens in '+S.calY+'.':'Nothing here yet. Add a birthday that repeats every year, or a solstice or school term with a different date each year.')+'</p>');
   return {head:head,rows:rows};
 }
+function paintBar(){
+  var on=S.paint!=null, pr=proj();
+  return '<div class="calpaint" role="group" aria-label="Colour squares"><button type="button" class="btn sm" data-act="paint-toggle" aria-pressed="'+on+'">'+(on?'Painting. Tap to stop':'Colour squares')+'</button>'+
+    (on?PAINT.map(function(c,i){return '<button type="button" class="pcol'+(S.paint===i?' on':'')+'" data-act="paint-pick" data-c="'+i+'" style="--pc:'+c+'" aria-label="Colour '+(i+1)+'" aria-pressed="'+(S.paint===i)+'"></button>'}).join('')+'<button type="button" class="pcol pclear'+(S.paint===-1?' on':'')+'" data-act="paint-pick" data-c="-1" aria-label="Eraser" title="Erase colour">×</button>'+
+      (pr&&pr.paint&&Object.keys(pr.paint).length?'<button type="button" class="btn sm" data-act="paint-clear">Clear all colours</button>':''):'')+'</div>';
+}
+function paintSet(k,i){
+  var pr=proj();if(!pr)return;
+  var o=Object.assign({},pr.paint||{});if(i==null||i<0)delete o[k];else o[k]=i;
+  pr.paint=o;save('projects',pr);
+}
 function calDayModal(){
   var m=S.modal, y=m.y, mo=m.mo, d=m.d, k=y*10000+mo*100+d, cm=calChapMap(), ch=cm.map[k]||[], its=itemsOn(y,mo,d), canon=canonDate(d+' '+mname(y,mo)+' '+y), sc=canon?schedFor(canon).length:0;
   var h='<h2>'+esc(keyLong(k))+'</h2>';arcColors();
+  var cur=((proj()||{}).paint||{})[k];
+  h+='<div class="sec"><h3>Colour</h3><div class="calpaint">'+PAINT.map(function(c,i){return '<button type="button" class="pcol'+(cur===i?' on':'')+'" data-act="paint-day" data-c="'+i+'" style="--pc:'+c+'" aria-label="Colour '+(i+1)+'" aria-pressed="'+(cur===i)+'"></button>'}).join('')+(cur!=null?'<button type="button" class="btn sm" data-act="paint-day" data-c="-1">Remove colour</button>':'')+'</div></div>';
   if(!PL)h+='<div class="sec"><h3>Chapters</h3>'+(ch.length?ch.map(function(c){var pv=(c.h&&c.h.pov)||c.d.pov;return '<button class="lk" data-act="cal-chap" data-id="'+c.d.id+'" data-hid="'+(c.h?c.h.id:'')+'"><span class="n">'+(ARCC[chArc(c)]?'<i class="calsw" style="--rc:'+ARCC[chArc(c)]+'"></i>':'')+'</span><span><span class="lkt">'+(esc(c.h?c.h.title:c.d.title)||'Untitled')+'</span><small>'+esc([c.d.title,chArc(c)?nameOf('arcs',chArc(c)):'',pv?'POV '+nameOf('characters',pv):''].filter(Boolean).join(' · '))+'</small></span></button>'}).join(''):'<p class="hint">No chapter is set on this day.</p>')+'</div>';
   h+=schoolDayHtml(y,mo,d);
   h+=relDayHtml(y,mo,d);
@@ -1766,12 +1942,13 @@ documents:function(){
   }else if(!vis.length){
     rows='<div class="empty"><p>'+(trashView?'The trash is empty.':'No documents match these filters.')+'</p></div>';
   }else{
-    rows='<div data-sort="documents:order">'+vis.map(function(d){
+    var inV=trashView?vis:vis.filter(inOrder), outV=trashView?[]:vis.filter(function(d){return !inOrder(d)});
+    rows=(inV.length?'<div data-sort="documents:order">'+inV.map(function(d){
       var g='';
       if(anyArc&&!trashView){var a=byId('arcs',d.arcId);var nm=a?a.name:'No arc';if(nm!==last){g='<div class="grp">'+esc(nm)+'</div>';last=nm}}
       var shift=rp[d.id]!=null&&cp[d.id]!==rp[d.id];
       return g+docRow(d,{n:rp[d.id],sortable:!filtered,sub:cp[d.id]!=null?'<i class="'+(shift?'shift':'')+'" title="Chronological position">t'+cp[d.id]+'</i>':''});
-    }).join('')+'</div>';
+    }).join('')+'</div>':'')+(outV.length?'<div class="grp">Outside the reading order</div><div>'+outV.map(function(d){return docRow(d,{n:null,sortable:false,sub:''})}).join('')+'</div>':'');
   }
   return {head:head,rows:rows};
 },
@@ -1978,7 +2155,7 @@ function docCard(d){
     return '<div class="hl" style="--lv:'+hd.level+'"><span class="hlab">'+esc(label(hd.level)||('H'+hd.level))+'</span><span class="t">'+esc(hd.title)+'</span>'+(oc?'<span class="nb">'+oc+' open</span>':'')+'</div>';
   })(hd)}).join('')+'</div>':'<p class="hint">No headings read yet. Use Heading 1, 2 and 3 styles in Word, then read this file below.</p>')+'</div>';
   h+='<div class="sec"><h3>Word file</h3><dl class="meta"><dt>File</dt><dd>'+esc(f.name||'None attached')+'</dd><dt>Headings read</dt><dd>'+fmtDate(f.analysed)+'</dd><dt>Saved in Word</dt><dd>'+fmtDate(f.modified)+'</dd><dt>Length</dt><dd>'+(f.words!=null?fmtN(f.words)+' words':'not counted')+'</dd></dl>'+
-    '<button class="btn" data-act="'+(f.od&&OD.acct?'od-refresh':'refresh')+'" data-id="'+d.id+'">'+ic('refresh')+(f.od&&OD.acct?'Refresh from OneDrive':(f.analysed?'Refresh headings':'Read headings from a .docx'))+'</button>'+(chs.length?'<button class="btn" style="margin-left:8px" data-act="ext-open" data-id="'+d.id+'">Extract chapters</button>':'')+(chs.length?'<button class="btn" style="margin-left:8px" data-act="sw-open" data-id="'+d.id+'">Write anchors and dates to Word</button>':'')+
+    '<button class="btn" data-act="'+(f.od&&OD.acct?'od-refresh':'refresh')+'" data-id="'+d.id+'">'+ic('refresh')+(f.od&&OD.acct?'Refresh from OneDrive':(f.analysed?'Refresh headings':'Read headings from a .docx'))+'</button>'+(chs.length?'<button class="btn" style="margin-left:8px" data-act="ext-open" data-id="'+d.id+'">Extract chapters</button>':'')+(chs.length?'<button class="btn" style="margin-left:8px" data-act="sw-open" data-id="'+d.id+'">Write anchors and dates to Word</button>':'')+(f.name?'<button class="btn" style="margin-left:8px" data-act="ac-open" data-id="'+d.id+'">Add a chapter to Word</button>':'')+
     '<p class="hint" style="margin-top:8px">Pick the file again after you edit it. Only heading text and a word count are saved.</p></div>';
   return h;
 }
@@ -2154,6 +2331,7 @@ function renderModal(){
   else if(m.type==='schyear')inner=schYearModal();
   else if(m.type==='ixexp')inner=ixExpModal();
   else if(m.type==='swsync')inner=swModal();
+  else if(m.type==='addch')inner=acModal();
   else if(m.type==='calset')inner=calModal();
   else if(m.type==='schimp')inner=schImpModal();
   else if(m.type==='revpass')inner=revModal();
@@ -3041,6 +3219,9 @@ clear:function(el){
 },
 /* ---- story calendar ---- */
 'pv-toggle':function(el){var k=el.dataset.k;PVOFF[k]=!PVOFF[k];var b=el.closest('.pv');if(b){b.innerHTML=pvBlock(k);pvHydrate()}},
+'ac-open':function(el){var d=byId('documents',el.dataset.id);S.modal={type:'addch',id:el.dataset.id,src:'paste',level:d?(chapLvl(d)||1):1,after:''};renderModal()},
+'ac-src':function(el){acCapture();S.modal.src=el.dataset.v;renderModal()},
+'ac-go':function(){acRun()},
 'sw-open':function(el){S.modal={type:'swsync',id:el.dataset.id,anchors:true,sub:true,rename:true};renderModal()},
 'sw-go':function(){swRun()},
 'sw-pick':function(el){S.refreshId=el.dataset.id;$('#fileRead').click()},
@@ -3215,7 +3396,11 @@ clear:function(el){
   pr.calItems=(pr.calItems||[]).map(function(x){return x.id===it.id?it:x});save('projects',pr);renderModal();render();toast(it.title+': set for '+m.y+'.');
 },
 'cal-year':function(el){S.calY=+el.dataset.y;render()},
-'cal-day':function(el){S.modal={type:'calday',y:+el.dataset.y,mo:+el.dataset.m,d:+el.dataset.d};renderModal()},
+'paint-toggle':function(){S.paint=S.paint==null?0:null;render()},
+'paint-pick':function(el){S.paint=+el.dataset.c;render()},
+'paint-clear':function(){var pr=proj();if(!pr)return;var u=pr.paint;askConfirm('Clear all colours?','Every coloured square in this project goes back to plain.','Clear',function(){pr.paint={};save('projects',pr);render();toast('Colours cleared.')})},
+'paint-day':function(el){var m=S.modal;paintSet(m.y*10000+m.mo*100+m.d,+el.dataset.c);renderModal();render()},
+'cal-day':function(el){if(S.paint!=null){var k=(+el.dataset.y)*10000+(+el.dataset.m)*100+(+el.dataset.d), pr=proj(), cu=((pr||{}).paint||{})[k];paintSet(k,S.paint<0||cu===S.paint?null:S.paint);render();return}S.modal={type:'calday',y:+el.dataset.y,mo:+el.dataset.m,d:+el.dataset.d};renderModal()},
 'cal-chap':function(el){closeModal();A['chap-go'](el)},
 'cal-new':function(el){var y=el&&el.dataset&&el.dataset.y;var nit=ciBlank(y?+el.dataset.y:S.calY,y?idOrd(+el.dataset.y,+el.dataset.m):0,y?+el.dataset.d:0);
   if(nit.m>=100){nit.rule='dates';nit.occ=[{y:+y,m:nit.m,d:nit.d,ed:0,em:0,ey:''}]}
@@ -3529,6 +3714,7 @@ function selectLink(d){
 }
 
 var CH={
+'ac-sync':function(){acCapture();S.modal.shid='';renderModal()},
 'cali-sync':function(){A['cali-sync']()},
 'cal-sch':function(t){try{localStorage.setItem('so-cal-sch',t.checked?'1':'0')}catch(e){}render()},
 'ix-range':function(){var s=ixSt();s.from=document.getElementById('ix-from').value;s.to=document.getElementById('ix-to').value;render()},
@@ -4438,7 +4624,7 @@ async function odScan(folder){
           if(depth>=10){skipped.push(it.name+' (too deep)');continue}
           folders++;
           var dr=(ri&&ri.parentReference&&ri.parentReference.driveId)||drive||'', nid=(ri&&ri.id)||it.id;
-          try{await walk(dr,nid,rel.concat(it.name),depth+1,del||/^deleted$/i.test(it.name))}
+          try{await walk(dr,nid,rel.concat(it.name),depth+1,del||/delet|trash|recycle|removed/i.test(it.name))}
           catch(e){if(ri)skipped.push(it.name+' (shared folder, not allowed to open it)');else throw e}
         }
         else if(/\.docx$/i.test(it.name)){
@@ -4724,7 +4910,7 @@ function odSettings(){
       h+='<p class="hint" style="margin-top:8px">Manuscript folder: <b>'+esc(p.odFolder?p.odFolder.name:'not chosen')+'</b></p><div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn" data-act="od-pick">'+ic('folder')+(p.odFolder?'Change folder':'Choose folder')+'</button>'+(p.odFolder?'<button class="btn" data-act="od-sync">'+ic('refresh')+'Sync now</button><button class="btn" data-act="od-report">What do you see?</button>':'')+'</div>'+
         '<p class="hint" style="margin-top:12px">Portraits folder: <b>'+esc(p.portraitFolder?p.portraitFolder.name:'not chosen')+'</b>. Name each image after the character, for example Danielle Stewart.jpg.</p><div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn" data-act="od-pick-portraits">'+ic('folder')+(p.portraitFolder?'Change folder':'Choose folder')+'</button></div>';
     }
-    h+='<p class="hint" style="margin-top:12px"><b>Deleted documents.</b> A trashed document stays out of the list and sync will not bring it back. A Word file inside a folder called Deleted (in your manuscript folder) counts as deleted; move it back out and the document returns.</p><label class="chk" style="margin-top:6px"><input type="checkbox" data-act="od-delmove"'+(delMoveOn()?' checked':'')+'><span>When I trash a document, move its Word file into the Deleted folder</span></label>';
+    h+='<p class="hint" style="margin-top:12px"><b>Deleted documents.</b> A trashed document stays out of the list and sync will not bring it back. A Word file inside any folder whose name contains “Deleted” or “Trash” (anywhere inside your manuscript folder) counts as deleted; move it back out and the document returns.</p><label class="chk" style="margin-top:6px"><input type="checkbox" data-act="od-delmove"'+(delMoveOn()?' checked':'')+'><span>When I trash a document, move its Word file into the Deleted folder</span></label>';
     if(p&&(p.ignored||[]).length)h+='<p class="hint" style="margin-top:8px">Permanently deleted, so sync skips these files:</p>'+p.ignored.map(function(x,i){return '<div style="display:flex;align-items:center;gap:8px;padding:4px 0"><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(x.name||x.id)+'</span><button class="btn sm" data-act="od-unignore" data-i="'+i+'">Allow again</button></div>'}).join('');
     var lb=0;try{lb=parseInt(localStorage.getItem('so-last-backup')||'0',10)||0}catch(e){}
     h+='<p class="hint" style="margin-top:12px"><b>Safety net.</b> Before saving over data.json, the app copies the old version into Story Organiser/backups (at most hourly). If a save would shrink your library sharply, it pauses and asks first. Last backup from this device: '+(lb?esc(new Date(lb).toLocaleString()):'none yet')+'.</p><div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn" data-act="od-bk-now">Back up now</button><button class="btn" data-act="od-bk-open">Restore an earlier version</button></div>';
@@ -4748,7 +4934,7 @@ Object.assign(A,{
   'odf-go':function(){var m=S.modal,l=m.files.filter(function(f,i){return m.sel[i]});if(l.length)odFilesGet(l,odCur(m).name)},
   'odf-folder':async function(){
     var m=S.modal,cur=odCur(m);odBusy('Looking in '+cur.name+'.');
-    try{var l=await odScan(cur);if(!l.length){closeModal();toast('No Word files in that folder.');return}await odFilesGet(l,cur.name)}
+    try{var l=await odScan(cur);var pg=proj(),ig={};((pg&&pg.ignored)||[]).forEach(function(x){ig[x.id]=1});l=l.filter(function(x){return !x.del&&!ig[x.id]});if(!l.length){closeModal();toast('No Word files in that folder.');return}await odFilesGet(l,cur.name)}
     catch(e){closeModal();toast('Could not read that folder.')}
   },
   'odf-sync':function(){var m=S.modal,cur=odCur(m),p=proj();if(!p)return;p.odFolder={id:cur.id,name:cur.name,webUrl:cur.webUrl||'',drive:cur.drive||''};if(cur.webUrl)p.folderUrl=cur.webUrl;save('projects',p,true);closeModal();odSyncNow()},
