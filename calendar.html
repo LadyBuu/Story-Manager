@@ -748,7 +748,7 @@ function schoolOf(){
 }
 function schoolWriteX(fn){var pr=proj();if(!pr)return;var s=JSON.parse(JSON.stringify(pr.school||{years:[],rest:null,nums:false}));s.years=s.years||[];fn(s);pr.school=s;save('projects',pr)}
 function schoolWrite(fn){return schoolWriteX(fn)}
-function schoolRest(){var s=schoolRaw();return s.rest||(CAL.greg?[0,6]:[])}
+function schoolRest(t){if(t&&Array.isArray(t.rest))return t.rest;var s=schoolRaw();return s.rest||(CAL.greg?[0,6]:[])}
 function ymdKey(v){if(!v||!(+v.y>=1)||!(+v.m)||!(+v.d))return 0;var o=ordId(+v.y,+v.m);return o?v.y*10000+o*100+(+v.d):0}
 function ymdOk(v){if(!v||!(+v.y>=1)||!(+v.m)||!(+v.d))return false;var o=ordId(+v.y,+v.m);return !!(o&&+v.d>=1&&+v.d<=dim(+v.y,o))}
 function ymdTxt(v){return ymdOk(v)?(+v.d)+' '+idName(+v.y,+v.m)+' '+v.y:'not a real date'}
@@ -782,7 +782,7 @@ function schResolveTerm(t,terms){
   var n=Math.max(1,parseInt(er.n,10)||1),e=null;
   if(er.mode==='len'){
     if(er.unit==='school'){
-      var rest={},bk=[];schoolRest().forEach(function(w){rest[w]=1});
+      var rest={},bk=[];schoolRest(t).forEach(function(w){rest[w]=1});
       (t.breaks||[]).forEach(function(b){if(ymdOk(b.s)&&ymdOk(b.e))bk.push([ymdKey(b.s),ymdKey(b.e)])});
       var y=+t.s.y,o=ordId(y,+t.s.m),d=+t.s.d,wd=wdayOf(y,o,d),c=0,g=0,len=WEEKDAYS.length;
       while(g++<3000){
@@ -840,13 +840,14 @@ function schoolCalc(){
       if(!ymdOk(t.s)||!ymdOk(t.e)||ymdKey(t.e)<ymdKey(t.s)){stats[t.id]=null;return}
       var bk=(t.breaks||[]).filter(function(b){return ymdOk(b.s)&&ymdOk(b.e)&&ymdKey(b.e)>=ymdKey(b.s)}).map(function(b){return [ymdKey(b.s),ymdKey(b.e),b]});
       var st={total:0,rest:0,brk:0,teach:0,first:ymdKey(t.s),last:ymdKey(t.e)};
+      var rest={};schoolRest(t).forEach(function(w){rest[w]=1});
       schoolDays(t.s,t.e,function(y,o,d,wd,key){
         var kind='t',n=0,br=null,i;
         for(i=0;i<bk.length;i++)if(key>=bk[i][0]&&key<=bk[i][1]){br=bk[i][2];break}
         st.total++;
         if(rest[wd]){kind='r';st.rest++}else if(br){kind='b';st.brk++}else{st.teach++;n=st.teach}
         var en={term:t,year:yr,kind:kind,n:n,brk:br,st:st,start:key===st.first,end:key===st.last};
-        if(!days[key]){days[key]=en;en.all=[en]}else{days[key].all.push(en);multi=true}
+        if(t.hide){}else if(!days[key]){days[key]=en;en.all=[en]}else{days[key].all.push(en);multi=true}
       });
       stats[t.id]=st;ys.total+=st.total;ys.rest+=st.rest;ys.brk+=st.brk;ys.teach+=st.teach;
       if(!ys.first||st.first<ys.first){ys.first=st.first;ys.fv=t.s}
@@ -874,9 +875,15 @@ function schYearOpen(yr,ys){
 function schoolPanel(){
   var s=schoolOf(),sc=schoolCalc(),rest=schoolRest(),h='<div class="schp">',terms={};
   s.years.forEach(function(yr){(yr.terms||[]).forEach(function(t){terms[t.id]=t})});
-  h+='<div class="schr"><span class="calleapl">Rest days</span>'+WEEKDAYS.map(function(n,i){return '<button type="button" class="calrest" data-act="sch-rest" data-w="'+i+'" aria-pressed="'+(rest.indexOf(i)>-1)+'" title="'+esc(n)+'">'+esc(n.slice(0,3))+'</button>'}).join('')+
+  h+='<div class="schr"><span class="calleapl">Default rest days</span>'+WEEKDAYS.map(function(n,i){return '<button type="button" class="calrest" data-act="sch-rest" data-w="'+i+'" aria-pressed="'+(rest.indexOf(i)>-1)+'" title="'+esc(n)+'">'+esc(n.slice(0,3))+'</button>'}).join('')+
     '<label class="chk schn"><input type="checkbox" data-act="sch-nums"'+(s.nums?' checked':'')+'><span>Number the school days</span></label></div>';
   if(!sc.order.length)h+='<div class="schy empty"><p class="hint" style="margin:0 0 8px">No school years yet. Give a term its first day, then either a last day, a number of school days, or "until 5 days before something". Rest days and breaks are taken out of the count.</p><button class="btn primary" data-act="sch-term-new">'+ic('plus')+'Add the first term</button></div>';
+  var sn=schoolNames();
+  if(sn.length){var noName=s.years.some(function(y){return (y.terms||[]).some(function(t){return !(t.school||'').trim()})});
+    h+='<div class="schr"><span class="calleapl">Show in calendar</span>'+sn.concat(noName?['']:[]).map(function(n){
+      var all=[];s.years.forEach(function(y){(y.terms||[]).forEach(function(t){if((t.school||'').trim()===n)all.push(t)})});
+      var on=all.some(function(t){return !t.hide});
+      return '<button type="button" class="calrest" style="min-width:0" data-act="sch-vis-school" data-n="'+esc(n)+'" aria-pressed="'+on+'">'+esc(n||'No school name')+'</button>'}).join('')+'</div>'}
   if(sc.order.length>1)h+='<div class="schr" style="gap:6px"><button class="btn sm" data-act="sch-all" data-v="1">Open all</button><button class="btn sm" data-act="sch-all" data-v="0">Collapse all</button></div>';
   sc.order.forEach(function(yr){
     var ys=sc.stats[yr.id]||{},open=schYearOpen(yr,ys),
@@ -886,8 +893,8 @@ function schoolPanel(){
       h+='<div class="schy-body">';
       ts.forEach(function(t){
         var st=sc.stats[t.id],rt=schRuleTxt(t,terms);
-        h+='<div class="scht"><div class="scht-m"><button type="button" class="scht-n" data-act="sch-go" data-y="'+esc(t.s&&t.s.y||'')+'"><b>'+esc(t.name||'Term')+'</b><small>'+esc((t.school?t.school+' · ':'')+ymdTxt(t.s)+' to '+ymdTxt(t.e))+'</small></button><button class="btn sm" data-act="sch-term-edit" data-id="'+t.id+'">Edit</button></div>'+
-          '<div class="scht-s">'+esc(schStat(st))+(rt?'<br><i>'+esc(rt)+'</i>':'')+'</div>'+
+        h+='<div class="scht"><div class="scht-m"><button type="button" class="scht-n" data-act="sch-go" data-y="'+esc(t.s&&t.s.y||'')+'"><b>'+esc(t.name||'Term')+'</b><small>'+esc((t.school?t.school+' · ':'')+ymdTxt(t.s)+' to '+ymdTxt(t.e))+'</small></button><label class="chk schvis"><input type="checkbox" data-act="sch-vis" data-id="'+t.id+'"'+(t.hide?'':' checked')+'><span>Show</span></label><button class="btn sm" data-act="sch-term-edit" data-id="'+t.id+'">Edit</button></div>'+
+          '<div class="scht-s">'+esc(schStat(st))+(rt?'<br><i>'+esc(rt)+'</i>':'')+(Array.isArray(t.rest)?'<br><i>Own rest days: '+esc(t.rest.map(function(w){return (WEEKDAYS[w]||'').slice(0,3)}).join(', ')||'none')+'</i>':'')+(t.hide?'<br><i>Hidden in the calendar</i>':'')+'</div>'+
           '<div class="scht-b">'+(t.breaks||[]).slice().sort(function(a,b){return (ymdKey(a.s)||1e12)-(ymdKey(b.s)||1e12)}).map(function(b){var tk=ymdKey(t.s),te=ymdKey(t.e),bk=ymdKey(b.s),be=ymdKey(b.e),out=!bk||!be||bk<tk||be>te;return '<button type="button" class="schbk'+(out?' bad':'')+'" data-act="sch-break-edit" data-tid="'+t.id+'" data-id="'+b.id+'"><b>'+esc(b.name||'Break')+'</b><small>'+esc(ymdTxt(b.s)+(ymdKey(b.s)===ymdKey(b.e)?'':' to '+ymdTxt(b.e))+(out?' (outside the term)':''))+'</small></button>'}).join('')+
           '<button type="button" class="btn sm" data-act="sch-break-new" data-tid="'+t.id+'">'+ic('plus',14)+'Break</button></div></div>';
       });
@@ -934,7 +941,7 @@ function schCapture(){
   if(document.getElementById('sc-e-d'))m.e=ymdGet('sc-e');
 }
 function schSpec(m){
-  var t={id:m.id||'_new',name:m.name,s:m.s,e:m.e,breaks:[]};
+  var t={id:m.id||'_new',name:m.name,s:m.s,e:m.e,breaks:[]};if(Array.isArray(m.rest))t.rest=m.rest.slice();
   if(m.id){var f=schTermFind(m.id);if(f)t.breaks=JSON.parse(JSON.stringify(f.t.breaks||[]))}
   if(m.sMode==='after'&&m.sRef)t.sr={ref:m.sRef,n:m.sN===''||m.sN==null?1:parseInt(m.sN,10)||0};
   if(m.eMode==='len')t.er={mode:'len',n:parseInt(m.eN,10)||1,unit:m.eUnit||'school'};
@@ -976,6 +983,8 @@ function schTermModal(){
   else if(md.e==='rel')h+='<div class="calrow sch2"><input class="in" id="sc-en" type="number" min="0" max="800" inputmode="numeric" value="'+esc(m.eN===''||m.eN==null?'':m.eN)+'" placeholder="How many" aria-label="How many days" data-change="sch-sync"><span class="schw">days</span>'+sel('sc-ed',[['before','before'],['after','after']],m.eDir||'before')+'</div><select class="in" id="sc-eref" data-change="sch-sync"><option value="">Choose a date…</option>'+schRefOpts(m.id,m.eRef,true)+'</select>';
   else h+=ymdHtml('sc-e',m.e);
   h+='</fieldset>';
+  var own=Array.isArray(m.rest),curR=own?m.rest:schoolRest();
+  h+='<fieldset class="schf"><legend>Rest days for this term</legend><label class="chk"><input type="checkbox" data-act="sch-trest-def"'+(own?'':' checked')+'><span>Same as the default for every term</span></label><div class="schr" style="margin-top:6px">'+WEEKDAYS.map(function(n,i){return '<button type="button" class="calrest" data-act="sch-trest" data-w="'+i+'" aria-pressed="'+(curR.indexOf(i)>-1)+'"'+(own?'':' disabled')+' title="'+esc(n)+'">'+esc(n.slice(0,3))+'</button>'}).join('')+'</div></fieldset>';
   h+=schPrevHtml(m);
   h+='<div class="actions"><button class="btn" data-act="close">Cancel</button>'+(m.id?'<button class="btn danger" data-act="sch-term-del">'+(m.armed?'Really delete?':'Delete')+'</button>':'<button class="btn" data-act="sch-term-save" data-next="1">Save and add next</button>')+'<button class="btn primary" data-act="sch-term-save">Save</button></div>';
   return h;
@@ -1488,10 +1497,11 @@ function mergeNote(st){return st&&(st.renamed||st.missing)?(' '+(st.renamed?st.r
 function variantLabel(v){v=v||'canon';if(v==='trashed')return 'Trashed';var x=VARIANTS.find(function(y){return y[0]===v});return x?x[1]:'Canon'}
 function stable(v){return JSON.stringify(v,function(k,x){if(x&&typeof x==='object'&&!Array.isArray(x)){var o={};Object.keys(x).sort().forEach(function(y){o[y]=x[y]});return o}return x})}
 function snap(){var o={};COLLS.forEach(function(c){if(c==='projects')return;o[c]=S[c].filter(function(x){return x.pid===S.pid}).map(function(x){return stable(x)})});return {pid:S.pid,d:o}}
-function pushUndo(label,u){undoStack.push({label:label,u:u});if(undoStack.length>20)undoStack.shift()}
+function pushUndo(label,u,after){undoStack.push({label:label,u:u,after:after});if(undoStack.length>20)undoStack.shift()}
 function undo(){
   var e=undoStack.pop();if(!e){toast('Nothing to undo.');return}
   if(e.u.pid!==S.pid){toast('That change was in another project.');return}
+  if(e.after){try{e.after()}catch(x){}}
   withBulk(function(){COLLS.forEach(function(c){
     if(c==='projects')return;
     var before=e.u.d[c]||[], ids={};
@@ -3043,6 +3053,12 @@ clear:function(el){
 'cal-mode':function(el){S.calMode=el.dataset.v;render()},
 'cal-addyear':function(){var e=document.getElementById('cal-ay'),y=parseInt(e&&e.value,10),pr=proj();if(!pr)return;if(!(y>=100&&y<=9999)){toast('Use a year between 100 and 9999.');return}pr.calYears=(pr.calYears||[]).filter(function(v){return v!==y}).concat([y]).sort(function(a,b){return a-b});save('projects',pr);S.calY=y;render()},
 'sch-rest':function(el){var w=+el.dataset.w,cur=schoolRest().slice(),i=cur.indexOf(w);if(i>-1)cur.splice(i,1);else cur.push(w);schoolWrite(function(s){s.rest=cur.sort(function(a,b){return a-b})});render()},
+'sch-trest-def':function(el){schCapture();var m=S.modal;m.rest=el.checked?null:schoolRest().slice();renderModal()},
+'sch-trest':function(el){schCapture();var m=S.modal,w=+el.dataset.w,cur=(m.rest||[]).slice(),i=cur.indexOf(w);if(i>-1)cur.splice(i,1);else cur.push(w);m.rest=cur;renderModal()},
+'sch-vis':function(el){var id=el.dataset.id,on=!!el.checked;schoolWrite(function(s){s.years.forEach(function(y){(y.terms||[]).forEach(function(t){if(t.id===id){if(on)delete t.hide;else t.hide=true}})})});render()},
+'sch-vis-school':function(el){var n=el.dataset.n||'',on=el.getAttribute('aria-pressed')!=='true';schoolWrite(function(s){s.years.forEach(function(y){(y.terms||[]).forEach(function(t){if((t.school||'').trim()===n){if(on)delete t.hide;else t.hide=true}})})});render()},
+'od-delmove':function(el){try{localStorage.setItem('so-del-move',el.checked?'1':'0')}catch(e){}},
+'od-unignore':function(el){var p=proj();if(!p||!p.ignored)return;p.ignored.splice(+el.dataset.i,1);save('projects',p);renderModal();toast('That file will be picked up again on the next sync.')},
 'sch-nums':function(el){var on=!!el.checked;schoolWrite(function(s){s.nums=on});render()},
 'sch-go':function(el){var y=+el.dataset.y;if(y>=100){S.calY=y;render()}},
 'sch-toggle':function(el){var id=el.dataset.id,yr=schoolOf().years.filter(function(y){return y.id===id})[0];if(!yr)return;S.schOpen=S.schOpen||{};S.schOpen[id]=!schYearOpen(yr,schoolCalc().stats[id]);render()},
@@ -3060,7 +3076,7 @@ clear:function(el){
 },
 'sch-term-edit':function(el){
   var f=schTermFind(el.dataset.id);if(!f)return;var t=f.t,er=t.er||{};
-  S.modal={type:'schterm',id:t.id,yid:f.yr.id,name:t.name||'',school:t.school||'',s:Object.assign({},t.s),e:Object.assign({},t.e),sMode:t.sr?'after':'date',sRef:t.sr?t.sr.ref:'',sN:t.sr?t.sr.n:1,eMode:er.mode||'date',eN:er.n||'',eUnit:er.unit||'school',eDir:er.dir||'before',eRef:er.ref||''};
+  S.modal={type:'schterm',id:t.id,yid:f.yr.id,name:t.name||'',school:t.school||'',rest:Array.isArray(t.rest)?t.rest.slice():null,s:Object.assign({},t.s),e:Object.assign({},t.e),sMode:t.sr?'after':'date',sRef:t.sr?t.sr.ref:'',sN:t.sr?t.sr.n:1,eMode:er.mode||'date',eN:er.n||'',eUnit:er.unit||'school',eDir:er.dir||'before',eRef:er.ref||''};
   renderModal();
 },
 'sch-term-save':function(el){
@@ -3080,6 +3096,7 @@ clear:function(el){
     s.years.forEach(function(yy){yy.terms=yy.terms||[];var i=yy.terms.findIndex(function(x){return x.id===newId});if(i>-1){cur=yy.terms[i];if(yy!==yr)yy.terms.splice(i,1)}});
     if(!cur)cur={id:newId,breaks:[]};
     if((m.school||'').trim())cur.school=m.school.trim();else delete cur.school;
+    if(Array.isArray(m.rest))cur.rest=m.rest.slice().sort(function(p,q){return p-q});else delete cur.rest;
     cur.name=nm;cur.s={y:+t.s.y,m:+t.s.m,d:+t.s.d};cur.e={y:+t.e.y,m:+t.e.m,d:+t.e.d};
     if(t.sr)cur.sr=t.sr;else delete cur.sr;
     if(t.er)cur.er=t.er;else delete cur.er;
@@ -3090,7 +3107,7 @@ clear:function(el){
   S.calY=+t.s.y||S.calY;S.schOpen=S.schOpen||{};S.schOpen[yidNew]=true;
   closeModal();
   if(goNext){
-    S.modal={type:'schterm',id:'',yid:yidNew,name:'',school:m.school||'',s:{y:'',m:'',d:''},e:{y:'',m:'',d:''},sMode:'after',sRef:newId,sN:1,eMode:m.eMode==='date'?'date':m.eMode,eN:m.eN,eUnit:m.eUnit||'school',eDir:m.eDir||'before',eRef:m.eMode==='rel'?'':m.eRef};
+    S.modal={type:'schterm',id:'',yid:yidNew,name:'',school:m.school||'',rest:Array.isArray(m.rest)?m.rest.slice():null,s:{y:'',m:'',d:''},e:{y:'',m:'',d:''},sMode:'after',sRef:newId,sN:1,eMode:m.eMode==='date'?'date':m.eMode,eN:m.eN,eUnit:m.eUnit||'school',eDir:m.eDir||'before',eRef:m.eMode==='rel'?'':m.eRef};
     render();renderModal();return;
   }
   render();toast('Saved.');
@@ -3428,7 +3445,7 @@ del:function(el){
   if(coll==='documents'&&!isTrashed(o)){A.trash(el);return}
   var nm=o.name||o.title||'this item';
   var msg={documents:'The Word file is not touched. Only this entry and its notes are removed.',projects:'This removes the project and everything in it from the organiser. Your Word files are not touched. Export a backup first if you might want it back.',characters:'The character is removed from every document and event.',locations:'The location is removed from every document and event.',events:'The event is removed from every document that shows or mentions it.',arcs:'Documents in this arc stay and become unassigned.'}[coll];
-  askConfirm('Delete '+nm+(coll==='documents'?' permanently':'')+'?',msg,'Delete',function(){var u=snap();removeEntity(coll,id);if(coll!=='projects')pushUndo('Deleted '+nm,u);closeModal();render();toast('Deleted',coll!=='projects')},true);
+  askConfirm('Delete '+nm+(coll==='documents'?' permanently':'')+'?',msg,'Delete',function(){var u=snap();if(coll==='documents')odIgnore(o);removeEntity(coll,id);if(coll!=='projects')pushUndo('Deleted '+nm,u);closeModal();render();toast('Deleted',coll!=='projects')},true);
 },
 export:function(el){closeModal();exportData(el.dataset.all==='1')},
 'copy-text':function(){
@@ -3439,16 +3456,25 @@ export:function(el){closeModal();exportData(el.dataset.all==='1')},
 'imp-go':function(){confirmImport()},
 trash:function(el){
   var d=byId('documents',el.dataset.id);if(!d)return;
-  var u=snap();d.prevVariant=d.variant||'canon';d.variant='trashed';save('documents',d);pushUndo('Moved to trash',u);
-  S.sel=null;render();toast('Moved to trash',true);
+  var u=snap(),id=d.id,od=d.file&&d.file.od,doMove=!!(od&&S.mode==='od'&&delMoveOn()&&!d.file.inDel&&byId('projects',d.pid)&&byId('projects',d.pid).odFolder);
+  d.prevVariant=d.variant||'canon';d.variant='trashed';save('documents',d);
+  var undone=false,back=null;
+  pushUndo('Moved to trash',u,function(){undone=true;if(back&&od)odMoveFile(od,back).then(function(){toast('Word file moved back.')}).catch(function(){toast('Could not move the Word file back out of Deleted.')})});
+  S.sel=null;render();toast(doMove?'Moved to trash. Moving the Word file to the Deleted folder.':'Moved to trash',true);
+  if(doMove)odToDeleted(d).then(function(from){
+    if(!from)return;
+    if(undone){odMoveFile(od,from===true?byId('projects',d.pid).odFolder.id:from).then(function(){var x=byId('documents',id);if(x){x.file.inDel=false;delete x.file.delFrom;save('documents',x)}}).catch(function(){});return}
+    back=from===true?null:from;toast('Word file moved to the Deleted folder.');render();
+  });
 },
 restore:function(el){
   var d=byId('documents',el.dataset.id);if(!d)return;
+  if(d.file&&d.file.inDel&&S.mode==='od'){odBusy('Moving the Word file back.');odFromDeleted(d).then(function(ok){closeModal();if(!ok){toast('Could not move the Word file back out of the Deleted folder, so the document stays in the trash.');return}A.restore(el)});return}
   var u=snap();d.variant=(d.prevVariant&&d.prevVariant!=='trashed')?d.prevVariant:'canon';d.prevVariant='';save('documents',d);pushUndo('Restored',u);render();toast('Restored',true);
 },
 'empty-trash':function(){
   var n=P('documents').filter(isTrashed).length;if(!n)return;
-  askConfirm('Empty trash?','This permanently removes '+n+' document'+(n===1?'':'s')+' from the organiser. Your Word files are not touched.','Empty trash',function(){var u=snap();P('documents').filter(isTrashed).forEach(function(d){removeEntity('documents',d.id)});pushUndo('Emptied trash',u);closeModal();render();toast('Trash emptied',true)},true);
+  askConfirm('Empty trash?','This permanently removes '+n+' document'+(n===1?'':'s')+' from the organiser. Your Word files are not touched.','Empty trash',function(){var u=snap();P('documents').filter(isTrashed).forEach(function(d){odIgnore(d);removeEntity('documents',d.id)});pushUndo('Emptied trash',u);closeModal();render();toast('Trash emptied',true)},true);
 },
 undo:function(){undo()},
 route:function(el){
@@ -4389,7 +4415,7 @@ async function odPoll(){
 function odPath(o){return o&&o.drive?'/drives/'+o.drive+'/items/'+o.id:'/me/drive/items/'+(o&&o.id)}
 async function odScan(folder){
   var out=[],skipped=[],folders=0;
-  async function walk(drive,id,rel,depth){
+  async function walk(drive,id,rel,depth,del){
     var url=(drive?'/drives/'+drive+'/items/':'/me/drive/items/')+id+'/children?$select=id,name,size,webUrl,eTag,lastModifiedDateTime,folder,file,remoteItem,parentReference&$top=200';
     while(url){
       var r=await gfetch(url);
@@ -4402,31 +4428,74 @@ async function odScan(folder){
           if(depth>=10){skipped.push(it.name+' (too deep)');continue}
           folders++;
           var dr=(ri&&ri.parentReference&&ri.parentReference.driveId)||drive||'', nid=(ri&&ri.id)||it.id;
-          try{await walk(dr,nid,rel.concat(it.name),depth+1)}
+          try{await walk(dr,nid,rel.concat(it.name),depth+1,del||/^deleted$/i.test(it.name))}
           catch(e){if(ri)skipped.push(it.name+' (shared folder, not allowed to open it)');else throw e}
         }
         else if(/\.docx$/i.test(it.name)){
           if(it.name.indexOf('~$')===0)continue;
           var dr2=(ri&&ri.parentReference&&ri.parentReference.driveId)||drive||'';
-          out.push({id:(ri&&ri.id)||it.id,drive:dr2,name:it.name,size:it.size||(ri&&ri.size),webUrl:it.webUrl,etag:it.eTag,mtime:it.lastModifiedDateTime,rel:rel});
+          out.push({id:(ri&&ri.id)||it.id,drive:dr2,name:it.name,size:it.size||(ri&&ri.size),webUrl:it.webUrl,etag:it.eTag,mtime:it.lastModifiedDateTime,rel:rel,del:!!del,parent:it.parentReference&&it.parentReference.id});
         }
         else if(/\.(doc|docm|dotx|odt|rtf|gdoc|pages)$/i.test(it.name))skipped.push(it.name);
       }
       url=j['@odata.nextLink']||null;
     }
   }
-  await walk(folder.drive||'',folder.id,[],0);
+  await walk(folder.drive||'',folder.id,[],0,false);
   out.skipped=skipped;out.folders=folders;
   return out;
+}
+function delMoveOn(){try{return localStorage.getItem('so-del-move')!=='0'}catch(e){return true}}
+async function odDeletedFolder(p){
+  var base=odPath(p.odFolder);
+  var r=await gfetch(base+'/children',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'Deleted',folder:{},'@microsoft.graph.conflictBehavior':'fail'})});
+  if(r.ok)return (await r.json()).id;
+  var g=await gfetch(base+':/Deleted');if(g.ok)return (await g.json()).id;
+  throw new Error('folder '+r.status);
+}
+async function odMoveFile(od,parentId){
+  var r=await gfetch(odPath(od),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({parentReference:{id:parentId},'@microsoft.graph.conflictBehavior':'rename'})});
+  if(!r.ok)throw new Error('move '+r.status);
+  return r.json();
+}
+async function odToDeleted(d){
+  var p=byId('projects',d.pid);if(!p||!p.odFolder||!d.file||!d.file.od)return false;
+  try{
+    var m=await gfetch(odPath(d.file.od));if(!m.ok)throw new Error('read '+m.status);
+    var cur=await m.json(),from=cur.parentReference&&cur.parentReference.id;
+    var del=await odDeletedFolder(p);
+    await odMoveFile(d.file.od,del);
+    var x=byId('documents',d.id);if(x){x.file.inDel=true;x.file.delFrom=from;save('documents',x)}
+    return from||true;
+  }catch(e){toast('The document is trashed, but its Word file could not be moved to the Deleted folder (is it open in Word?).');return false}
+}
+async function odFromDeleted(d){
+  var from=d.file&&d.file.delFrom;
+  try{
+    if(!from){var p=byId('projects',d.pid);from=p.odFolder.id}
+    await odMoveFile(d.file.od,from);
+    var x=byId('documents',d.id);if(x){x.file.inDel=false;delete x.file.delFrom;save('documents',x)}
+    return true;
+  }catch(e){return false}
+}
+function odIgnore(d){
+  var p=byId('projects',d.pid);if(!p||!d.file||!d.file.od||d.file.inDel)return;
+  p.ignored=(p.ignored||[]).filter(function(x){return x.id!==d.file.od.id}).concat([{id:d.file.od.id,name:d.file.name||''}]);save('projects',p);
 }
 async function odCheck(p){
   var files=await odScan(p.odFolder), byOd={};
   files.forEach(function(f){byOd[f.id]=f});
   var docs=S.documents.filter(function(d){return d.pid===p.id&&d.file&&d.file.od});
   var linked={},changed=[],renamed=0,renList=[],missing=[];
+  var autoTrash=0,revived=0;
   docs.forEach(function(d){
-    var f=byOd[d.file.od.id];if(!f){missing.push(d);return}
+    var f=byOd[d.file.od.id];if(!f){if(!isTrashed(d)&&!d.file.inDel)missing.push(d);return}
     linked[f.id]=1;
+    if(f.del){
+      if(!isTrashed(d)){d.prevVariant=d.variant||'canon';d.variant='trashed';autoTrash++}
+      d.file.inDel=true;save('documents',d,false);return;
+    }
+    if(d.file.inDel){d.file.inDel=false;delete d.file.delFrom;if(isTrashed(d)){d.variant=(d.prevVariant&&d.prevVariant!=='trashed')?d.prevVariant:'canon';d.prevVariant='';revived++}save('documents',d,false)}
     var stale=f.mtime!==d.file.od.mtime;
     if(stale)changed.push(f);
     var oldNm=d.file.name, ren=renameFollow(d,f.name), ch=ren;
@@ -4437,11 +4506,14 @@ async function odCheck(p){
   });
   docs=S.documents.filter(function(d){return d.pid===p.id&&d.file&&!d.file.od&&d.file.name});
   docs.forEach(function(d){
-    var f=files.find(function(x){return !linked[x.id]&&x.name.toLowerCase()===d.file.name.toLowerCase()});if(!f)return;
+    var f=files.find(function(x){return !linked[x.id]&&!x.del&&x.name.toLowerCase()===d.file.name.toLowerCase()});if(!f)return;
     linked[f.id]=1;d.file.od={id:f.id,drive:f.drive||'',etag:f.etag,mtime:f.mtime};d.file.url=f.webUrl||d.file.url;
     var st=!!(d.file.analysed&&f.mtime>d.file.analysed);d.file.stale=st;if(st)changed.push(f);save('documents',d,false);
   });
-  var fresh=files.filter(function(f){return !linked[f.id]});
+  var ign={};(p.ignored||[]).forEach(function(x){ign[x.id]=1});
+  var fresh=files.filter(function(f){return !linked[f.id]&&!f.del&&!ign[f.id]});
+  if(autoTrash)toast(autoTrash+' document'+(autoTrash===1?'':'s')+' moved to trash: the file is in the Deleted folder.');
+  else if(revived)toast(revived+' document'+(revived===1?'':'s')+' brought back: the file is out of the Deleted folder.');
   OD.lastCheck=Date.now();OD.scan[p.id]={files:files,changed:changed,fresh:fresh,renamed:renamed,renList:renList,missing:missing,skipped:files.skipped||[],folders:files.folders||0};
   return OD.scan[p.id];
 }
@@ -4630,6 +4702,8 @@ function odSettings(){
       h+='<p class="hint" style="margin-top:8px">Manuscript folder: <b>'+esc(p.odFolder?p.odFolder.name:'not chosen')+'</b></p><div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn" data-act="od-pick">'+ic('folder')+(p.odFolder?'Change folder':'Choose folder')+'</button>'+(p.odFolder?'<button class="btn" data-act="od-sync">'+ic('refresh')+'Sync now</button><button class="btn" data-act="od-report">What do you see?</button>':'')+'</div>'+
         '<p class="hint" style="margin-top:12px">Portraits folder: <b>'+esc(p.portraitFolder?p.portraitFolder.name:'not chosen')+'</b>. Name each image after the character, for example Danielle Stewart.jpg.</p><div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn" data-act="od-pick-portraits">'+ic('folder')+(p.portraitFolder?'Change folder':'Choose folder')+'</button></div>';
     }
+    h+='<p class="hint" style="margin-top:12px"><b>Deleted documents.</b> A trashed document stays out of the list and sync will not bring it back. A Word file inside a folder called Deleted (in your manuscript folder) counts as deleted; move it back out and the document returns.</p><label class="chk" style="margin-top:6px"><input type="checkbox" data-act="od-delmove"'+(delMoveOn()?' checked':'')+'><span>When I trash a document, move its Word file into the Deleted folder</span></label>';
+    if(p&&(p.ignored||[]).length)h+='<p class="hint" style="margin-top:8px">Permanently deleted, so sync skips these files:</p>'+p.ignored.map(function(x,i){return '<div style="display:flex;align-items:center;gap:8px;padding:4px 0"><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(x.name||x.id)+'</span><button class="btn sm" data-act="od-unignore" data-i="'+i+'">Allow again</button></div>'}).join('');
     var lb=0;try{lb=parseInt(localStorage.getItem('so-last-backup')||'0',10)||0}catch(e){}
     h+='<p class="hint" style="margin-top:12px"><b>Safety net.</b> Before saving over data.json, the app copies the old version into Story Organiser/backups (at most hourly). If a save would shrink your library sharply, it pauses and asks first. Last backup from this device: '+(lb?esc(new Date(lb).toLocaleString()):'none yet')+'.</p><div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn" data-act="od-bk-now">Back up now</button><button class="btn" data-act="od-bk-open">Restore an earlier version</button></div>';
     h+='<div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn danger" data-act="od-signout">Sign out and clear this device</button></div>';
