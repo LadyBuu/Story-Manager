@@ -458,7 +458,7 @@ function calMonthHtml(y,m,map,list,evm){
     var sd=sc.days[k], lab0=sd?(sd.all||[sd]).map(function(z){return ', '+(z.term.school?z.term.school+' ':'')+(z.kind==='t'?'school day '+z.n+' of '+z.st.teach:z.kind==='b'?'break':'rest day')}).join(''):'';
     var lab=d+' '+mname(y,m)+' '+y+lab0+(ch.length?', '+ch.length+' chapter'+(ch.length>1?'s':''):'')+its.map(function(it){return ', '+it.title}).join('')+evs.map(function(e){return ', event '+e.title}).join('');
     var pcol=PAINT[((proj()||{}).paint||{})[k]];
-    cells+='<button type="button" class="calday'+(pcol?' paint':'')+(ch.length?' hasch':'')+(sd?' sch-'+sd.kind+(sd.start?' sch-s':'')+(sd.end?' sch-e':'')+(sd.all&&sd.all.length>1?' sch-x sch-x-'+sd.all[1].kind:''):'')+'" data-act="cal-day" data-y="'+y+'" data-m="'+m+'" data-d="'+d+'"'+(pcol?' style="--pc:'+pcol+'"':'')+' aria-label="'+esc(lab+(pcol?', coloured':''))+'">'+(bars?'<span class="calarcs">'+bars+'</span>':'')+'<b>'+d+'</b>'+(sd&&sd.kind==='t'&&schoolOf().nums?'<small class="calnum">'+sd.n+'</small>':'')+(ch.length>1?'<sup class="calct">'+ch.length+'</sup>':'')+(dots?'<span class="calmk">'+dots+'</span>':'')+'</button>';
+    cells+='<button type="button" class="calday'+(pcol?' paint':'')+(ch.length?' hasch':'')+(sd?' sch-'+sd.kind+(sd.start?' sch-s':'')+(sd.end?' sch-e':'')+(sd.all&&sd.all.length>1?' sch-x sch-x-'+sd.all[1].kind:''):'')+'" data-act="cal-day" data-y="'+y+'" data-m="'+m+'" data-d="'+d+'"'+(pcol?' style="--pc:'+pcol+';background:color-mix(in srgb,'+pcol+' 45%,transparent);box-shadow:inset 0 0 0 1.5px '+pcol+'"':'')+' aria-label="'+esc(lab+(pcol?', coloured':''))+'">'+(bars?'<span class="calarcs">'+bars+'</span>':'')+'<b>'+d+'</b>'+(sd&&sd.kind==='t'&&schoolOf().nums?'<small class="calnum">'+sd.n+'</small>':'')+(ch.length>1?'<sup class="calct">'+ch.length+'</sup>':'')+(dots?'<span class="calmk">'+dots+'</span>':'')+'</button>';
   }
   var hd=(CAL.greg?['Mo','Tu','We','Th','Fr','Sa','Su']:WEEKDAYS.map(function(x){return x.slice(0,nw>7?4:2)})).map(function(x){return '<i>'+esc(x)+'</i>'}).join('');
   return '<section class="calmo'+((monthsOf(y)[m-1]||{}).ins?' leap':'')+'"><h3>'+esc(mname(y,m))+((monthsOf(y)[m-1]||{}).ins?'<em class="calleapt">leap month</em>':'')+(cc?'<small>'+cc+' day'+(cc>1?'s':'')+'</small>':'')+'</h3><div class="calgrid" style="grid-template-columns:repeat('+nw+',minmax(0,1fr))">'+hd+cells+'</div></section>';
@@ -1254,7 +1254,7 @@ function calView(){
 function paintBar(){
   var on=S.paint!=null, pr=proj();
   return '<div class="calpaint" role="group" aria-label="Colour squares"><button type="button" class="btn sm" data-act="paint-toggle" aria-pressed="'+on+'">'+(on?'Painting. Tap to stop':'Colour squares')+'</button>'+
-    (on?PAINT.map(function(c,i){return '<button type="button" class="pcol'+(S.paint===i?' on':'')+'" data-act="paint-pick" data-c="'+i+'" style="--pc:'+c+'" aria-label="Colour '+(i+1)+'" aria-pressed="'+(S.paint===i)+'"></button>'}).join('')+'<button type="button" class="pcol pclear'+(S.paint===-1?' on':'')+'" data-act="paint-pick" data-c="-1" aria-label="Eraser" title="Erase colour">×</button>'+
+    (on?PAINT.map(function(c,i){return '<button type="button" class="pcol'+(S.paint===i?' on':'')+'" data-act="paint-pick" data-c="'+i+'" style="--pc:'+c+';width:22px;height:22px;border-radius:50%;padding:0;cursor:pointer;background:'+c+';border:2px solid '+(S.paint===i?'var(--fg,#fff)':'transparent')+'" aria-label="Colour '+(i+1)+'" aria-pressed="'+(S.paint===i)+'"></button>'}).join('')+'<button type="button" class="pcol pclear'+(S.paint===-1?' on':'')+'" data-act="paint-pick" data-c="-1" aria-label="Eraser" title="Erase colour">×</button>'+
       (pr&&pr.paint&&Object.keys(pr.paint).length?'<button type="button" class="btn sm" data-act="paint-clear">Clear all colours</button>':''):'')+'</div>';
 }
 function paintSet(k,i){
@@ -1266,7 +1266,7 @@ function calDayModal(){
   var m=S.modal, y=m.y, mo=m.mo, d=m.d, k=y*10000+mo*100+d, cm=calChapMap(), ch=cm.map[k]||[], its=itemsOn(y,mo,d), canon=canonDate(d+' '+mname(y,mo)+' '+y), sc=canon?schedFor(canon).length:0;
   var h='<h2>'+esc(keyLong(k))+'</h2>';arcColors();
   var cur=((proj()||{}).paint||{})[k];
-  h+='<div class="sec"><h3>Colour</h3><div class="calpaint">'+PAINT.map(function(c,i){return '<button type="button" class="pcol'+(cur===i?' on':'')+'" data-act="paint-day" data-c="'+i+'" style="--pc:'+c+'" aria-label="Colour '+(i+1)+'" aria-pressed="'+(cur===i)+'"></button>'}).join('')+(cur!=null?'<button type="button" class="btn sm" data-act="paint-day" data-c="-1">Remove colour</button>':'')+'</div></div>';
+  h+='<div class="sec"><h3>Colour</h3><div class="calpaint">'+PAINT.map(function(c,i){return '<button type="button" class="pcol'+(cur===i?' on':'')+'" data-act="paint-day" data-c="'+i+'" style="--pc:'+c+';width:22px;height:22px;border-radius:50%;padding:0;cursor:pointer;background:'+c+';border:2px solid '+(cur===i?'var(--fg,#fff)':'transparent')+'" aria-label="Colour '+(i+1)+'" aria-pressed="'+(cur===i)+'"></button>'}).join('')+(cur!=null?'<button type="button" class="btn sm" data-act="paint-day" data-c="-1">Remove colour</button>':'')+'</div></div>';
   if(!PL)h+='<div class="sec"><h3>Chapters</h3>'+(ch.length?ch.map(function(c){var pv=(c.h&&c.h.pov)||c.d.pov;return '<button class="lk" data-act="cal-chap" data-id="'+c.d.id+'" data-hid="'+(c.h?c.h.id:'')+'"><span class="n">'+(ARCC[chArc(c)]?'<i class="calsw" style="--rc:'+ARCC[chArc(c)]+'"></i>':'')+'</span><span><span class="lkt">'+(esc(c.h?c.h.title:c.d.title)||'Untitled')+'</span><small>'+esc([c.d.title,chArc(c)?nameOf('arcs',chArc(c)):'',pv?'POV '+nameOf('characters',pv):''].filter(Boolean).join(' · '))+'</small></span></button>'}).join(''):'<p class="hint">No chapter is set on this day.</p>')+'</div>';
   h+=schoolDayHtml(y,mo,d);
   h+=relDayHtml(y,mo,d);
@@ -2612,7 +2612,8 @@ function extractWarn(d){
   return '<div class="sec warnbox" role="note"><h3>Text was extracted from this file</h3><ul>'+li+'</ul><p class="hint" style="margin:0 0 8px">The text is still in this Word file. Delete it there, then read the headings again so this list matches. The chapters no longer count here.</p><div class="actions" style="justify-content:flex-start"><button class="btn" data-act="refresh" data-id="'+d.id+'">'+ic('refresh')+'Read headings again</button><button class="btn" data-act="ext-dismiss" data-id="'+d.id+'">Already removed it</button></div></div>';
 }
 async function handleFiles(fileList){
-  var arr=Array.prototype.slice.call(fileList).filter(function(f){return /\.docx$/i.test(f.name)&&f.name.indexOf('~$')!==0});
+  var igP=proj(),igM={};((igP&&igP.ignored)||[]).forEach(function(x){igM[x.id]=1});
+  var arr=Array.prototype.slice.call(fileList).filter(function(f){return /\.docx$/i.test(f.name)&&f.name.indexOf('~$')!==0&&!(f._od&&(f._od.del||igM[f._od.id]))});
   if(!arr.length){toast('No .docx files found in that selection.');return}
   S.modal={type:'busy',msg:'Reading '+arr.length+' file'+(arr.length>1?'s':'')+'.'};renderModal();
   var items=[];
@@ -4724,7 +4725,7 @@ async function odDownload(list,root,onProgress){
         var b=await r.blob();
         var file=new File([b],f.name,{lastModified:Date.parse(f.mtime)||Date.now()});
         Object.defineProperty(file,'webkitRelativePath',{value:[root].concat(f.rel,[f.name]).join('/')});
-        file._od={id:f.id,drive:f.drive||'',url:f.webUrl,etag:f.etag,mtime:f.mtime};
+        file._od={id:f.id,drive:f.drive||'',url:f.webUrl,etag:f.etag,mtime:f.mtime,del:!!f.del};
         out.push(file);
       }catch(e){fails++}
       done++;if(onProgress)onProgress(done,list.length);
