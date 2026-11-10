@@ -1925,7 +1925,7 @@ documents:function(){
     (docs.length?'<button class="btn" data-act="read-open">'+ic('open')+'Read</button>':'')+
     (S.mode==='od'&&p&&p.odFolder?'<button class="btn" data-act="od-sync">'+ic('refresh')+'Sync</button>':'')+
     (S.mode==='od'&&p&&!p.odFolder?'<button class="btn" data-act="od-pick">'+ic('folder')+'OneDrive folder</button>':'')+
-    '<button class="btn" data-act="tools">'+ic('sliders')+'Tools'+(docs.length&&revCount()?' <span class="cnt">'+revCount()+'</span>':'')+'</button>'+
+    (docs.length>1&&!trashView?'<button class="btn" data-act="auto-date" title="Order all chapters by story date">'+ic('refresh')+'Order by date</button>':'')+'<button class="btn" data-act="tools">'+ic('sliders')+'Tools'+(docs.length&&revCount()?' <span class="cnt">'+revCount()+'</span>':'')+'</button>'+
     (trashView&&trashed.length?'<button class="btn danger" data-act="empty-trash">'+ic('trash')+'Empty trash</button>':'')+
     (folder?'<a class="btn" href="'+esc(folder)+'" target="_blank" rel="noopener noreferrer">'+ic('open')+'OneDrive</a>':'')+'</div></div>'+routeBar()+
     (docs.length?'<div class="sbwrap"><div class="sbar" role="img" aria-label="Progress by status">'+STATUSES.filter(function(s){return cnt[s]}).map(function(s){return '<i style="flex:'+cnt[s]+';--st:var(--st-'+s.toLowerCase()+')"></i>'}).join('')+'</div>'+
@@ -1943,12 +1943,14 @@ documents:function(){
     rows='<div class="empty"><p>'+(trashView?'The trash is empty.':'No documents match these filters.')+'</p></div>';
   }else{
     var inV=trashView?vis:vis.filter(inOrder), outV=trashView?[]:vis.filter(function(d){return !inOrder(d)});
-    rows=(inV.length?'<div data-sort="documents:order">'+inV.map(function(d){
-      var g='';
-      if(anyArc&&!trashView){var a=byId('arcs',d.arcId);var nm=a?a.name:'No arc';if(nm!==last){g='<div class="grp">'+esc(nm)+'</div>';last=nm}}
-      var shift=rp[d.id]!=null&&cp[d.id]!==rp[d.id];
-      return g+docRow(d,{n:rp[d.id],sortable:!filtered,sub:cp[d.id]!=null?'<i class="'+(shift?'shift':'')+'" title="Chronological position">t'+cp[d.id]+'</i>':''});
-    }).join('')+'</div>':'')+(outV.length?'<div class="grp">Outside the reading order</div><div>'+outV.map(function(d){return docRow(d,{n:null,sortable:false,sub:''})}).join('')+'</div>':'');
+    var dRow=function(d){var shift=rp[d.id]!=null&&cp[d.id]!==rp[d.id];return docRow(d,{n:rp[d.id],sortable:!filtered,sub:cp[d.id]!=null?'<i class="'+(shift?'shift':'')+'" title="Chronological position">t'+cp[d.id]+'</i>':''})};
+    var gHtml='';
+    if(anyArc&&!trashView){
+      var gs=[];arcs.forEach(function(a){var l=inV.filter(function(d){return d.arcId===a.id});if(l.length)gs.push([a.name,l])});
+      var nl=inV.filter(function(d){return !d.arcId||!byId('arcs',d.arcId)});if(nl.length)gs.push(['No arc',nl]);
+      gHtml=gs.map(function(g){return '<div class="grp">'+esc(g[0])+'</div><div data-sort="documents:order">'+g[1].map(dRow).join('')+'</div>'}).join('');
+    }else if(inV.length)gHtml='<div data-sort="documents:order">'+inV.map(dRow).join('')+'</div>';
+    rows=gHtml+(outV.length?'<div class="grp">Outside the reading order</div><div>'+outV.map(function(d){return docRow(d,{n:null,sortable:false,sub:''})}).join('')+'</div>':'');
   }
   return {head:head,rows:rows};
 },
@@ -3668,6 +3670,17 @@ restore:function(el){
   if(d.file&&d.file.inDel&&S.mode==='od'){odBusy('Moving the Word file back.');odFromDeleted(d).then(function(ok){closeModal();if(!ok){toast('Could not move the Word file back out of the Deleted folder, so the document stays in the trash.');return}A.restore(el)});return}
   var u=snap();d.variant=(d.prevVariant&&d.prevVariant!=='trashed')?d.prevVariant:'canon';d.prevVariant='';save('documents',d);pushUndo('Restored',u);render();toast('Restored',true);
 },
+'auto-date':function(){
+  askConfirm('Order everything by date?','Chapters are rearranged by story date (undated ones go last, keeping their order). Documents outside the reading order stay put. You can undo this.','Order by date',function(){
+    var seen={},ord=[];chronItems().forEach(function(it){if(!seen[it.d.id]){seen[it.d.id]=1;ord.push(it.d)}});
+    var cur=sortBy(eff('documents'),'order').filter(inOrder);
+    cur.forEach(function(d){if(!seen[d.id]){seen[d.id]=1;ord.push(d)}});
+    var slots=cur.map(function(d){return d.order}).sort(function(a,b){return a-b}), u=snap();
+    ord.forEach(function(d,i){if(d.order!==slots[i]){d.order=slots[i];save('documents',d)}});
+    var pr=proj();if(pr&&pr.readSeq){delete pr.readSeq;save('projects',pr)}
+    pushUndo('Ordered by date',u);closeModal();render();toast('Ordered by story date.');
+  });
+},
 'empty-trash':function(){
   var n=P('documents').filter(isTrashed).length;if(!n)return;
   askConfirm('Empty trash?','This permanently removes '+n+' document'+(n===1?'':'s')+' from the organiser. Your Word files are not touched.','Empty trash',function(){var u=snap();P('documents').filter(isTrashed).forEach(function(d){odIgnore(d);removeEntity('documents',d.id)});pushUndo('Emptied trash',u);closeModal();render();toast('Trash emptied',true)},true);
@@ -3892,7 +3905,17 @@ document.addEventListener('pointerdown',function(e){
     cancelAnimationFrame(raf);
     h.removeEventListener('pointermove',move);h.removeEventListener('pointerup',end);h.removeEventListener('pointercancel',end);
     clear();row.classList.remove('dragging');
-    if(ev.type==='pointerup'&&target!=null){if(s[0]==='chapters')rdMoveTo(id,target);else reorderU(s[0],s[1],id,target)}
+    if(ev.type==='pointerup'&&target!=null){
+      if(s[0]==='chapters')rdMoveTo(id,target);
+      else{
+        var rs=others(), ni;
+        var rest=sortBy(eff(s[0]),s[1]).filter(function(x){return x.id!==id});
+        if(target<rs.length){ni=rest.findIndex(function(x){return x.id===rs[target].dataset.id})}
+        else if(rs.length){ni=rest.findIndex(function(x){return x.id===rs[rs.length-1].dataset.id});if(ni>=0)ni++}
+        else ni=-1;
+        if(ni>=0)reorderU(s[0],s[1],id,ni);
+      }
+    }
     render();
   }
   h.addEventListener('pointermove',move);h.addEventListener('pointerup',end);h.addEventListener('pointercancel',end);
