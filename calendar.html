@@ -1912,9 +1912,9 @@ documents:function(){
   var trashed=sortBy(P('documents').filter(isTrashed),'order'), trashView=S.vis==='trash';
   var f=S.filter, q=f.q.trim().toLowerCase();
   var base=trashView?trashed:docs.filter(visOk);
-  var vis=base.filter(function(d){return (!f.status||d.status===f.status)&&(!f.arc||docArcs(d).indexOf(f.arc)>-1)&&(!f.tag||docTags(d).indexOf(f.tag)>-1)&&(!f.kind||kindOf(d)===f.kind)&&(!q||hay(d).indexOf(q)>-1)});
+  var vis=base.filter(function(d){return (!f.status||d.status===f.status)&&(!f.arc||arcHas(d,f.arc))&&(!f.tag||docTags(d).indexOf(f.tag)>-1)&&(!f.kind||kindOf(d)===f.kind)&&(!q||hay(d).indexOf(q)>-1)});
   var filtered=!!(f.status||f.arc||f.tag||f.kind||q||S.vis!=='all');
-  var arcs=sortBy(eff('arcs'),'order'), anyArc=docs.some(function(d){return d.arcId&&byId('arcs',d.arcId)});
+  var arcs=sortBy(eff('arcs'),'order'), anyArc=docs.some(function(d){return !!docGroup(d)});
   var cnt={};STATUSES.forEach(function(s){cnt[s]=0});docs.forEach(function(d){cnt[d.status||'Idea']++});
   var words=docs.reduce(function(s,d){return s+((d.file&&d.file.words)||0)},0);
   var tagSet={};docs.forEach(function(d){docTags(d).forEach(function(t){tagSet[t]=1})});
@@ -1946,8 +1946,8 @@ documents:function(){
     var dRow=function(d){var shift=rp[d.id]!=null&&cp[d.id]!==rp[d.id];return docRow(d,{n:rp[d.id],sortable:!filtered,sub:cp[d.id]!=null?'<i class="'+(shift?'shift':'')+'" title="Chronological position">t'+cp[d.id]+'</i>':''})};
     var gHtml='';
     if(anyArc&&!trashView){
-      var gs=[];arcs.forEach(function(a){var l=inV.filter(function(d){return d.arcId===a.id});if(l.length)gs.push([a.name,l])});
-      var nl=inV.filter(function(d){return !d.arcId||!byId('arcs',d.arcId)});if(nl.length)gs.push(['No arc',nl]);
+      var gs=[];arcTree(arcs).forEach(function(t){var l=inV.filter(function(d){return docGroup(d)===t.a.id});if(l.length)gs.push([arcPath(t.a),l])});
+      var nl=inV.filter(function(d){return !docGroup(d)});if(nl.length)gs.push(['No arc',nl]);
       gHtml=gs.map(function(g){return '<div class="grp">'+esc(g[0])+'</div><div data-sort="documents:order">'+g[1].map(dRow).join('')+'</div>'}).join('');
     }else if(inV.length)gHtml='<div data-sort="documents:order">'+inV.map(dRow).join('')+'</div>';
     rows=gHtml+(outV.length?'<div class="grp">Outside the reading order</div><div>'+outV.map(function(d){return docRow(d,{n:null,sortable:false,sub:''})}).join('')+'</div>':'');
@@ -2016,12 +2016,12 @@ calendar:function(){return calView()},
 index:function(){return ixView()},
 arcs:function(){
   var arcs=sortBy(eff('arcs'),'order'), docs=eff('documents'), ap=posMap('arcs','order'), canDrag=S.vis==='all';
-  var list=arcs.filter(visOk);
+  var list=arcTree(arcs.filter(visOk)).map(function(t){return t.a});
   var head='<div class="lhead"><div class="ltitle"><h1>Arcs</h1><span class="cnt">'+arcs.length+'</span></div><div class="lact"><button class="btn primary" data-act="new-arc">'+ic('plus')+'New arc</button>'+clearBtn('arcs',P('arcs').length)+'<button class="btn" data-act="routes">'+ic('layers')+'Routes</button></div></div>'+routeBar()+
     '<div class="sbwrap"><p class="hint">Acts, storylines or sections within a route. Open an arc to see and edit its chapters, or assign arcs to chapters in Documents.</p></div><div class="filters">'+visSel()+'</div>';
   var rows=list.length?'<div data-sort="arcs:order">'+list.map(function(a){
     var n=0;docs.forEach(function(d){if(isTrashed(d))return;var cs=chapters(d);if(cs.length)cs.forEach(function(x){if(chapArc(d,x)===a.id)n++});else if(d.arcId===a.id)n++});
-    return '<div class="row'+(canDrag?'':' nohandle')+(S.sel===a.id?' sel':'')+'" role="listitem" tabindex="0" data-act="select" data-id="'+a.id+'">'+(canDrag?'<button class="handle" data-handle aria-label="Reorder '+esc(a.name)+'. Use arrow keys or drag.">'+ic('grip',16)+'</button>':'')+'<div class="folio"><b>'+pad(ap[a.id])+'</b></div><div class="rb"><div class="rt">'+(esc(a.name)||'Unnamed arc')+'</div>'+entTags(a)+'</div><span class="num">'+n+' chapter'+(n===1?'':'s')+'</span></div>';
+    return '<div class="row'+(canDrag?'':' nohandle')+(S.sel===a.id?' sel':'')+'" style="'+(a.parentId&&byId('arcs',a.parentId)?'margin-left:24px':'')+'" role="listitem" tabindex="0" data-act="select" data-id="'+a.id+'">'+(canDrag?'<button class="handle" data-handle aria-label="Reorder '+esc(a.name)+'. Use arrow keys or drag.">'+ic('grip',16)+'</button>':'')+'<div class="folio"><b>'+pad(ap[a.id])+'</b></div><div class="rb"><div class="rt">'+(esc(a.name)||'Unnamed arc')+'</div>'+entTags(a)+'</div><span class="num">'+n+' chapter'+(n===1?'':'s')+'</span></div>';
   }).join('')+'</div>':'<div class="empty"><h1>No arcs</h1><p>Create an arc, or choose a folder of Word files and let folder names become arcs.</p></div>';
   return {head:head,rows:rows};
 }
@@ -2055,7 +2055,8 @@ function relSec(title,owner,oid,field,coll,ids,noun){
 function optList(coll,sel,blank,nk){
   var arr=P(coll);
   arr=nk==='order'?sortBy(arr,'order'):arr.slice().sort(function(a,b){return (a.name||a.title||'').localeCompare(b.name||b.title||'')});
-  return '<option value="">'+blank+'</option>'+arr.map(function(x){return '<option value="'+x.id+'"'+(sel===x.id?' selected':'')+'>'+esc(x.name||x.title)+'</option>'}).join('');
+  if(coll==='arcs')arr=arcTree(arr).map(function(t){return t.a});
+  return '<option value="">'+blank+'</option>'+arr.map(function(x){return '<option value="'+x.id+'"'+(sel===x.id?' selected':'')+'>'+esc(coll==='arcs'?arcPath(x):(x.name||x.title))+'</option>'}).join('');
 }
 function linkRow(view,seg,id,n,title,sub){
   return '<button class="lk" data-act="goto" data-view="'+view+'" data-seg="'+(seg||'')+'" data-id="'+id+'"><span class="n">'+(n==null?'':n)+'</span><span><span class="lkt">'+(esc(title)||'Untitled')+'</span>'+(sub?'<small>'+esc(sub)+'</small>':'')+'</span></button>';
@@ -2088,7 +2089,7 @@ function chapterRow(d,hd,oc){
     '<div class="chapsec"><span class="lab">Tags</span><div class="chips">'+(hd.tags||[]).map(function(t){return '<span class="chip mut">#'+esc(t)+'<button class="x" data-act="ctag-del" data-id="'+d.id+'" data-hid="'+hd.id+'" data-v="'+esc(t)+'" aria-label="Remove tag '+esc(t)+'">'+ic('x',12)+'</button></span>'}).join('')+'</div><div class="addrow"><input class="in" id="ct-'+hd.id+'" data-enter="ctag-add" data-id="'+d.id+'" data-hid="'+hd.id+'" placeholder="Add tags, separated by commas" aria-label="New tags for this chapter"><button class="btn" data-act="ctag-add" data-id="'+d.id+'" data-hid="'+hd.id+'">Add</button></div></div>'+
     '<div class="chapsec"><span class="lab">Characters</span><div class="chips">'+chipsFor(d,hd,'characterIds','characters')+add('characterIds','characters','character')+'</div></div>'+
     '<div class="chapsec"><span class="lab">Locations</span><div class="chips">'+chipsFor(d,hd,'locationIds','locations')+add('locationIds','locations','location')+'</div></div>'+
-    '<div class="chapsec"><button class="btn sm" data-act="read-open" data-id="'+d.id+'" data-hid="'+hd.id+'">Read this</button>'+(hd.level===chapLvl(d)?'<button class="btn sm" style="margin-left:8px" data-act="ext-open" data-id="'+d.id+'" data-hid="'+hd.id+'">Extract this chapter to a new file</button>':'')+'</div>'+
+    '<div class="chapsec"><button class="btn sm" data-act="read-open" data-id="'+d.id+'" data-hid="'+hd.id+'">Read this</button>'+(hd.level===chapLvl(d)?'<button class="btn sm" style="margin-left:8px" data-act="ext-open" data-id="'+d.id+'" data-hid="'+hd.id+'">Extract this chapter to a new file</button><button class="btn sm" style="margin-left:8px" data-act="mv-open" data-id="'+d.id+'" data-hid="'+hd.id+'">Move or copy to another file</button>':'')+'</div>'+
     '</div></details>';
 }
 function fileSummary(d){
@@ -2320,6 +2321,7 @@ function renderModal(){
   else if(m.type==='clear')inner=clearModal();
   else if(m.type==='hollow')inner=hollowModal();
   else if(m.type==='extract')inner=extractModal();
+  else if(m.type==='mvch')inner=mvModal();
   else if(m.type==='rdorder')inner=rdOrderHtml(rdItems(),-1,true);
   else if(m.type==='xport')inner=xportModal();
   else if(m.type==='checks')inner=checksModal();
@@ -2606,6 +2608,162 @@ async function runExtract(d,file,sel,name){
     else toast('Extraction failed'+(err&&err.message?': '+err.message:'')+'. Check that it is the right .docx.');
   }
 }
+
+/* ---------- move / copy a chapter into another Word file, keeping its formatting ---------- */
+async function loadBody(file){
+  var zip=await JSZip.loadAsync(await file.arrayBuffer());
+  var docF=zip.file('word/document.xml');if(!docF)throw new Error('nodoc');
+  var parse=function(s){return new DOMParser().parseFromString(s,'application/xml')};
+  var styles={}, sf=zip.file('word/styles.xml');
+  if(sf){
+    var sd=parse(await sf.async('string')), sl=sd.getElementsByTagNameNS(W,'style');
+    for(var i=0;i<sl.length;i++){
+      var st=sl[i], id=st.getAttributeNS(W,'styleId'), ne=st.getElementsByTagNameNS(W,'name')[0], be=st.getElementsByTagNameNS(W,'basedOn')[0], oe=st.getElementsByTagNameNS(W,'outlineLvl')[0];
+      styles[id]={name:ne?ne.getAttributeNS(W,'val'):'',based:be?be.getAttributeNS(W,'val'):'',outline:oe?parseInt(oe.getAttributeNS(W,'val'),10):null};
+    }
+  }
+  var doc=parse(await docF.async('string'));
+  if(doc.getElementsByTagName('parsererror').length)throw new Error('xml');
+  var body=doc.getElementsByTagNameNS(W,'body')[0];if(!body)throw new Error('nobody');
+  var kids=[].slice.call(body.childNodes).filter(function(n){return n.nodeType===1}), info=[];
+  kids.forEach(function(p){
+    var o={p:p,lv:0,plain:'',bm:[]};
+    if(p.localName==='p'){
+      var ts=p.getElementsByTagNameNS(W,'t'),pl='';for(var k=0;k<ts.length;k++)pl+=ts[k].textContent;pl=pl.trim();
+      var pPr=p.getElementsByTagNameNS(W,'pPr')[0];
+      if(pl&&pPr){
+        var ol=pPr.getElementsByTagNameNS(W,'outlineLvl')[0], ps2=pPr.getElementsByTagNameNS(W,'pStyle')[0];
+        if(ol){var v=parseInt(ol.getAttributeNS(W,'val'),10);o.lv=v<9?v+1:0}
+        else if(ps2)o.lv=lvlOfStyle(ps2.getAttributeNS(W,'val'),styles);
+      }
+      o.plain=pl.toLowerCase();o.bm=bmOf(p);
+    }
+    info.push(o);
+  });
+  var limit=kids.length;if(limit&&kids[limit-1].localName==='sectPr')limit--;
+  return {zip:zip,doc:doc,body:body,kids:kids,info:info,limit:limit};
+}
+function findRange(B,w){
+  var s0=-1,c=0,j,bn=w.id?bmName(w.id):'';
+  if(bn)for(j=0;j<B.info.length;j++)if(B.info[j].bm.indexOf(bn)>-1){s0=j;break}
+  if(s0<0)for(j=0;j<B.info.length;j++){var y=B.info[j];if(y.lv===w.level&&y.plain===(w.title||'').toLowerCase()){if(c===w.nth){s0=j;break}c++}}
+  if(s0<0)return null;
+  var e=B.limit;
+  for(j=s0+1;j<B.limit;j++)if(B.info[j].lv>0&&B.info[j].lv<=w.level){e=j;break}
+  while(e-1>s0&&!B.info[e-1].plain&&B.info[e-1].p.getElementsByTagNameNS(W,'br').length===0&&B.info[e-1].p.localName==='p')e--;
+  return [s0,e];
+}
+async function bodyBlob(B){
+  B.zip.file('word/document.xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'+new XMLSerializer().serializeToString(B.doc.documentElement));
+  return B.zip.generateAsync({type:'blob',mimeType:DOCX_MIME,compression:'DEFLATE'});
+}
+async function mvExtract(file,w){
+  var B=await loadBody(file), r=findRange(B,w);
+  if(!r)return {missing:true};
+  var xml=[],blocked=false,ser=new XMLSerializer();
+  for(var j=r[0];j<r[1];j++){
+    var s=ser.serializeToString(B.kids[j]);
+    if(/<w:(drawing|pict|object|footnoteReference|endnoteReference|commentReference)[\s>\/]/.test(s))blocked=true;
+    xml.push(s.replace(/ w14:(paraId|textId)="[^"]*"/g,'').replace(/ w:rsid\w*="[^"]*"/g,''));
+  }
+  return {xml:xml,blocked:blocked};
+}
+async function mvInject(file,xml,after){
+  var B=await loadBody(file), at=B.limit;
+  if(after){
+    var r=findRange(B,after);if(!r){var e=new Error('anchor');e.code='anchor';throw e}
+    var s0=r[0],j;at=B.limit;for(j=s0+1;j<B.limit;j++)if(B.info[j].lv>0&&B.info[j].lv<=after.level){at=j;break}
+  }
+  var holder=new DOMParser().parseFromString('<r xmlns:w="'+W+'" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml">'+xml.join('')+'</r>','application/xml');
+  if(holder.getElementsByTagName('parsererror').length)throw new Error('xml');
+  var ref=at<B.kids.length?B.kids[at]:null, made=0;
+  [].slice.call(holder.documentElement.childNodes).forEach(function(n){
+    if(n.nodeType!==1)return;
+    ['bookmarkStart','bookmarkEnd','proofErr'].forEach(function(t){[].slice.call(n.getElementsByTagNameNS(W,t)).forEach(function(x){x.parentNode.removeChild(x)})});
+    [].slice.call(n.getElementsByTagNameNS(W,'sectPr')).forEach(function(x){if(x.parentNode.localName==='pPr')x.parentNode.removeChild(x)});
+    [].slice.call(n.getElementsByTagNameNS(W,'hyperlink')).forEach(function(x){var p=x.parentNode;while(x.firstChild)p.insertBefore(x.firstChild,x);p.removeChild(x)});
+    B.body.insertBefore(B.doc.importNode(n,true),ref);made++;
+  });
+  return {blob:await bodyBlob(B),report:{added:made,missing:[]}};
+}
+async function mvRemove(file,w){
+  var B=await loadBody(file), r=findRange(B,w);
+  if(!r){var e=new Error('anchor');e.code='anchor';throw e}
+  for(var j=r[1]-1;j>=r[0];j--)B.body.removeChild(B.kids[j]);
+  return {blob:await bodyBlob(B),report:{added:0,missing:[]}};
+}
+function mvWant(d,hd){var hs=d.headings||[],i=hs.indexOf(hd),n=0;for(var k=0;k<i;k++){var y=hs[k];if(y.level===hd.level&&ftitle(y).toLowerCase()===ftitle(hd).toLowerCase())n++}return {id:hd.id,title:ftitle(hd),level:hd.level,nth:n,i:i}}
+function mvCapture(){
+  var m=S.modal;if(!m||m.type!=='mvch')return;
+  var g=function(id){var e=document.getElementById(id);return e?e.value:null},v;
+  if((v=g('mvD'))!==null&&v!==m.dest){m.dest=v;m.after=''}
+  if((v=g('mvA'))!==null)m.after=v;
+  var r=document.querySelector('input[name="mvM"]:checked');if(r)m.mode=r.value;
+}
+function mvModal(){
+  var m=S.modal,d=byId('documents',m.id), hd=d&&(d.headings||[]).find(function(x){return x.id===m.hid});if(!d||!hd)return '';
+  var docs=sortBy(eff('documents'),'order').filter(function(x){return x.id!==d.id&&EXT.auto(x)});
+  var dd=m.dest&&byId('documents',m.dest), heads=dd?(dd.headings||[]).filter(function(x){return !x.missing&&!x.moved}):[];
+  return '<h2>Move or copy “'+esc(ftitle(hd))+'”</h2><p class="hint">The chapter goes straight from one Word file into another, with its formatting. Nothing to paste. Images and footnotes are not supported (it will stop if it finds any).</p>'+
+    '<label class="lab" for="mvD">Into this file</label><select class="in" id="mvD" data-change="mv-sync"><option value="">Choose a file</option>'+docs.map(function(x){return '<option value="'+x.id+'"'+(m.dest===x.id?' selected':'')+'>'+esc(x.title||x.file.name)+'</option>'}).join('')+'</select>'+
+    (dd?'<label class="lab" for="mvA" style="margin-top:8px">Position</label><select class="in" id="mvA"><option value="">At the end of the file</option>'+heads.map(function(x){return '<option value="'+x.id+'"'+(m.after===x.id?' selected':'')+'>After '+esc('  '.repeat(Math.max(0,x.level-1))+ftitle(x))+'</option>'}).join('')+'</select>':'')+
+    '<div style="margin-top:10px"><label class="chk"><input type="radio" name="mvM" value="copy"'+(m.mode!=='move'?' checked':'')+'><span><b>Copy</b><small>The chapter stays in this file too.</small></span></label><label class="chk"><input type="radio" name="mvM" value="move"'+(m.mode==='move'?' checked':'')+'><span><b>Move</b><small>It is removed from this file once it is safely in the other one.</small></span></label></div>'+
+    '<p class="hint">Both files need to be linked to OneDrive and closed in Word. A copy of each is saved first in a “.so-backups” folder next to it. '+(docs.length?'':'No OneDrive-linked files to choose from yet.')+'</p>'+
+    '<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn primary" data-act="mv-go"'+(dd?'':' disabled')+'>'+(m.mode==='move'?'Move':'Copy')+'</button></div>';
+}
+async function mvRun(){
+  mvCapture();
+  var m=S.modal,d=byId('documents',m.id), hd=d&&(d.headings||[]).find(function(x){return x.id===m.hid}), dd=byId('documents',m.dest);
+  if(!d||!hd||!dd)return;
+  var w=mvWant(d,hd), hs=d.headings, e=w.i+1;while(e<hs.length&&hs[e].level>hd.level)e++;
+  var moved=hs.slice(w.i,e).map(function(x){return JSON.parse(JSON.stringify(x))}), ids={};hs.slice(w.i,e).forEach(function(x){ids[x.id]=1});
+  var ah=m.after&&(dd.headings||[]).find(function(x){return x.id===m.after}), after=ah?mvWant(dd,ah):null, move=m.mode==='move';
+  var before={};(dd.headings||[]).forEach(function(x){before[x.id]=1});
+  S.modal={type:'busy',msg:'Reading the chapter.'};renderModal();
+  var stage='read';
+  try{
+    var sf=await EXT.fetch(d), seg=await mvExtract(sf,w);
+    if(seg.missing){closeModal();toast('I could not find that chapter in its file. Refresh the document and try again.');return}
+    if(seg.blocked){closeModal();toast('That chapter has images, footnotes or comments, which I cannot carry across. Nothing was changed.');return}
+    S.modal={type:'busy',msg:'Writing into “'+(dd.title||'the other file')+'”.'};renderModal();stage='write';
+    var res=await EXT.sync(dd,async function(f){return mvInject(f,seg.xml,after)});
+    if(res.file)await applyRefresh(dd,res.file);
+    var nh=(dd.headings||[]).filter(function(x){return !before[x.id]&&!x.missing}), used={};
+    moved.forEach(function(o){
+      var t=nh.find(function(x){return !used[x.id]&&x.level===o.level&&ftitle(x).toLowerCase()===ftitle(o).toLowerCase()});if(!t)return;used[t.id]=1;
+      ['storyDate','dateKey','pov','arcId','summary','variant','characterIds','locationIds','tags'].forEach(function(k){if(o[k]!=null&&o[k]!==''&&!(Array.isArray(o[k])&&!o[k].length))t[k]=JSON.parse(JSON.stringify(o[k]))});
+    });
+    save('documents',dd,true);
+    if(move){
+      S.modal={type:'busy',msg:'Removing it from the original.'};renderModal();stage='remove';
+      var r2=await EXT.sync(d,async function(f){return mvRemove(f,w)});
+      if(r2.file)await applyRefresh(d,r2.file);
+      d.headings=(d.headings||[]).filter(function(x){return !(ids[x.id]&&x.missing)});
+      save('documents',d,true);
+    }
+    PVC={};delete RDP[d.id];delete RDP[dd.id];closeModal();S.sel=dd.id;render();
+    toast('Chapter '+(move?'moved':'copied')+' into “'+(dd.title||'the other file')+'”.');
+  }catch(err){
+    closeModal();render();
+    var c=err&&err.code, msg=c==='changed'?'A file changed in OneDrive meanwhile':c==='locked'?'Word has a file open':c==='anchor'?'I could not find the spot in the other file':(err&&err.message)||'error';
+    toast((stage==='remove'?'It was copied into the other file, but removing it from the original failed ('+msg+'). Delete it there by hand.':'Nothing was changed ('+msg+').'));
+  }
+}
+function arcTree(arcs){
+  var ids={};arcs.forEach(function(a){ids[a.id]=1});
+  var out=[];arcs.filter(function(a){return !a.parentId||!ids[a.parentId]}).forEach(function(a){out.push({a:a,depth:0});arcs.filter(function(c){return c.parentId===a.id}).forEach(function(c){out.push({a:c,depth:1})})});
+  return out;
+}
+function arcPath(a){var p=a.parentId&&byId('arcs',a.parentId);return p?(p.name||'')+' › '+(a.name||''):(a.name||'')}
+function docGroup(d){
+  if(d.arcId&&byId('arcs',d.arcId))return d.arcId;
+  var c={},best='',n=0;chapters(d).forEach(function(x){if(x.arcId&&byId('arcs',x.arcId)){c[x.arcId]=(c[x.arcId]||0)+1;if(c[x.arcId]>n){n=c[x.arcId];best=x.arcId}}});
+  return best;
+}
+function arcHas(d,id){
+  var set={};set[id]=1;P('arcs').forEach(function(a){if(a.parentId===id)set[a.id]=1});
+  return docArcs(d).some(function(x){return x&&set[x]});
+}
 function extractWarn(d){
   if(!hasMoved(d))return '';
   var lv=chapLvl(d), mv=(d.headings||[]).filter(function(x){return x.moved}), top=mv.filter(function(x){return x.level===lv});if(!top.length)top=mv;
@@ -2735,6 +2893,7 @@ function evMeta(e){
 }
 function arcMeta(a){
   return '<div class="fgrid"><div><label class="lab" for="arr-'+a.id+'">Route</label><select class="in" id="arr-'+a.id+'" data-bind="arcs:'+a.id+':routeId">'+routeOpts(routeOf(a))+'</select></div>'+
+    '<div><label class="lab" for="arp-'+a.id+'">Part of</label><select class="in" id="arp-'+a.id+'" data-bind="arcs:'+a.id+':parentId"><option value="">Top level</option>'+(P('arcs').some(function(c){return c.parentId===a.id})?'':sortBy(P('arcs'),'order').filter(function(x){return x.id!==a.id&&!x.parentId}).map(function(x){return '<option value="'+x.id+'"'+(a.parentId===x.id?' selected':'')+'>'+esc(x.name)+'</option>'}).join(''))+'</select></div>'+
     '<div><label class="lab" for="arv-'+a.id+'">Variant</label><select class="in" id="arv-'+a.id+'" data-bind="arcs:'+a.id+':variant">'+selOpts(VARIANTS,a.variant||'canon')+'</select></div></div>';
 }
 function routeEditor(r,d){
@@ -2880,6 +3039,7 @@ function removeEntity(coll,id){
     pull('documents','eventIds',id);pull('documents','refEventIds',id);
   }else if(coll==='arcs'){
     S.documents.forEach(function(d){if(d.arcId===id){d.arcId='';save('documents',d,true)}});
+    S.arcs.forEach(function(c){if(c.parentId===id){c.parentId='';save('arcs',c,true)}});
   }else if(coll==='projects'){
     COLLS.forEach(function(c){if(c==='projects')return;S[c].filter(function(x){return x.pid===id}).forEach(function(x){dropDoc(c,x.id)})});
   }
@@ -3126,6 +3286,8 @@ clear:function(el){
   S.modal={type:'clear',coll:coll,n:n,word:CLEAR_WORD[coll]};renderModal();
   var i=$('#clearIn');if(i)i.focus();
 },
+'mv-open':function(el){S.modal={type:'mvch',id:el.dataset.id,hid:el.dataset.hid,dest:'',after:'',mode:'copy'};renderModal()},
+'mv-go':function(){mvRun()},
 'ext-open':function(el){var d=byId('documents',el.dataset.id);if(!d)return;var sel={};if(el.dataset.hid)sel[el.dataset.hid]=true;var s=extSug(d,sel);S.modal={type:'extract',id:d.id,sel:sel,name:s,sug:s};renderModal()},
 'ext-go':function(){
   var m=S.modal;if(!m||m.type!=='extract')return;
@@ -3728,6 +3890,7 @@ function selectLink(d){
 }
 
 var CH={
+'mv-sync':function(){mvCapture();renderModal()},
 'ac-sync':function(){acCapture();S.modal.shid='';renderModal()},
 'cali-sync':function(){A['cali-sync']()},
 'cal-sch':function(t){try{localStorage.setItem('so-cal-sch',t.checked?'1':'0')}catch(e){}render()},
