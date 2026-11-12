@@ -2287,6 +2287,7 @@ function arcCard(a){
   var h=dbar('Arc','arcs',a.id);
   h+='<input class="title-in" data-bind="arcs:'+a.id+':name" value="'+esc(a.name)+'" aria-label="Arc name" placeholder="Arc name">';
   h+=arcMeta(a);
+  if(!a.parentId)h+='<p style="margin:0 0 10px"><button class="btn sm" data-act="new-subarc" data-id="'+a.id+'">'+ic('plus',14)+'Add a sub arc inside this one</button></p>';
   if(aw)h+='<p class="hint">About '+fmtN(aw)+' words in this arc, counted by chapter.</p>';
   if(mine.length)h+='<div class="sbar" role="img" aria-label="Progress by status">'+STATUSES.filter(function(s){return cnt[s]}).map(function(s){return '<i style="flex:'+cnt[s]+';--st:var(--st-'+s.toLowerCase()+')"></i>'}).join('')+'</div><div class="legend">'+STATUSES.filter(function(s){return cnt[s]}).map(function(s){return '<span><i style="--st:var(--st-'+s.toLowerCase()+')"></i>'+cnt[s]+' '+s+'</span>'}).join('')+'</div>';
   h+='<div class="fgrid"><div class="span2"><label class="lab" for="an-'+a.id+'">Notes</label><textarea class="in" id="an-'+a.id+'" data-bind="arcs:'+a.id+':notes">'+esc(a.notes||'')+'</textarea></div></div>';
@@ -3803,6 +3804,7 @@ scrim:function(el,e){if(e.target===el)closeModal()},
 'new-char':function(){askName('New character','Name',function(n){var o=createEntity('characters',n);closeModal();S.sel=o.id;render()})},
 'new-loc':function(){askName('New location','Name',function(n){var o=createEntity('locations',n);closeModal();S.sel=o.id;render()})},
 'new-event':function(){askName('New event','What happens',function(n){var o=createEntity('events',n);closeModal();S.sel=o.id;render()})},
+'new-subarc':function(el){var pid=el.dataset.id;askName('New sub arc','For example Investigation',function(n){var o=createEntity('arcs',n);o.parentId=pid;save('arcs',o);closeModal();S.sel=o.id;render()})},
 'new-arc':function(){askName('New arc','For example Act 2',function(n){var o=createEntity('arcs',n);closeModal();S.sel=o.id;render()})},
 status:function(el){var d=byId('documents',el.dataset.id);if((d.status||'Idea')===el.dataset.v)return;var u=snap();d.status=el.dataset.v;save('documents',d);pushUndo('Status changed',u);render()},
 pick:function(el){
