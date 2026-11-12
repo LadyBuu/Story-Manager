@@ -1925,7 +1925,7 @@ documents:function(){
     (docs.length?'<button class="btn" data-act="read-open">'+ic('open')+'Read</button>':'')+
     (S.mode==='od'&&p&&p.odFolder?'<button class="btn" data-act="od-sync">'+ic('refresh')+'Sync</button>':'')+
     (S.mode==='od'&&p&&!p.odFolder?'<button class="btn" data-act="od-pick">'+ic('folder')+'OneDrive folder</button>':'')+
-    (docs.length>1&&!trashView?'<button class="btn" data-act="auto-date" title="Order all chapters by story date">'+ic('refresh')+'Order by date</button>':'')+'<button class="btn" data-act="tools">'+ic('sliders')+'Tools'+(docs.length&&revCount()?' <span class="cnt">'+revCount()+'</span>':'')+'</button>'+
+    (docs.length>1&&!trashView?'<button class="btn" data-act="dups-open" title="Chapters with the same name or text">'+ic('layers')+'Find repeats</button>':'')+(docs.length>1&&!trashView?'<button class="btn" data-act="auto-date" title="Order all chapters by story date">'+ic('refresh')+'Order by date</button>':'')+'<button class="btn" data-act="tools">'+ic('sliders')+'Tools'+(docs.length&&revCount()?' <span class="cnt">'+revCount()+'</span>':'')+'</button>'+
     (trashView&&trashed.length?'<button class="btn danger" data-act="empty-trash">'+ic('trash')+'Empty trash</button>':'')+
     (folder?'<a class="btn" href="'+esc(folder)+'" target="_blank" rel="noopener noreferrer">'+ic('open')+'OneDrive</a>':'')+'</div></div>'+routeBar()+
     (docs.length?'<div class="sbwrap"><div class="sbar" role="img" aria-label="Progress by status">'+STATUSES.filter(function(s){return cnt[s]}).map(function(s){return '<i style="flex:'+cnt[s]+';--st:var(--st-'+s.toLowerCase()+')"></i>'}).join('')+'</div>'+
@@ -1946,9 +1946,14 @@ documents:function(){
     var dRow=function(d){var shift=rp[d.id]!=null&&cp[d.id]!==rp[d.id];return docRow(d,{n:rp[d.id],sortable:!filtered,sub:cp[d.id]!=null?'<i class="'+(shift?'shift':'')+'" title="Chronological position">t'+cp[d.id]+'</i>':''})};
     var gHtml='';
     if(anyArc&&!trashView){
-      var gs=[];arcTree(arcs).forEach(function(t){var l=inV.filter(function(d){return docGroup(d)===t.a.id});if(l.length)gs.push([arcPath(t.a),l])});
-      var nl=inV.filter(function(d){return !docGroup(d)});if(nl.length)gs.push(['No arc',nl]);
-      gHtml=gs.map(function(g){return '<div class="grp">'+esc(g[0])+'</div><div data-sort="documents:order">'+g[1].map(dRow).join('')+'</div>'}).join('');
+      var gs=[];arcTree(arcs).forEach(function(t){var l=inV.filter(function(d){return docArcs(d).indexOf(t.a.id)>-1});if(l.length)gs.push([arcPath(t.a),l,t.a.id])});
+      var nl=inV.filter(function(d){return !docGroup(d)});if(nl.length)gs.push(['No arc',nl,'']);
+      gHtml=gs.map(function(g){
+        var prim=g[1].filter(function(d){return g[2]===''||docGroup(d)===g[2]}), sec=g[1].filter(function(d){return prim.indexOf(d)<0});
+        return '<div class="grp">'+esc(g[0])+'</div>'+(prim.length?'<div data-sort="documents:order">'+prim.map(dRow).join('')+'</div>':'')+(sec.length?'<div>'+sec.map(function(d){
+          var ch=chapters(d).filter(function(x){return chapArc(d,x)===g[2]}).map(function(x){return ftitle(x)});
+          return docRow(d,{n:rp[d.id],sortable:false,sub:'<i title="This file belongs to another arc too">'+(ch.length?esc(ch.slice(0,2).join(', ')+(ch.length>2?'…':'')):'also here')+'</i>'})}).join('')+'</div>':'');
+      }).join('');
     }else if(inV.length)gHtml='<div data-sort="documents:order">'+inV.map(dRow).join('')+'</div>';
     rows=gHtml+(outV.length?'<div class="grp">Outside the reading order</div><div>'+outV.map(function(d){return docRow(d,{n:null,sortable:false,sub:''})}).join('')+'</div>':'');
   }
@@ -2322,6 +2327,7 @@ function renderModal(){
   else if(m.type==='hollow')inner=hollowModal();
   else if(m.type==='extract')inner=extractModal();
   else if(m.type==='mvch')inner=mvModal();
+  else if(m.type==='dups')inner=dupModal();
   else if(m.type==='rdorder')inner=rdOrderHtml(rdItems(),-1,true);
   else if(m.type==='xport')inner=xportModal();
   else if(m.type==='checks')inner=checksModal();
@@ -2763,6 +2769,67 @@ function docGroup(d){
 function arcHas(d,id){
   var set={};set[id]=1;P('arcs').forEach(function(a){if(a.parentId===id)set[a.id]=1});
   return docArcs(d).some(function(x){return x&&set[x]});
+}
+
+/* ---------- repeated chapters ---------- */
+function dupNorm(t){return String(t||'').toLowerCase().replace(/[^a-z0-9À-￿]+/g,' ').trim()}
+function dupItems(){
+  var out=[];
+  sortBy(P('documents').filter(function(d){return !isTrashed(d)}),'order').forEach(function(d){
+    var cs=chapters(d);
+    if(cs.length)cs.forEach(function(h){if(chapVariant(d,h)!=='trashed')out.push({d:d,h:h,t:ftitle(h)})});
+    else out.push({d:d,h:null,t:d.title||''});
+  });
+  return out;
+}
+function dupNames(){
+  var m={};dupItems().forEach(function(x){var k=dupNorm(x.t);if(!k)return;(m[k]=m[k]||[]).push(x)});
+  return Object.keys(m).filter(function(k){return m[k].length>1}).map(function(k){return {title:m[k][0].t,l:m[k]}});
+}
+function dupLabel(x){return (x.d.title||'Untitled')+(x.h?' › '+x.t:'')}
+async function dupText(){
+  var m=S.modal,its=dupItems().filter(function(x){return x.d.file&&(EXT.auto(x.d)||RDF[x.d.id])}),docs=[],seen={};
+  its.forEach(function(x){if(!seen[x.d.id]){seen[x.d.id]=1;docs.push(x.d)}});
+  var rows=[],skipped=0;
+  for(var i=0;i<docs.length;i++){
+    if(!S.modal||S.modal.type!=='dups')return;
+    m.busy='Reading '+(i+1)+' of '+docs.length+': '+(docs[i].title||'file');renderModal();
+    var paras=null;try{paras=await rdParas(docs[i])}catch(e){}
+    if(!paras){skipped++;continue}
+    its.filter(function(x){return x.d===docs[i]}).forEach(function(x){
+      var sl=x.h?rdSlice(x.d,x.h,paras):paras;if(!sl)return;
+      var txt=sl.filter(function(p){return !p.lv}).map(function(p){return p.text}).join(' '),w=dupNorm(txt).split(' ').filter(Boolean);
+      if(w.length<25)return;
+      var set={};for(var k=0;k+5<=w.length;k+=1)set[w.slice(k,k+5).join(' ')]=1;
+      rows.push({x:x,n:w.length,set:set,key:w.join(' ')});
+    });
+  }
+  var res=[];
+  for(var a=0;a<rows.length;a++)for(var b=a+1;b<rows.length;b++){
+    var A=rows[a],B=rows[b];if(A.x.d===B.x.d&&A.x.h===B.x.h)continue;
+    var sim;if(A.key===B.key)sim=1;else{
+      var ka=Object.keys(A.set),kb=Object.keys(B.set);if(!ka.length||!kb.length)continue;
+      var sm=ka.length<kb.length?A.set:B.set,lg=sm===A.set?B.set:A.set,inter=0;for(var q in sm)if(lg[q])inter++;
+      sim=inter/(ka.length+kb.length-inter);
+    }
+    if(sim>=.4)res.push({a:A,b:B,sim:sim});
+  }
+  res.sort(function(p,q){return q.sim-p.sim});
+  m.txt=res.slice(0,80);m.skipped=skipped;m.total=rows.length;m.busy='';renderModal();
+}
+function dupGo(x){return '<button class="lk" data-act="goto" data-view="documents" data-id="'+x.d.id+'"><span><span class="lkt">'+esc(dupLabel(x))+'</span></span></button>'}
+function dupModal(){
+  var m=S.modal,nm=m.names||[];
+  var h='<h2>Repeated chapters</h2>';
+  h+='<h3 style="margin:10px 0 4px">Same name</h3>';
+  h+=nm.length?nm.map(function(g){return '<div class="sec" style="margin:6px 0"><b>'+esc(g.title)+'</b> <small>('+g.l.length+')</small>'+g.l.map(function(x){var ar=nameOf('arcs',chapArc(x.d,x.h||{}));return '<div>'+dupGo(x)+(ar?'<small> · '+esc(ar)+'</small>':'')+'</div>'}).join('')+'</div>'}).join(''):'<p class="hint">No two chapters share a name.</p>';
+  h+='<h3 style="margin:14px 0 4px">Same or very similar text</h3>';
+  if(m.busy)h+='<p class="hint">'+esc(m.busy)+'</p>';
+  else if(m.txt){
+    h+=m.txt.length?m.txt.map(function(r){var lab=r.sim>=.98?'Identical':r.sim>=.8?'Nearly identical':'Overlaps';return '<div class="sec" style="margin:6px 0"><b>'+lab+'</b> <small>'+Math.round(r.sim*100)+'%</small><div>'+dupGo(r.a.x)+'<small> '+fmtN(r.a.n)+' words</small></div><div>'+dupGo(r.b.x)+'<small> '+fmtN(r.b.n)+' words</small></div></div>'}).join(''):'<p class="hint">No chapters share much text.</p>';
+    h+='<p class="hint">Compared '+m.total+' chapters'+(m.skipped?'; '+m.skipped+' file'+(m.skipped>1?'s':'')+' could not be read':'')+'. Only chapters of 25 words or more, and files linked to OneDrive or already picked.</p>';
+  }else h+='<p class="hint">Reads every Word file and compares the text of each chapter. It can take a minute with many files. Nothing is changed.</p><button class="btn" data-act="dup-text">Compare the text</button>';
+  return h+'<div class="actions"><button class="btn primary" data-act="close">Done</button></div>';
 }
 function extractWarn(d){
   if(!hasMoved(d))return '';
@@ -3286,6 +3353,8 @@ clear:function(el){
   S.modal={type:'clear',coll:coll,n:n,word:CLEAR_WORD[coll]};renderModal();
   var i=$('#clearIn');if(i)i.focus();
 },
+'dups-open':function(){S.modal={type:'dups',names:dupNames(),txt:null,busy:''};renderModal()},
+'dup-text':function(){dupText()},
 'mv-open':function(el){S.modal={type:'mvch',id:el.dataset.id,hid:el.dataset.hid,dest:'',after:'',mode:'copy'};renderModal()},
 'mv-go':function(){mvRun()},
 'ext-open':function(el){var d=byId('documents',el.dataset.id);if(!d)return;var sel={};if(el.dataset.hid)sel[el.dataset.hid]=true;var s=extSug(d,sel);S.modal={type:'extract',id:d.id,sel:sel,name:s,sug:s};renderModal()},
