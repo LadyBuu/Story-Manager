@@ -52,8 +52,12 @@ var NOTE_KINDS=['Revision','Continuity','Ideas'];
 var NOTE_STATES=['open','doing','done'];
 var NOTE_LABEL={open:'Open',doing:'In progress',done:'Done'};
 var KINDS=[['draft','Draft'],['outline','Outline'],['notes','Notes'],['research','Research'],['front-matter','Front matter'],['back-matter','Back matter']];
-var VARIANTS=[['canon','Canon'],['au','AU'],['alternate','Alternate']];
-function syncVersions(){var pr=proj(),cu=(pr&&pr.versions)||[];VARIANTS.length=0;[['canon','Canon'],['au','AU'],['alternate','Alternate']].concat(cu.map(function(v){return [v.id,v.name||'Untitled']})).forEach(function(x){VARIANTS.push(x)})}
+var VARIANTS=[['canon','Canon'],['alternate','Alternate']];
+function syncVersions(){var pr=proj(),cu=(pr&&pr.versions)||[];VARIANTS.length=0;[['canon','Canon'],['alternate','Alternate']].concat(cu.map(function(v){return [v.id,v.name||'Untitled']})).forEach(function(x){VARIANTS.push(x)})}
+function migAU(){
+  var n=0,fix=function(o,c){if(o&&o.variant==='au'){o.variant='alternate';n++;if(c)save(c,o,true)}};
+  ['documents','arcs','events','routes'].forEach(function(c){(S[c]||[]).forEach(function(o){fix(o,c);if(c==='documents'){var ch=false;(o.headings||[]).forEach(function(h){if(h&&h.variant==='au'){h.variant='alternate';ch=true}});if(ch){n++;save(c,o,true)}}})});
+}
 var AUX_KINDS=['outline','notes','research'];
 var ROUTE_COLORS=[['a','Rose'],['b','Blue'],['c','Green'],['d','Amber'],['e','Violet'],['f','Clay']];
 var DEFAULT_LABELS={1:'Section',2:'Chapter',3:'Subsection',4:'Sub-subsection'};
@@ -61,7 +65,7 @@ var NAV=[['documents','Documents','doc'],['arcs','Arcs','layers'],['index','Chap
 
 var S={projects:[],documents:[],characters:[],locations:[],events:[],arcs:[],routes:[],
   pid:null,view:'documents',sel:null,seg:'chron',filter:{status:'',arc:'',tag:'',q:''},
-  modal:null,mode:'loading',loaded:0,banner:'',refreshId:null,rid:null,vis:'all'};
+  modal:null,mode:'loading',loaded:0,banner:'',refreshId:null,rid:null,vis:'canon'};
 var db=null, pickerSpec=null, textBox='', lastFocus=null, undoStack=[];
 
 /* ---------- helpers ---------- */
@@ -114,6 +118,7 @@ function chainOf(rid){
 }
 function curRoute(){var r=byId('routes',S.rid);return (r&&r.pid===S.pid)?r:(byId('routes',rootId())||null)}
 function selRoutes(){
+  if(!S.rids){var al=P('routes').map(function(r){return r.id});if(al.indexOf(rootId())<0)al.unshift(rootId());return al}
   var prim=(curRoute()||{}).id, ids=(S.rids||[]).filter(function(id){var r=byId('routes',id);return r&&r.pid===S.pid});
   if(prim&&ids.indexOf(prim)<0)ids.unshift(prim);
   return ids.length?ids:(prim?[prim]:[]);
@@ -123,12 +128,18 @@ function eff(c){
   var all=P(c);
   if(c!=='documents'&&c!=='events'&&c!=='arcs')return all;
   var m=inChain(), out=all.filter(function(o){return m[routeOf(o)]&&!isTrashed(o)});
-  if(c==='documents'){var sup={};out.forEach(function(o){if(o.divergesFrom)sup[o.divergesFrom]=1});out=out.filter(function(o){return !sup[o.id]})}
+  if(c==='documents'&&S.rids){var sup={};out.forEach(function(o){if(o.divergesFrom)sup[o.divergesFrom]=1});out=out.filter(function(o){return !sup[o.id]})}
   return out;
 }
 function visOk(o){var v=o.variant||'canon',s=S.vis;if(s==='trash')return v==='trashed';if(s==='all')return v!=='trashed';return v===s}
 function inOrder(d){if(d.inOrder===true)return true;if(d.inOrder===false)return false;return AUX_KINDS.indexOf(kindOf(d))<0}
-var posMap=function(c,k){var m={};sortBy(eff(c),k).filter(function(x){return c!=='documents'||inOrder(x)}).forEach(function(x,i){m[x.id]=i+1});return m};
+var posMap=function(c,k){
+  var m={},l=sortBy(eff(c),k).filter(function(x){return c!=='documents'||inOrder(x)});
+  if(c!=='documents'){l.forEach(function(x,i){m[x.id]=i+1});return m}
+  var ch={};l.forEach(function(x){var r=routeOf(x);if(!ch[r]){ch[r]={};chainOf(r).forEach(function(i){ch[r][i]=1})}});
+  var cnt={};l.forEach(function(x){var r=routeOf(x),n=0;Object.keys(cnt).forEach(function(q){if(ch[r][q])n+=cnt[q]});m[x.id]=n+1;cnt[r]=(cnt[r]||0)+1});
+  return m;
+};
 function kindOf(d){var k=d&&d.kind;return (!k||k==='chapter'||k==='scene')?'draft':k}
 function kindLabel(k){k=(!k||k==='chapter'||k==='scene')?'draft':k;var x=KINDS.find(function(y){return y[0]===k});return x?x[1]:'Draft'}
 
@@ -1801,7 +1812,7 @@ document.addEventListener('focusout',function(){
 var RDV=0;
 function render(){
   if(PL&&S.view!=='calendar'){S.view='calendar';S.sel=null}
-  syncVersions();syncCal();normDates();
+  syncVersions();migAU();syncCal();normDates();
   RDV++;
   if(S.sel&&!selObj())S.sel=null;
   $('#app').classList.toggle('has-sel',!!S.sel);
@@ -1868,7 +1879,8 @@ function entTags(o){
   return (v||rt)?'<div class="rx">'+v+rt+'</div>':'';
 }
 function visSel(){
-  return '<select class="in" data-vis aria-label="Variant filter">'+[['all','All variants'],['canon','Canon only'],['au','AU only'],['alternate','Alternate only'],['trash','Trash']].map(function(x){return '<option value="'+x[0]+'"'+(S.vis===x[0]?' selected':'')+'>'+x[1]+'</option>'}).join('')+'</select>';
+  var cus=VARIANTS.filter(function(v){return v[0]!=='canon'&&v[0]!=='alternate'}).map(function(v){return [v[0],v[1]]});
+  return '<select class="in" data-vis aria-label="Variant filter">'+[['canon','Canon'],['alternate','Alternate']].concat(cus).concat([['all','All variants'],['trash','Trash']]).map(function(x){return '<option value="'+x[0]+'"'+(S.vis===x[0]?' selected':'')+'>'+x[1]+'</option>'}).join('')+'</select>';
 }
 function routeList(){
   var rs=P('routes'), out=[];
@@ -1913,7 +1925,7 @@ documents:function(){
   var f=S.filter, q=f.q.trim().toLowerCase();
   var base=trashView?trashed:docs.filter(visOk);
   var vis=base.filter(function(d){return (!f.status||d.status===f.status)&&(!f.arc||arcHas(d,f.arc))&&(!f.tag||docTags(d).indexOf(f.tag)>-1)&&(!f.kind||kindOf(d)===f.kind)&&(!q||hay(d).indexOf(q)>-1)});
-  var filtered=!!(f.status||f.arc||f.tag||f.kind||q||S.vis!=='all');
+  var filtered=!!(f.status||f.arc||f.tag||f.kind||q);
   var arcs=sortBy(eff('arcs'),'order'), anyArc=docs.some(function(d){return !!docGroup(d)});
   var cnt={};STATUSES.forEach(function(s){cnt[s]=0});docs.forEach(function(d){cnt[d.status||'Idea']++});
   var words=docs.reduce(function(s,d){return s+((d.file&&d.file.words)||0)},0);
@@ -1982,7 +1994,7 @@ locations:function(){
   return {head:head,rows:rows};
 },
 timeline:function(){
-  var trashView=S.vis==='trash', canDrag=S.vis==='all';
+  var trashView=S.vis==='trash', canDrag=S.vis!=='trash';
   var seg='<div class="seg" role="group" aria-label="Timeline view" style="min-width:min(100%,360px)"><button data-act="seg" data-v="chron" aria-pressed="'+(S.seg==='chron')+'">Chronology</button><button data-act="seg" data-v="dates" aria-pressed="'+(S.seg==='dates')+'">Scenes by date</button><button data-act="seg" data-v="events" aria-pressed="'+(S.seg==='events')+'">Events</button></div>';
   var head,rows;
   if(S.seg==='dates'){
@@ -2020,13 +2032,13 @@ timeline:function(){
 calendar:function(){return calView()},
 index:function(){return ixView()},
 arcs:function(){
-  var arcs=sortBy(eff('arcs'),'order'), docs=eff('documents'), ap=posMap('arcs','order'), canDrag=S.vis==='all';
+  var arcs=sortBy(eff('arcs'),'order'), docs=eff('documents'), ap=posMap('arcs','order'), canDrag=S.vis!=='trash';
   var list=arcTree(arcs.filter(visOk)).map(function(t){return t.a});
   var head='<div class="lhead"><div class="ltitle"><h1>Arcs</h1><span class="cnt">'+arcs.length+'</span></div><div class="lact"><button class="btn primary" data-act="new-arc">'+ic('plus')+'New arc</button>'+clearBtn('arcs',P('arcs').length)+'<button class="btn" data-act="routes">'+ic('layers')+'Routes</button></div></div>'+routeBar()+
     '<div class="sbwrap"><p class="hint">Acts, storylines or sections within a route. Open an arc to see and edit its chapters, or assign arcs to chapters in Documents.</p></div><div class="filters">'+visSel()+'</div>';
   var rows=list.length?'<div data-sort="arcs:order">'+list.map(function(a){
     var n=0;docs.forEach(function(d){if(isTrashed(d))return;var cs=chapters(d);if(cs.length)cs.forEach(function(x){if(chapArc(d,x)===a.id)n++});else if(d.arcId===a.id)n++});
-    return '<div class="row'+(canDrag?'':' nohandle')+(S.sel===a.id?' sel':'')+'" style="'+(a.parentId&&byId('arcs',a.parentId)?'margin-left:24px':'')+'" role="listitem" tabindex="0" data-act="select" data-id="'+a.id+'">'+(canDrag?'<button class="handle" data-handle aria-label="Reorder '+esc(a.name)+'. Use arrow keys or drag.">'+ic('grip',16)+'</button>':'')+'<div class="folio"><b>'+pad(ap[a.id])+'</b></div><div class="rb"><div class="rt">'+(esc(a.name)||'Unnamed arc')+'</div>'+entTags(a)+'</div><span class="num">'+n+' chapter'+(n===1?'':'s')+'</span></div>';
+    return '<div class="row'+(canDrag?'':' nohandle')+(S.sel===a.id?' sel':'')+'" style="'+(a.parentId&&byId('arcs',a.parentId)?'margin-left:24px':'')+'" role="listitem" tabindex="0" data-act="select" data-id="'+a.id+'">'+(canDrag?'<button class="handle" data-handle aria-label="Reorder '+esc(a.name)+'. Use arrow keys or drag.">'+ic('grip',16)+'</button>':'')+'<div class="folio"><b>'+pad(ap[a.id])+'</b></div>'+(a.cover?'<img src="'+a.cover+'" alt="" style="width:34px;height:34px;border-radius:5px;object-fit:cover;margin-right:8px">':'')+'<div class="rb"><div class="rt">'+(esc(a.name)||'Unnamed arc')+'</div>'+entTags(a)+'</div><span class="num">'+n+' chapter'+(n===1?'':'s')+'</span></div>';
   }).join('')+'</div>':'<div class="empty"><h1>No arcs</h1><p>Create an arc, or choose a folder of Word files and let folder names become arcs.</p></div>';
   return {head:head,rows:rows};
 }
@@ -2279,6 +2291,11 @@ function eventCard(e){
   return h;
 }
 
+function fitImage(f,max,cb){var r=new FileReader();r.onload=function(){var im=new Image();im.onload=function(){var k=Math.min(1,max/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(im.width*k));c.height=Math.max(1,Math.round(im.height*k));c.getContext('2d').drawImage(im,0,0,c.width,c.height);cb(c.toDataURL('image/jpeg',.82))};im.onerror=function(){cb(null)};im.src=r.result};r.onerror=function(){cb(null)};r.readAsDataURL(f)}
+function arcCover(a){
+  return '<div class="arccov" style="display:flex;gap:12px;align-items:flex-end;margin:0 0 12px">'+(a.cover?'<img src="'+a.cover+'" alt="Cover picture of '+esc(a.name||'this arc')+'" style="max-width:150px;max-height:200px;border-radius:6px;object-fit:cover">':'')+
+    '<span><button class="btn sm" data-act="arc-cover" data-id="'+a.id+'">'+(a.cover?'Replace cover picture':'Add a cover picture')+'</button>'+(a.cover?' <button class="btn sm" data-act="arc-cover-del" data-id="'+a.id+'">Remove</button>':'')+'</span></div>';
+}
 function arcCard(a){
   var docs=sortBy(P('documents').filter(function(d){return !isTrashed(d)}),'order'), rp=posMap('documents','order');
   var mine=docs.filter(function(d){return docArcs(d).indexOf(a.id)>-1}), aw=arcWords(a);
@@ -2286,10 +2303,11 @@ function arcCard(a){
   var cnt={};STATUSES.forEach(function(s){cnt[s]=0});mine.forEach(function(d){cnt[d.status||'Idea']++});
   var h=dbar('Arc','arcs',a.id);
   h+='<input class="title-in" data-bind="arcs:'+a.id+':name" value="'+esc(a.name)+'" aria-label="Arc name" placeholder="Arc name">';
-  h+=arcMeta(a);
+  h+=arcCover(a)+arcMeta(a);
   if(!a.parentId)h+='<p style="margin:0 0 10px"><button class="btn sm" data-act="new-subarc" data-id="'+a.id+'">'+ic('plus',14)+'Add a sub arc inside this one</button></p>';
   if(aw)h+='<p class="hint">About '+fmtN(aw)+' words in this arc, counted by chapter.</p>';
   if(mine.length)h+='<div class="sbar" role="img" aria-label="Progress by status">'+STATUSES.filter(function(s){return cnt[s]}).map(function(s){return '<i style="flex:'+cnt[s]+';--st:var(--st-'+s.toLowerCase()+')"></i>'}).join('')+'</div><div class="legend">'+STATUSES.filter(function(s){return cnt[s]}).map(function(s){return '<span><i style="--st:var(--st-'+s.toLowerCase()+')"></i>'+cnt[s]+' '+s+'</span>'}).join('')+'</div>';
+  h+='<div class="fgrid"><div class="span2"><label class="lab" for="asu-'+a.id+'">Summary</label><textarea class="in" id="asu-'+a.id+'" rows="3" data-bind="arcs:'+a.id+':summary" placeholder="What this arc is about, in a few lines">'+esc(a.summary||'')+'</textarea></div></div>';
   h+='<div class="fgrid"><div class="span2"><label class="lab" for="an-'+a.id+'">Notes</label><textarea class="in" id="an-'+a.id+'" data-bind="arcs:'+a.id+':notes">'+esc(a.notes||'')+'</textarea></div></div>';
   var bare=mine.filter(function(d){return !chapters(d).length});
   var byDoc={};achs.forEach(function(x){(byDoc[x.d.id]=byDoc[x.d.id]||{d:x.d,l:[]}).l.push(x.h)});
@@ -3018,7 +3036,7 @@ function pathModal(){
 }
 function infer(name,parts){
   var kind='draft', variant='canon';
-  (parts||[]).slice(0,-1).forEach(function(x){if(/^(au|alt|alternate)\b/i.test(x))variant=/^au/i.test(x)?'au':'alternate'});
+  (parts||[]).slice(0,-1).forEach(function(x){if(/^(au|alt|alternate)\b/i.test(x))variant='alternate'});
   var b=name.replace(/\.docx$/i,'');
   if(/^outline\b/i.test(b))kind='outline';
   else if(/^notes?\b/i.test(b))kind='notes';
@@ -3138,7 +3156,7 @@ function newProject(nm){
   var p={id:uid(),name:nm||'Untitled project',folderUrl:'',seriesId:'',labels:{1:'Section',2:'Chapter',3:'Subsection',4:'Sub-subsection'},created:new Date().toISOString()};
   S.projects.push(p);save('projects',p,true);ensureRoutes();setProject(p.id);return p;
 }
-function setProject(id){S.pid=id;S.rid=null;S.rids=null;S.vis='all';S.sel=null;S.view='documents';S.filter={status:'',arc:'',tag:'',q:''};try{localStorage.setItem('so-pid',id)}catch(e){}}
+function setProject(id){S.pid=id;S.rid=null;S.rids=null;S.vis='canon';S.sel=null;S.view='documents';S.filter={status:'',arc:'',tag:'',q:''};try{localStorage.setItem('so-pid',id)}catch(e){}}
 
 function loadSample(){
   var p=newProject('Hollow Blades (sample)'), main=rootId();
@@ -3804,6 +3822,8 @@ scrim:function(el,e){if(e.target===el)closeModal()},
 'new-char':function(){askName('New character','Name',function(n){var o=createEntity('characters',n);closeModal();S.sel=o.id;render()})},
 'new-loc':function(){askName('New location','Name',function(n){var o=createEntity('locations',n);closeModal();S.sel=o.id;render()})},
 'new-event':function(){askName('New event','What happens',function(n){var o=createEntity('events',n);closeModal();S.sel=o.id;render()})},
+'arc-cover':function(el){var id=el.dataset.id,inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.onchange=function(){var f=inp.files&&inp.files[0];if(!f)return;fitImage(f,640,function(url){var a=byId('arcs',id);if(!a||!url){toast('Could not read that picture.');return}a.cover=url;save('arcs',a);render()})};inp.click()},
+'arc-cover-del':function(el){var a=byId('arcs',el.dataset.id);if(!a)return;a.cover='';save('arcs',a);render()},
 'new-subarc':function(el){var pid=el.dataset.id;askName('New sub arc','For example Investigation',function(n){var o=createEntity('arcs',n);o.parentId=pid;save('arcs',o);closeModal();S.sel=o.id;render()})},
 'new-arc':function(){askName('New arc','For example Act 2',function(n){var o=createEntity('arcs',n);closeModal();S.sel=o.id;render()})},
 status:function(el){var d=byId('documents',el.dataset.id);if((d.status||'Idea')===el.dataset.v)return;var u=snap();d.status=el.dataset.v;save('documents',d);pushUndo('Status changed',u);render()},
@@ -3920,12 +3940,12 @@ restore:function(el){
 },
 undo:function(){undo()},
 route:function(el){
-  var id=el.dataset.id, set=selRoutes().slice(), i=set.indexOf(id);
+  var id=el.dataset.id, set=S.rids?selRoutes().slice():[], i=set.indexOf(id);
   if(i>-1){if(set.length>1){set.splice(i,1);S.rid=set[set.length-1]}}
   else{set.push(id);S.rid=id}
   S.rids=set;S.sel=null;render();announce('Showing '+set.map(function(x){return nameOf('routes',x)}).join(' and '));
 },
-'route-all':function(){S.rids=routeList().map(function(x){return x.r.id});S.sel=null;render();announce('Showing all routes')},
+'route-all':function(){S.rids=null;S.sel=null;render();announce('Showing all routes')},
 routes:function(){S.modal={type:'routes',edit:null};renderModal()},
 'route-view':function(el){S.rid=el.dataset.id;S.rids=[el.dataset.id];S.sel=null;closeModal();render()},
 'route-edit':function(el){S.modal.edit=S.modal.edit===el.dataset.id?null:el.dataset.id;renderModal()},
@@ -3934,7 +3954,7 @@ routes:function(){S.modal={type:'routes',edit:null};renderModal()},
   askName('New route','For example Route B: Danielle refuses',function(n){
     var used={};P('routes').forEach(function(r){used[r.color]=1});
     var col=(ROUTE_COLORS.find(function(c){return !used[c[0]]})||ROUTE_COLORS[P('routes').length%ROUTE_COLORS.length])[0];
-    var r=mk('routes',{name:n,parentId:parent,divergenceEventId:'',divergenceNote:'',order:maxOf(P('routes'),'order')+1,color:col,variant:'au',isDefault:false});
+    var r=mk('routes',{name:n,parentId:parent,divergenceEventId:'',divergenceNote:'',order:maxOf(P('routes'),'order')+1,color:col,variant:'alternate',isDefault:false});
     S.rid=r.id;S.rids=[r.id];S.modal={type:'routes',edit:r.id};renderModal();render();
   });
 },
