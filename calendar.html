@@ -3781,6 +3781,17 @@ clear:function(el){
 'read-go':function(el){rdStep(+el.dataset.v)},
 'read-size':function(el){var n=Math.min(32,Math.max(13,rdSize()+(+el.dataset.v)*2));try{localStorage.setItem('so-rd-size',n)}catch(e){}var pg=$('#reader .rd-pg');if(pg)pg.style.fontSize=n+'px'},
 'read-meta':function(){RD.meta=!RD.meta;var m=$('#reader .rd-meta');if(m)m.hidden=!RD.meta;var b=$('#reader [data-act="read-meta"]');if(b)b.setAttribute('aria-pressed',RD.meta)},
+'read-copy':async function(){
+  var items=rdItems(),it=items[rdPos(items)];if(!it)return;
+  try{
+    var paras=await rdParas(it.d,false);if(!paras){toast('This file is not connected to the reader yet.');return}
+    var seg=rdSlice(it.d,it.h,paras);if(!seg){toast('Could not find that chapter in the file.');return}
+    var txt=seg.filter(function(x){return x.text&&x.text.trim()&&!(x.lv===0&&isDateP(x))}).map(function(x){return x.text}).join('\n\n');
+    var done=function(){toast('Chapter copied ('+fmtN(txt.split(/\s+/).filter(Boolean).length)+' words)')};
+    var fb=function(){var t=document.createElement('textarea');t.value=txt;t.style.position='fixed';t.style.opacity='0';document.body.appendChild(t);t.select();var ok=false;try{ok=document.execCommand('copy')}catch(e){}document.body.removeChild(t);if(ok)done();else toast('Your browser blocked copying.')};
+    if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(done).catch(fb);else fb();
+  }catch(e){toast('Could not read the chapter'+(e&&e.message?' ('+e.message+')':'')+'.')}
+},
 'read-reload':function(){var k=RD.key.split('|')[0];delete RDP[k];RD.force=true;renderReader(true)},
 'read-pick':function(){$('#fileRead').click()},
 'spread':function(el){
@@ -4391,7 +4402,7 @@ async function renderReader(keepScroll){
   var lastD=null, gk=function(x){return rdChron()?String(x.ek==null?'none':x.ek):x.d.id};items.forEach(function(x,j){if(gk(x)!==lastD){if(lastD!==null)sel+='</optgroup>';sel+='<optgroup label="'+esc(rdChron()?(x.ek!=null?keyLong(x.ek):'No date'):(x.d.title||'Untitled'))+'">';lastD=gk(x)}sel+='<option value="'+esc(rdKey(x))+'"'+(j===i?' selected':'')+'>'+esc(x.h?x.h.title:(x.d.title||'Whole file'))+'</option>'});sel+='</optgroup></select>';
   var head='<div class="rd-top"><button class="icb" data-act="read-close" aria-label="Close reader">'+ic('x')+'</button><div class="rd-t"><b>'+esc(it.h?it.h.title:d.title)+'</b><small>'+(rdChron()&&it.ek!=null?esc(keyLong(it.ek))+' · ':'')+esc(d.title||'')+' · '+(i+1)+' of '+items.length+'</small></div>'+
     '<button class="btn sm" data-act="read-size" data-v="-1" aria-label="Smaller text">A−</button><button class="btn sm" data-act="read-size" data-v="1" aria-label="Larger text">A+</button>'+
-    '<button class="btn sm" data-act="read-canon" aria-pressed="'+rdCanonOnly()+'">Canon only</button><button class="btn sm" data-act="read-order" aria-pressed="'+!!RD.order+'">Order</button><button class="btn sm" data-act="read-reload" aria-label="Read the file again">'+ic('refresh',14)+'</button><button class="btn sm" data-act="read-meta" aria-pressed="'+RD.meta+'">Comments'+(rdOpenCount(it)?' · '+rdOpenCount(it):'')+'</button></div>';
+    '<button class="btn sm" data-act="read-canon" aria-pressed="'+rdCanonOnly()+'">Canon only</button><button class="btn sm" data-act="read-order" aria-pressed="'+!!RD.order+'">Order</button><button class="btn sm" data-act="read-reload" aria-label="Read the file again">'+ic('refresh',14)+'</button><button class="btn sm" data-act="read-copy" aria-label="Copy the whole chapter text">Copy chapter</button>'+(safeUrl(d.file&&d.file.url)?'<a class="btn sm" href="'+esc(safeUrl(d.file.url))+'" target="_blank" rel="noopener noreferrer" aria-label="Open this file in Word">Open file</a>':'')+'<button class="btn sm" data-act="read-meta" aria-pressed="'+RD.meta+'">Comments'+(rdOpenCount(it)?' · '+rdOpenCount(it):'')+'</button></div>';
   var foot='<div class="rd-foot"><button class="btn" data-act="read-go" data-v="-1"'+(i?'':' disabled')+' aria-label="Previous chapter">←</button>'+sel+'<button class="btn" data-act="read-go" data-v="1"'+(i<items.length-1?'':' disabled')+' aria-label="Next chapter">→</button></div>';
   var prev=$('#reader .rd-art'), top=keepScroll&&prev?prev.scrollTop:0;
   el.hidden=false;
