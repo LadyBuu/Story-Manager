@@ -625,10 +625,22 @@ function ixBounds(){
   var s=ixSt(),lo=null,hi=null,bad='';
   if((s.from||'').trim()){var a=autoKey(s.from);if(a==null)bad='I could not read the “from” date.';else lo=a}
   if((s.to||'').trim()){var b=autoKey(s.to);if(b==null)bad=bad||'I could not read the “to” date.';else hi=(b%10000===0)?b+9999:(b%100===0?b+99:b)}
-  return {lo:lo,hi:hi,bad:bad,on:lo!=null||hi!=null};
+  return {lo:lo,hi:hi,bad:bad,on:lo!=null||hi!=null||!!s.arc||!!s.route};
 }
 function ixShown(items,b){
-  return items.filter(function(x){if(!b.on)return true;if(x.k==null)return false;return (b.lo==null||x.k>=b.lo)&&(b.hi==null||x.k<=b.hi)});
+  var s=ixSt(), as={}, rs={};
+  if(s.arc){as[s.arc]=1;P('arcs').forEach(function(a){if(a.parentId===s.arc)as[a.id]=1})}
+  if(s.route)chainOf(s.route).forEach(function(i){rs[i]=1});
+  return items.filter(function(x){
+    if(s.arc&&!as[chapArc(x.d,x.h||{})])return false;
+    if(s.route&&!rs[routeOf(x.d)])return false;
+    if(b.lo==null&&b.hi==null)return true;
+    if(x.k==null)return false;return (b.lo==null||x.k>=b.lo)&&(b.hi==null||x.k<=b.hi)});
+}
+function ixFilters(s){
+  var arcs=arcTree(P('arcs')), rl=routeList();
+  return '<select class="in" data-change="ix-flt" data-k="arc" aria-label="Only this arc"><option value="">All arcs</option>'+arcs.map(function(t){return '<option value="'+t.a.id+'"'+(s.arc===t.a.id?' selected':'')+'>'+esc(arcPath(t.a))+'</option>'}).join('')+'</select>'+
+    (rl.length>1?'<select class="in" data-change="ix-flt" data-k="route" aria-label="Only this route"><option value="">All routes</option>'+rl.map(function(x){return '<option value="'+x.r.id+'"'+(s.route===x.r.id?' selected':'')+'>'+esc(x.r.name||'Route')+'</option>'}).join('')+'</select>':'');
 }
 function ixSelected(){var off=ixSt().off;return ixShown(ixItems(),ixBounds()).filter(function(x){return !off[x.key]})}
 function ixView(){
@@ -638,7 +650,7 @@ function ixView(){
   var head='<div class="lhead"><div class="ltitle"><h1>Chapters</h1><span class="cnt">'+(b.on?shown.length+' of '+all.length:all.length)+'</span></div><div class="lact"><button class="btn primary" data-act="ix-export"'+(n?'':' disabled')+'>Export '+n+' to Word</button></div></div>'+
     '<div class="ixf"><div class="seg ixsort" role="group" aria-label="Order"><button data-act="ix-sort" data-v="date" aria-pressed="'+(mode==='date')+'">Story date</button><button data-act="ix-sort" data-v="read" aria-pressed="'+(mode==='read')+'">Reading order</button></div><button class="btn sm" data-act="read-canon" aria-pressed="'+rdCanonOnly()+'">Canon only</button></div>'+
     '<div class="ixf"><label class="ixl"><span class="lab">From</span><input class="in" id="ix-from" value="'+esc(s.from)+'" placeholder="e.g. March 1250" data-change="ix-range"></label><label class="ixl"><span class="lab">To</span><input class="in" id="ix-to" value="'+esc(s.to)+'" placeholder="e.g. 9 June 1250" data-change="ix-range"></label>'+
-    (b.on?'<button class="btn sm" data-act="ix-clear">Clear range</button>':'')+(shown.length?'<button class="btn sm" data-act="ix-all" data-v="1">Tick all</button><button class="btn sm" data-act="ix-all" data-v="0">Untick all</button>':'')+'</div>'+
+    ixFilters(s)+(b.on?'<button class="btn sm" data-act="ix-clear">Clear filters</button>':'')+(shown.length?'<button class="btn sm" data-act="ix-all" data-v="1">Tick all</button><button class="btn sm" data-act="ix-all" data-v="0">Untick all</button>':'')+'</div>'+
     (b.bad?'<p class="hint" style="padding:0 16px">'+esc(b.bad)+' Try a year, a month and year, or a full date.</p>':'<p class="hint" style="padding:0 16px">Every chapter, edited here exactly as in Documents. '+(mode==='read'?(canDrag?'Drag the grip to change the reading order. Files move to match.':'Clear the range to drag chapters.'):'Sorted by story date.')+' Tick chapters to export them to one Word file.</p>');
   var rows='',last;
   if(!all.length)rows='<div class="empty"><h1>No chapters yet</h1><p>Add Word files in the reading order and give their chapters story dates.</p></div>';
@@ -2152,7 +2164,7 @@ arcs:function(){
     '<div class="sbwrap"><p class="hint">Acts, storylines or sections within a route. Open an arc to see and edit its chapters, or assign arcs to chapters in Documents.</p></div><div class="filters">'+visSel()+'</div>';
   var rows=list.length?'<div data-sort="arcs:order">'+list.map(function(a){
     var n=0;docs.forEach(function(d){if(isTrashed(d))return;var cs=chapters(d);if(cs.length)cs.forEach(function(x){if(chapArc(d,x)===a.id)n++});else if(d.arcId===a.id)n++});
-    return '<div class="row'+(canDrag?'':' nohandle')+(S.sel===a.id?' sel':'')+'" style="'+(a.parentId&&byId('arcs',a.parentId)?'margin-left:24px':'')+'" role="listitem" tabindex="0" data-act="select" data-id="'+a.id+'">'+(canDrag?'<button class="handle" data-handle aria-label="Reorder '+esc(a.name)+'. Use arrow keys or drag.">'+ic('grip',16)+'</button>':'')+'<div class="folio"><b>'+pad(ap[a.id])+'</b></div>'+(a.cover?'<img src="'+a.cover+'" alt="" style="width:34px;height:34px;border-radius:5px;object-fit:cover;margin-right:8px">':'')+'<div class="rb"><div class="rt">'+(esc(a.name)||'Unnamed arc')+'</div>'+entTags(a)+'</div><span class="num">'+n+' chapter'+(n===1?'':'s')+'</span></div>';
+    return '<div class="row'+(canDrag?'':' nohandle')+(S.sel===a.id?' sel':'')+'" style="'+(a.parentId&&byId('arcs',a.parentId)?'margin-left:24px':'')+'" role="listitem" tabindex="0" data-act="select" data-id="'+a.id+'">'+(canDrag?'<button class="handle" data-handle aria-label="Reorder '+esc(a.name)+'. Use arrow keys or drag.">'+ic('grip',16)+'</button>':'')+'<div class="folio"><b>'+pad(ap[a.id])+'</b></div>'+(arcPic(a)?'<img src="'+esc(arcSrc(a))+'" alt="" style="width:34px;height:34px;border-radius:5px;object-fit:cover;margin-right:8px">':'')+'<div class="rb"><div class="rt">'+(esc(a.name)||'Unnamed arc')+'</div>'+entTags(a)+'</div><span class="num">'+n+' chapter'+(n===1?'':'s')+'</span></div>';
   }).join('')+'</div>':'<div class="empty"><h1>No arcs</h1><p>Create an arc, or choose a folder of Word files and let folder names become arcs.</p></div>';
   return {head:head,rows:rows};
 }
@@ -2407,8 +2419,8 @@ function eventCard(e){
 
 function fitImage(f,max,cb){var r=new FileReader();r.onload=function(){var im=new Image();im.onload=function(){var k=Math.min(1,max/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(im.width*k));c.height=Math.max(1,Math.round(im.height*k));c.getContext('2d').drawImage(im,0,0,c.width,c.height);cb(c.toDataURL('image/jpeg',.82))};im.onerror=function(){cb(null)};im.src=r.result};r.onerror=function(){cb(null)};r.readAsDataURL(f)}
 function arcCover(a){
-  return '<div class="arccov" style="display:flex;gap:12px;align-items:flex-end;margin:0 0 12px">'+(a.cover?'<img src="'+a.cover+'" alt="Cover picture of '+esc(a.name||'this arc')+'" style="max-width:150px;max-height:200px;border-radius:6px;object-fit:cover">':'')+
-    '<span><button class="btn sm" data-act="arc-cover" data-id="'+a.id+'">'+(a.cover?'Replace cover picture':'Add a cover picture')+'</button>'+(a.cover?' <button class="btn sm" data-act="arc-cover-del" data-id="'+a.id+'">Remove</button>':'')+'</span></div>';
+  return '<div class="arccov" style="display:flex;gap:12px;align-items:flex-end;margin:0 0 12px">'+(arcPic(a)?'<img src="'+esc(arcSrc(a))+'" alt="Cover picture of '+esc(a.name||'this arc')+'" style="max-width:150px;max-height:200px;border-radius:6px;object-fit:cover">':'')+
+    '<span style="display:flex;flex-wrap:wrap;gap:6px"><button class="btn sm" data-act="arc-cover" data-id="'+a.id+'">'+(a.cover?'Replace cover picture':'Add a cover picture')+'</button>'+(a.cover?'<a class="btn sm" download="'+esc(picName(a.name)||'cover')+'.jpg" href="'+a.cover+'">Download</a>'+(S.mode==='od'&&(proj()||{}).portraitFolder?'<button class="btn sm" data-act="arc-cover-od" data-id="'+a.id+'">Save to portraits folder</button>':'')+'<button class="btn sm" data-act="arc-cover-del" data-id="'+a.id+'">Remove</button>':'')+'</span></div>'+(S.mode==='od'&&(proj()||{}).portraitFolder?'<p class="hint" style="margin:-6px 0 10px">Or drop a picture named “'+esc(picName(a.name))+'” in your portraits folder and it is picked up automatically.</p>':'');
 }
 function arcCard(a){
   var docs=sortBy(P('documents').filter(function(d){return !isTrashed(d)}),'order'), rp=posMap('documents','order');
@@ -3593,7 +3605,7 @@ clear:function(el){
 'sw-open':function(el){S.modal={type:'swsync',id:el.dataset.id,anchors:true,sub:true,rename:true};renderModal()},
 'sw-go':function(){swRun()},
 'sw-pick':function(el){S.refreshId=el.dataset.id;$('#fileRead').click()},
-'ix-clear':function(){var s=ixSt();s.from='';s.to='';render()},
+'ix-clear':function(){var s=ixSt();s.from='';s.to='';s.arc='';s.route='';render()},
 'ix-all':function(el){var s=ixSt(),on=el.dataset.v==='1';ixShown(ixItems(),ixBounds()).forEach(function(x){if(on)delete s.off[x.key];else s.off[x.key]=1});render()},
 'ix-open':function(el){S.view='documents';S.sel=el.dataset.id;render()},
 'ix-sel':function(el){S.sel=el.dataset.id;render();var dt=$('#detail');if(dt)dt.scrollTop=0},
@@ -3957,6 +3969,16 @@ scrim:function(el,e){if(e.target===el)closeModal()},
 'new-loc':function(){askName('New location','Name',function(n){var o=createEntity('locations',n);closeModal();S.sel=o.id;render()})},
 'new-event':function(){askName('New event','What happens',function(n){var o=createEntity('events',n);closeModal();S.sel=o.id;render()})},
 'arc-cover':function(el){var id=el.dataset.id,inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.onchange=function(){var f=inp.files&&inp.files[0];if(!f)return;fitImage(f,640,function(url){var a=byId('arcs',id);if(!a||!url){toast('Could not read that picture.');return}a.cover=url;save('arcs',a);render()})};inp.click()},
+'arc-cover-od':async function(el){
+  var a=byId('arcs',el.dataset.id),p=proj();if(!a||!a.cover||!p||!p.portraitFolder)return;
+  try{
+    var blob=await (await fetch(a.cover)).blob();
+    var r=await gfetch('/me/drive/items/'+p.portraitFolder.id+':/'+encodeURIComponent(picName(a.name)||'cover')+'.jpg:/content?@microsoft.graph.conflictBehavior=replace',{method:'PUT',headers:{'Content-Type':'image/jpeg'},body:blob});
+    if(!r.ok)throw new Error(r.status);
+    toast('Saved to your portraits folder.');
+    odPortraits(p).then(function(){render()}).catch(function(){});
+  }catch(e){toast('Could not save to OneDrive ('+((e&&e.message)||'error')+').')}
+},
 'arc-cover-del':function(el){var a=byId('arcs',el.dataset.id);if(!a)return;a.cover='';save('arcs',a);render()},
 'new-subarc':function(el){var pid=el.dataset.id;askName('New sub arc','For example Investigation',function(n){var o=createEntity('arcs',n);o.parentId=pid;save('arcs',o);closeModal();S.sel=o.id;render()})},
 'new-arc':function(){askName('New arc','For example Act 2',function(n){var o=createEntity('arcs',n);closeModal();S.sel=o.id;render()})},
@@ -4119,6 +4141,7 @@ var CH={
 'ac-sync':function(){acCapture();S.modal.shid='';renderModal()},
 'cali-sync':function(){A['cali-sync']()},
 'cal-sch':function(t){try{localStorage.setItem('so-cal-sch',t.checked?'1':'0')}catch(e){}render()},
+'ix-flt':function(el){var s=ixSt();s[el.dataset.k]=el.value;render()},
 'ix-range':function(){var s=ixSt();s.from=document.getElementById('ix-from').value;s.to=document.getElementById('ix-to').value;render()},
 'ix-tick':function(t){var s=ixSt();if(t.checked)delete s.off[t.dataset.k];else s.off[t.dataset.k]=1;var n=ixSelected().length,b=document.querySelector('[data-act="ix-export"]');if(b){b.textContent='Export '+n+' to Word';b.disabled=!n}var r=t.closest('.ixr');if(r)r.classList.toggle('off',!t.checked)},
 
@@ -5199,6 +5222,10 @@ function odNewModal(){
 
 /* portraits: image files in a OneDrive folder, named after the character */
 window.SO_PORTRAITS=window.SO_PORTRAITS||{};
+window.SO_ARCPICS=window.SO_ARCPICS||{};
+function arcPic(a){return (window.SO_ARCPICS&&window.SO_ARCPICS[a.id])||a.cover||''}
+function arcSrc(a){var u=arcPic(a);return /^(https?:\/\/|data:image\/(jpeg|png|webp|gif);base64,)/i.test(u)?u:''}
+function picName(s){return String(s||'').replace(/[\\\/:*?"<>|#%]/g,'').trim()}
 async function odPortraits(p){
   if(!p||!p.portraitFolder)return 0;
   var items=[],url='/me/drive/items/'+p.portraitFolder.id+'/children?$select=id,name,file&$top=200';
@@ -5221,6 +5248,15 @@ async function odPortraits(p){
     if(!r2.ok)continue;
     var bj=await r2.json();
     (bj.responses||[]).forEach(function(rs){var w=chunk[+rs.id];if(w&&rs.status===200&&rs.body&&rs.body.url){window.SO_PORTRAITS[w.c.id]=rs.body.url;got++}});
+  }
+  var aw=[];
+  S.arcs.filter(function(a){return a.pid===p.id}).forEach(function(a){var k=(a.name||'').trim().toLowerCase();if(k&&byName[k])aw.push({a:a,item:byName[k]})});
+  for(var j=0;j<aw.length;j+=20){
+    var ck=aw.slice(j,j+20);
+    var r3=await gfetch('/$batch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({requests:ck.map(function(w,n){return {id:String(n),method:'GET',url:'/me/drive/items/'+w.item.id+'/thumbnails/0/large'}})})});
+    if(!r3.ok)continue;
+    var b3=await r3.json();
+    (b3.responses||[]).forEach(function(rs){var w=ck[+rs.id];if(w&&rs.status===200&&rs.body&&rs.body.url){window.SO_ARCPICS[w.a.id]=rs.body.url;got++}});
   }
   OD.lastPortraits=Date.now();
   return got;
