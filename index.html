@@ -663,6 +663,10 @@ function ixView(){
       '<label class="ixck" title="Include in the export"><input type="checkbox" data-change="ix-tick" data-k="'+esc(x.key)+'"'+(o?'':' checked')+' aria-label="Include in the export"></label></div>';
   });
   if(canDrag&&rows.indexOf('class="row')>-1)rows='<div data-sort="chapters:read">'+rows+'</div>';
+  var ut=(proj()||{}).unusedTitles||[];
+  rows+='<div class="ixg">Unused titles'+(ut.length?' · '+ut.length:'')+'</div><div style="padding:6px 16px 16px"><p class="hint" style="margin:0 0 8px">Chapter names you are saving for later. They are not chapters and appear nowhere else.</p>'+
+    ut.map(function(x){return '<div class="addrow"><input class="in" data-change="ut-edit" data-id="'+x.id+'" value="'+esc(x.t)+'" aria-label="Unused title"><button class="btn" data-act="ut-del" data-id="'+x.id+'" aria-label="Remove '+esc(x.t)+'">'+ic('x',14)+'</button></div>'}).join('')+
+    '<div class="addrow"><input class="in" id="utIn" data-enter="ut-add" placeholder="A title to keep for later" aria-label="New unused title"><button class="btn" data-act="ut-add">Add</button></div></div>';
   return {head:head,rows:rows};
 }
 function chapOpenN(d,hd){return (d.notes||[]).filter(function(n){return n.state!=='done'&&n.h===hd.title}).length}
@@ -2473,6 +2477,7 @@ function renderModal(){
   else if(m.type==='extract')inner=extractModal();
   else if(m.type==='mvch')inner=mvModal();
   else if(m.type==='dups')inner=dupModal();
+  else if(m.type==='kit')inner=kitModal();
   else if(m.type==='rdorder')inner=rdOrderHtml(rdItems(),-1,true);
   else if(m.type==='xport')inner=xportModal();
   else if(m.type==='checks')inner=checksModal();
@@ -2502,6 +2507,41 @@ function renderModal(){
   box.innerHTML='<div class="scrim" data-act="scrim" role="dialog" aria-modal="true"><div class="sheet">'+inner+'</div></div>';
   var f=m.type==='search'?'#searchIn':m.type==='picker'?'#pickIn':m.type==='name'?'#nameIn':null;
   if(f)setTimeout(function(){var e=$(f);if(e){e.focus();if(e.select)e.select()}},30);
+}
+function kitModal(){
+  var m=S.modal;
+  function ck(k,t,h){return '<label class="ixl" style="display:flex;gap:8px;align-items:flex-start;margin:8px 0"><input type="checkbox" data-change="kit-opt" data-k="'+k+'"'+(m[k]?' checked':'')+' style="margin-top:3px"><span><b>'+t+'</b><br><span class="hint">'+h+'</span></span></label>'}
+  var pr=proj()||{}, nl=P('locations').length;
+  return '<h2>Export calendar and world</h2><p>Always included: your calendar (months, weeks, leap rules), World and sky, and school terms. Characters, events, chapters and arcs are never included.</p>'+
+    ck('paint','Painted days','The colours you gave calendar days.')+
+    ck('loc','Locations ('+nl+')','Names, types and notes. Not which chapters they appear in.')+
+    '<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn primary" data-act="kit-go">Export</button></div>';
+}
+async function kitExport(o){
+  var pr=proj();if(!pr)return;
+  var k={app:'story-organiser',kind:'world-kit',version:1,exported:new Date().toISOString(),from:pr.name||'',project:{}};
+  ['calendar','world','school'].forEach(function(f){if(pr[f])k.project[f]=JSON.parse(JSON.stringify(pr[f]))});
+  if(o.paint&&pr.paint)k.project.paint=JSON.parse(JSON.stringify(pr.paint));
+  if(o.loc)k.locations=P('locations').map(function(l){var c=JSON.parse(JSON.stringify(l));delete c.pid;return c});
+  var json=JSON.stringify(k,null,2);
+  var fn='world-kit-'+((pr.name||'project').replace(/[^\w\- ]+/g,'').trim().replace(/\s+/g,'-').toLowerCase())+'-'+new Date().toISOString().slice(0,10)+'.json';
+  var dl=null;try{dl=await window.claude.use('downloads')}catch(e){}
+  if(dl){try{await dl.save({filename:fn,data:json});toast('World exported')}catch(err){if(!err||err.code!=='declined'){textBox=json;S.modal={type:'text'};renderModal()}}}
+  else{try{var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));a.download=fn;document.body.appendChild(a);a.click();a.remove();toast('World exported')}catch(e){textBox=json;S.modal={type:'text'};renderModal()}}
+}
+function kitImport(o){
+  var pr=proj();if(!pr){toast('Open or start a project first.');return}
+  var pj=o.project||{}, locs=Array.isArray(o.locations)?o.locations:[];
+  var bits=[];if(pj.calendar)bits.push('calendar');if(pj.world)bits.push('World and sky');if(pj.school)bits.push('school terms');if(pj.paint)bits.push('painted days');
+  if(!bits.length&&!locs.length){toast('That file holds no calendar or world.');return}
+  askConfirm('Import calendar and world','This replaces the '+(bits.join(', ')||'nothing')+' of “'+(pr.name||'this project')+'” with those from '+(o.from?'“'+o.from+'”':'the file')+'.'+(locs.length?' It also adds '+locs.length+' location'+(locs.length===1?'':'s')+' (existing ones stay).':'')+' Your chapters, characters and events are not touched.','Import',function(){
+    withBulk(function(){
+      ['calendar','world','school','paint'].forEach(function(f){if(pj[f])pr[f]=JSON.parse(JSON.stringify(pj[f]))});
+      save('projects',pr,true);
+      locs.forEach(function(l){if(!l||typeof l!=='object')return;var c=JSON.parse(JSON.stringify(l));c.id=uid();c.pid=pr.id;S.locations.push(c);save('locations',c,true)});
+    });
+    S._nd=S._nd||{};S._nd[pr.id]=0;syncCal();closeModal();render();toast('Imported: '+bits.concat(locs.length?[locs.length+' locations']:[]).join(', ')+'.');
+  });
 }
 function closeModal(){
   var wasRoutes=S.modal&&S.modal.type==='routes';
@@ -2536,7 +2576,7 @@ function settingsModal(){
   h+='<div class="sec"><h3>Characters</h3><div class="actions" style="justify-content:flex-start"><button class="btn" data-act="pref-av" aria-pressed="'+showAv()+'">Portraits in lists: '+(showAv()?'On':'Off')+'</button>'+(P('characters').length?'<button class="btn" data-act="export-hollow">Export characters (Hollow format)</button>':'')+'</div>'+
     (lc&&lc.pid===S.pid?'<p class="hint" style="margin-top:8px">Last clear: '+lc.n+' '+esc(lc.coll)+' on '+esc(fmtDate(lc.at))+'.</p><button class="btn" data-act="restore-clear">Restore what I last cleared</button>':'')+'</div>';
   h+='<div class="sec"><h3>Backup</h3><p class="hint">Your structure and notes can be exported as a JSON file at any time. Restoring a backup replaces items that share an id and adds the rest.</p><div class="actions" style="justify-content:flex-start;margin-top:8px">'+
-    (p?'<button class="btn" data-act="export" data-all="0">Export this project</button>':'')+'<button class="btn" data-act="export" data-all="1">Export everything</button><button class="btn" data-act="import-backup">Restore a backup or import characters</button></div></div>';
+    (p?'<button class="btn" data-act="export" data-all="0">Export this project</button>':'')+'<button class="btn" data-act="export" data-all="1">Export everything</button><button class="btn" data-act="import-backup">Restore a backup or import characters</button></div>'+(p?'<p class="hint" style="margin-top:12px">Reuse your world in another project: take only the calendar, World and sky and painted days, with locations if you like, and nothing else.</p><div class="actions" style="justify-content:flex-start;margin-top:6px"><button class="btn" data-act="kit-open">Export calendar and world</button><button class="btn" data-act="import-backup">Import calendar and world</button></div>':'')+'</div>';
   h+=odSettings();
   if(p)h+='<div class="sec"><button class="btn danger" data-act="del" data-coll="projects" data-id="'+p.id+'">'+ic('trash')+'Delete this project</button></div>';
   return h+'<div class="actions"><button class="btn primary" data-act="close">Done</button></div>';
@@ -3438,6 +3478,7 @@ function exportHollow(){
 function restoreBackup(text){
   var o;try{o=JSON.parse(text)}catch(e){toast('That file is not valid JSON.');return}
   var so=!!o&&o.app==='story-organiser';
+  if(so&&o.kind==='world-kit'){kitImport(o);return}
   if(so&&!Array.isArray(o.projects)&&o.data&&typeof o.data==='object')o=Object.assign({app:o.app,version:2},o.data);
   if(!so){var hl=holChars(o);if(hl){importHollow(hl);return}}
   if(!so||!Array.isArray(o.projects)){toast('That file is not a Story Organiser backup.');return}
@@ -3499,6 +3540,10 @@ clear:function(el){
   S.modal={type:'clear',coll:coll,n:n,word:CLEAR_WORD[coll]};renderModal();
   var i=$('#clearIn');if(i)i.focus();
 },
+'kit-open':function(){S.modal={type:'kit',paint:true,loc:false};renderModal()},
+'kit-go':function(){var m=S.modal;closeModal();kitExport({paint:m.paint,loc:m.loc})},
+'ut-add':function(){var i=$('#utIn'),v=(i&&i.value||'').trim(),pr=proj();if(!v||!pr)return;pr.unusedTitles=(pr.unusedTitles||[]).concat([{id:uid(),t:v}]);save('projects',pr);render();var j=$('#utIn');if(j)j.focus()},
+'ut-del':function(el){var pr=proj();if(!pr)return;pr.unusedTitles=(pr.unusedTitles||[]).filter(function(x){return x.id!==el.dataset.id});save('projects',pr);render()},
 'dups-open':function(){S.modal={type:'dups',names:dupNames(),txt:null,busy:''};renderModal()},
 'dup-text':function(){dupText()},
 'mv-open':function(el){S.modal={type:'mvch',id:el.dataset.id,hid:el.dataset.hid,dest:'',after:'',mode:'copy'};renderModal()},
@@ -4137,6 +4182,8 @@ function selectLink(d){
 }
 
 var CH={
+'kit-opt':function(t){if(S.modal&&S.modal.type==='kit')S.modal[t.dataset.k]=!!t.checked},
+'ut-edit':function(t){var pr=proj(),x=pr&&(pr.unusedTitles||[]).find(function(y){return y.id===t.dataset.id});if(!x)return;var n=(t.value||'').trim();if(!n){t.value=x.t;return}x.t=n;save('projects',pr)},
 'mv-sync':function(){mvCapture();renderModal()},
 'ac-sync':function(){acCapture();S.modal.shid='';renderModal()},
 'cali-sync':function(){A['cali-sync']()},
