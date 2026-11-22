@@ -13,7 +13,7 @@
 <link rel="apple-touch-icon" href="icon-180.png">
 <title>Story Organiser</title>
 <script src="config.js"></script>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&amp;family=Instrument+Sans:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&amp;family=Instrument+Sans:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=Playfair+Display:ital,wght@0,400;0,600;1,400;1,600&amp;family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&amp;family=Shippori+Mincho:wght@500;700&amp;family=Josefin+Sans:wght@300;400;600&amp;family=Cinzel:wght@500;700&amp;family=UnifrakturMaguntia&amp;family=Oswald:wght@500;700&amp;family=VT323&amp;family=Comic+Neue:wght@400;700&amp;display=swap">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -1923,12 +1923,13 @@ function afterLoad(){
 
 /* ---------- theme ---------- */
 function applyTheme(t){
+  t=({pastel:'light',carnival:'dark'})[t]||t;
   var r=document.documentElement;
   if(t && t!=='system') r.setAttribute('data-theme',t);
   else r.removeAttribute('data-theme');
   try{localStorage.setItem('so-theme',t)}catch(e){}
 }
-function curTheme(){var t='system';try{t=localStorage.getItem('so-theme')||'system'}catch(e){}return t}
+function curTheme(){var t='system';try{t=localStorage.getItem('so-theme')||'system'}catch(e){}return ({pastel:'light',carnival:'dark'})[t]||t}
 
 /* ---------- render scheduling ---------- */
 var deferred=false;
@@ -2558,8 +2559,19 @@ function projectsModal(){
 }
 function settingsModal(){
   var t=curTheme(), p=proj(), h='<h2>Settings</h2>';
-  var THEMES=[['system','System','',''],['dark','Dark','#15171b','#b8a27a'],['light','Light','#ece9df','#4f7a12'],['vaporwave','Vaporwave','#100b24','#ff4fd8'],['pastel','Pastel','#fff1f7','#ed72aa'],['carnival','Carnival','#060608','#ff007f'],['maximal','Maximal','#fff0fb','#ff2ea6'],['gits','GITS','#07080c','#ff1a8c'],['nouveau','Nouveau','#f4ebd8','#c45c34'],['stained-glass','Stained Glass','#0a1520','#5ee8ff'],['ukiyo-e','Ukiyo-e','#F4EAD5','#234F70'],['kmt','KMT','#000000','#A30000'],['nature','Nature','#DDE8D8','#C982A0'],['gaslight','Gaslight','#1A1A22','#D4B56C'],['illuminated','Illuminated','#F4EBD5','#2E4D7B'],['grotesque','Grotesque','#0d0a0a','#7A2424'],['discowing','Discowing','#F8A342','#0080FF'],['choc-cake','Choc Cake','#2A0B1F','#FF0000'],['dada','Dada','#E8E5DF','#D4A32A'],['orchestrion','Orchestrion','#1F1410','#A82C2C'],['brutalist','Brutalist','#E6E6E6','#FF3300'],['rococo','Rococo','#E8F0F2','#527F96'],['nautical-tile','Nautical Tile','#E4EAF0','#1F4A8A'],['ulk','ULK','#0a0000','#ff0000'],['gabe','Gabe','#040814','#ffd700']];
-  h+='<div class="sec"><h3>Theme</h3><div class="themegrid" role="group" aria-label="Theme">'+THEMES.map(function(v){return '<button data-act="theme" data-v="'+v[0]+'" title="'+esc(v[1])+'" aria-pressed="'+(t===v[0])+'"'+(v[0]==='system'?' style="grid-column:1/-1"':'')+'>'+(v[2]?'<i class="thsw" style="background:'+v[2]+';box-shadow:inset -7px 0 0 '+v[3]+'"></i>':'<i class="thsw sys"></i>')+'<span class="tn">'+esc(v[1])+'</span></button>'}).join('')+'</div></div>';
+  var THEMES=[['system','System','',''],
+    ['dark','Dark','#100e11','#c9809a'],['light','Light','#f6e9ee','#a8466f'],
+    ['gaslight','Gaslight','#1A1A22','#D4B56C'],['illuminated','Illuminated','#F4EBD5','#2E4D7B'],
+    ['orchestrion','Orchestrion','#1F1410','#A82C2C'],['nouveau','Nouveau','#f4ebd8','#c45c34'],
+    ['stained-glass','Stained Glass','#0a1520','#5ee8ff'],['nautical-tile','Nautical','#E4EAF0','#1F4A8A'],
+    ['vaporwave','Vaporwave','#100b24','#ff4fd8'],['nature','Nature','#DDE8D8','#C982A0'],
+    ['kmt','KMT','#000000','#A30000'],['brutalist','Brutalist','#E6E6E6','#FF3300'],
+    ['gabe','Gabe','#040814','#ffd700'],['rococo','Rococo','#E8F0F2','#527F96'],
+    ['choc-cake','Cake','#2A0B1F','#FF0000'],['dada','Dada','#E8E5DF','#D4A32A'],
+    ['gits','GITS','#07080c','#ff1a8c'],['ukiyo-e','Ukiyo-e','#F4EAD5','#234F70'],
+    ['grotesque','Grotesque','#0d0a0a','#7A2424'],['maximal','Maximal','#fff0fb','#ff2ea6'],
+    ['ulk','ULK','#0a0000','#ff0000'],['discowing','Discowing','#F8A342','#0080FF']];
+  h+='<div class="sec"><h3>Theme</h3><div class="themegrid" role="group" aria-label="Theme">'+THEMES.map(function(v){return '<button data-act="theme" data-v="'+v[0]+'" title="'+esc(v[1])+'" aria-pressed="'+(t===v[0])+'"'+(v[0]==='system'?' style="grid-column:1/-1"':'')+'>'+(v[2]?'<i class="thsw" style="background:'+v[2]+';box-shadow:inset -7px 0 0 '+v[3]+'"></i>':'<i class="thsw sys"></i>')+'<span class="tn">'+esc(v[1])+'</span></button>'+(v[0]==='system'?'<div class="thcol">Dark</div><div class="thcol">Light</div>':'')}).join('')+'</div></div>';
   if(p){
     h+='<div class="sec"><h3>This project</h3><label class="lab" for="sp-n">Name</label><input class="in" id="sp-n" data-bind="projects:'+p.id+':name" value="'+esc(p.name)+'">'+
       '<label class="lab" for="sp-f" style="margin-top:12px">OneDrive folder link</label><input class="in" id="sp-f" data-bind="projects:'+p.id+':folderUrl" value="'+esc(p.folderUrl||'')+'" placeholder="Optional. Adds an OneDrive button to Documents" inputmode="url">'+
