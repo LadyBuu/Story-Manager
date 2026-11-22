@@ -3,7 +3,7 @@
    ============================================================
 
    ARCHITECTURE:
-     Layer 1: Foundation Tokens (base + 24 themes)
+     Layer 1: Foundation Tokens (base + 22 themes, in dark/light pairs)
      Layer 2: Theme Art Direction (typography, backgrounds)
      Layer 3: Component Overrides (thematic component styling)
      Layer 4: Accessibility & Responsive
@@ -42,27 +42,27 @@
     --scrollbar-thumb:var(--line);
 }
 
-/* --- 2. Light --- */
+/* --- 2. Light (rose, the daylight sibling of the default dark) --- */
 [data-theme="light"] {
-    --bg:#ece9df; --surface:#f7f4ec; --surface-2:#e3e0d3;
-    --line:#c8c3b0; --line-strong:#a9a48f;
-    --fg:#26301c; --fg-2:#5f6a52; --fg-3:#7b8570;
-    --accent:#4f7a12; --accent-fg:#ffffff; --accent-soft:rgba(79,122,18,.14);
+    --bg:#f6e9ee; --surface:#fcf4f6; --surface-2:#efdbe3;
+    --line:#dcc0cc; --line-strong:#b98fa1;
+    --fg:#2e1b24; --fg-2:#664554; --fg-3:#7f6270;
+    --accent:#a8466f; --accent-fg:#ffffff; --accent-soft:rgba(168,70,111,.12);
     --ok:#3f7a55; --bad:#b32b22;
-    --st-idea:#7b8570; --st-outlined:#5d5483; --st-draft:#9c7a1e;
-    --st-revised:#4f7a12; --st-final:#3f7a55;
-    --scrim:rgba(30,45,20,.55);
-    --v-au:#2d6fa8; --v-alt:#5d5a8c;
-    --r-a:#b32b22; --r-b:#2d6fa8; --r-c:#3f7a55;
-    --r-d:#9c7a1e; --r-e:#6f5aa6; --r-f:#c25e0e;
+    --st-idea:#7f6270; --st-outlined:#6a5a9a; --st-draft:#9c7a1e;
+    --st-revised:#a8466f; --st-final:#3f7a55;
+    --scrim:rgba(46,27,36,.55);
+    --v-au:#3f6ea8; --v-alt:#6a5a9a;
+    --r-a:#a8466f; --r-b:#3f6ea8; --r-c:#3f7a55;
+    --r-d:#9c7a1e; --r-e:#6a5a9a; --r-f:#c25e0e;
     color-scheme:light;
-    --overlay:rgba(30,45,20,.55);
-    --overlay-light:rgba(30,45,20,.4);
+    --overlay:rgba(46,27,36,.55);
+    --overlay-light:rgba(46,27,36,.4);
     --radius:10px;
-    --shadow:0 4px 20px rgba(30,45,20,.10);
+    --shadow:0 4px 20px rgba(120,50,80,.12);
     --scrollbar-track:var(--bg);
     --scrollbar-thumb:var(--line);
-    --chip-bg-subtle:rgba(0,0,0,0.05);
+    --chip-bg-subtle:rgba(46,27,36,0.05);
 }
 
 /* --- 3. Vaporwave --- */
@@ -89,58 +89,6 @@
     --scrollbar-track:var(--bg);
     --scrollbar-thumb:#40316f;
     --chip-bg-subtle:rgba(255,255,255,0.07);
-}
-
-/* --- 4. Pastel --- */
-[data-theme="pastel"] {
-    --bg:#fff1f7; --surface:#fff8fb; --surface-2:#fce5f0;
-    --line:#e7a9c4; --line-strong:#d18eab;
-    --fg:#4f3850; --fg-2:#7a5a71; --fg-3:#947a8b;
-    --accent:#ed72aa; --accent-fg:#ffffff; --accent-soft:rgba(237,114,170,0.16);
-    --info:#79c9df; --info-soft:rgba(121,201,223,0.16); --info-hover:rgba(121,201,223,0.28);
-    --danger:#e87591; --danger-soft:rgba(232,117,145,0.16); --danger-hover:rgba(232,117,145,0.28);
-    --warning:#d9a84a; --warning-soft:rgba(217,168,74,0.16); --warning-hover:rgba(217,168,74,0.28);
-    --ok:#82bda9; --bad:#e87591;
-    --st-idea:#947a8b; --st-outlined:#a68bc9; --st-draft:#d5b35c;
-    --st-revised:#ed72aa; --st-final:#82bda9;
-    --scrim:rgba(92,50,78,0.28);
-    --v-au:#76bfd6; --v-alt:#a68bc9;
-    --r-a:#ed72aa; --r-b:#76bfd6; --r-c:#82bda9;
-    --r-d:#d5b35c; --r-e:#a68bc9; --r-f:#d99678;
-    color-scheme:light;
-    --overlay:rgba(92,50,78,0.28);
-    --overlay-light:rgba(92,50,78,0.20);
-    --radius:10px;
-    --shadow:0 4px 16px rgba(153,86,119,0.16);
-    --scrollbar-track:var(--bg);
-    --scrollbar-thumb:var(--line);
-    --chip-bg-subtle:rgba(237,114,170,0.10);
-}
-
-/* --- 5. Carnival --- */
-[data-theme="carnival"] {
-    --bg:#060608; --surface:#101014; --surface-2:#1a1a22;
-    --line:#3b2b4d; --line-strong:#5d4275;
-    --fg:#fcfcfc; --fg-2:#c4bcd4; --fg-3:#8a7f9c;
-    --accent:#ff007f; --accent-fg:#ffffff; --accent-soft:rgba(255,0,127,0.15);
-    --info:#00e5ff; --info-soft:rgba(0,229,255,0.14); --info-hover:rgba(0,229,255,0.28);
-    --danger:#e60033; --danger-soft:rgba(230,0,51,0.16); --danger-hover:rgba(230,0,51,0.28);
-    --warning:#f2ce42; --warning-soft:rgba(242,206,66,0.16); --warning-hover:rgba(242,206,66,0.28);
-    --ok:#00ffcc; --bad:#e60033;
-    --st-idea:#8a7f9c; --st-outlined:#c4bcd4; --st-draft:#f2ce42;
-    --st-revised:#ff007f; --st-final:#00ffcc;
-    --scrim:rgba(0,0,0,0.85);
-    --v-au:#00e5ff; --v-alt:#ff007f;
-    --r-a:#ff007f; --r-b:#00e5ff; --r-c:#00ffcc;
-    --r-d:#f2ce42; --r-e:#c4bcd4; --r-f:#e60033;
-    color-scheme:dark;
-    --overlay:rgba(0,0,0,0.85);
-    --overlay-light:rgba(0,0,0,0.70);
-    --radius:4px;
-    --shadow:0 4px 20px rgba(0,0,0,0.6), 0 0 0 1px var(--line-strong);
-    --scrollbar-track:var(--bg);
-    --scrollbar-thumb:var(--line);
-    --chip-bg-subtle:rgba(255,0,127,0.08);
 }
 
 /* --- 6. Maximal --- */
@@ -769,6 +717,17 @@
     --f-mono:'Courier New', Courier, monospace;
 }
 
+/* Light (rose) soft wash */
+[data-theme="light"] body {
+  background:
+    radial-gradient(circle at 15% 10%, rgba(255,182,213,0.45) 0%, transparent 34%),
+    radial-gradient(circle at 85% 15%, rgba(177,205,239,0.35) 0%, transparent 32%),
+    radial-gradient(circle at 50% 100%, rgba(211,181,235,0.30) 0%, transparent 38%),
+    var(--bg);
+  background-attachment: fixed;
+}
+[data-theme="light"] h1, [data-theme="light"] h2, [data-theme="light"] h3 { text-shadow: 1px 1px 0 rgba(255,255,255,0.8); }
+
 /* ============================================================
    LAYER 2: THEME ART DIRECTION
    ============================================================ */
@@ -792,23 +751,6 @@ button, input, select, textarea, a,
     radial-gradient(circle at 92% 18%, rgba(53,231,255,0.12) 0%, transparent 34%),
     radial-gradient(circle at 50% 110%, rgba(120,72,220,0.12) 0%, transparent 42%),
     var(--bg);
-  background-attachment: fixed;
-}
-/* Pastel */
-[data-theme="pastel"] body {
-  background:
-    radial-gradient(circle at 15% 10%, rgba(255,182,213,0.55) 0%, transparent 34%),
-    radial-gradient(circle at 85% 15%, rgba(177,225,239,0.45) 0%, transparent 32%),
-    radial-gradient(circle at 50% 100%, rgba(211,181,235,0.35) 0%, transparent 38%),
-    var(--bg);
-  background-attachment: fixed;
-}
-/* Carnival */
-[data-theme="carnival"] body {
-  background:
-    radial-gradient(circle at 20% 0%, rgba(255,0,127,0.10) 0%, transparent 40%),
-    radial-gradient(circle at 100% 50%, rgba(0,229,255,0.06) 0%, transparent 50%),
-    linear-gradient(to bottom, #060608 0%, #0a0a0f 100%);
   background-attachment: fixed;
 }
 /* Maximal */
@@ -990,8 +932,6 @@ html[data-theme="ukiyo-e"] body {
 
 /* Scoped Heading Art Direction */
 [data-theme="vaporwave"] h1, [data-theme="vaporwave"] h2, [data-theme="vaporwave"] h3 { text-shadow: 0 0 7px rgba(255,79,216,0.42); }
-[data-theme="pastel"] h1, [data-theme="pastel"] h2, [data-theme="pastel"] h3 { text-shadow: 1px 1px 0 rgba(255,255,255,0.9); }
-[data-theme="carnival"] h1, [data-theme="carnival"] h2, [data-theme="carnival"] h3 { font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; text-shadow: 0 0 5px rgba(255,0,127,0.8), 2px 2px 0px #000000; }
 [data-theme="maximal"] h1, [data-theme="maximal"] h2, [data-theme="maximal"] h3 { text-shadow: 2px 2px 0 #fff, 3px 3px 0 var(--accent); font-weight: 900; }
 [data-theme="gits"] h1, [data-theme="gits"] h2, [data-theme="gits"] h3 { font-family: var(--f-mono); letter-spacing: 0.1em; text-transform: uppercase; text-shadow: -2px 0 0 rgba(0,229,255,0.7), 2px 0 0 rgba(255,26,140,0.7), 0 0 10px rgba(0,229,255,0.3); }
 [data-theme="stained-glass"] h1, [data-theme="stained-glass"] h2, [data-theme="stained-glass"] h3 { text-shadow: 0 0 8px rgba(94,232,255,0.5), 0 0 24px rgba(255,79,168,0.15); }
@@ -1818,6 +1758,52 @@ textarea.in{min-height:88px;resize:vertical;line-height:1.5}
 @media(max-width:560px){.cs-row{grid-template-columns:minmax(0,1fr) 54px 60px 40px}.cs-b{grid-column:1/-1}.cs-head span:nth-child(3){font-size:10px}}
 
 /* ============================================================
+   LAYER 5b: LIGHT THEMES, SET APART
+   Each light theme gets its own typeface, corner shape and frame
+   so they no longer read as one cream theme in four colours.
+   ============================================================ */
+
+/* Nouveau: whiplash curves. Leaf-shaped corners, thin geometric sans. */
+[data-theme="nouveau"] { --f-display:'Josefin Sans','Newsreader',Georgia,sans-serif; }
+[data-theme="nouveau"] h1, [data-theme="nouveau"] h2, [data-theme="nouveau"] h3 { font-family:'Josefin Sans',sans-serif; font-weight:600; letter-spacing:.07em; }
+[data-theme="nouveau"] h1, [data-theme="nouveau"] h2 { text-transform:uppercase; }
+[data-theme="nouveau"] .list, [data-theme="nouveau"] .detail, [data-theme="nouveau"] .sheet { border-radius:34px 6px 34px 6px; }
+[data-theme="nouveau"] .btn, [data-theme="nouveau"] .btn.primary { border-radius:18px 4px 18px 4px; }
+[data-theme="nouveau"] .in { border-radius:12px 2px 12px 2px; }
+[data-theme="nouveau"] .chip { border-radius:14px 2px 14px 2px; }
+[data-theme="nouveau"] .row { border-radius:0 18px 0 18px; }
+
+/* Ukiyo-e: woodblock. Mincho type, square ink-black frames, hard offset shadows. */
+[data-theme="ukiyo-e"] { --f-display:'Shippori Mincho','Newsreader',Georgia,serif; --f-body:'Shippori Mincho','Newsreader',Georgia,serif; }
+html[data-theme="ukiyo-e"] h1, html[data-theme="ukiyo-e"] h2, html[data-theme="ukiyo-e"] h3 { font-family:'Shippori Mincho',serif; font-weight:700; letter-spacing:.12em; }
+html[data-theme="ukiyo-e"] .list, html[data-theme="ukiyo-e"] .detail, html[data-theme="ukiyo-e"] .sheet { border:3px solid var(--line); box-shadow:6px 6px 0 var(--line); }
+html[data-theme="ukiyo-e"] .btn { border-radius:0; border:2px solid var(--line); background:var(--surface); box-shadow:2px 2px 0 var(--line); }
+html[data-theme="ukiyo-e"] .in { border-radius:0; border:2px solid var(--line); background:var(--surface); }
+html[data-theme="ukiyo-e"] .row { border-bottom:1px solid var(--line); border-radius:0; }
+html[data-theme="ukiyo-e"] .row.sel { border-left:6px solid var(--ukiyo-seal); }
+
+/* Nature: Monet. Airy, borderless, very round, soft shadows, light calligraphic serif. */
+[data-theme="nature"] { --f-display:'Cormorant Garamond','Newsreader',Georgia,serif; --f-body:'Newsreader',Georgia,serif; }
+[data-theme="nature"] h1, [data-theme="nature"] h2, [data-theme="nature"] h3 { font-family:'Cormorant Garamond',serif; font-weight:600; font-style:italic; letter-spacing:.01em; font-size:1.12em; }
+[data-theme="nature"] .list, [data-theme="nature"] .detail, [data-theme="nature"] .sheet { border:0; border-radius:28px; box-shadow:0 12px 40px rgba(49,79,76,.10); }
+[data-theme="nature"] .btn { border-radius:999px; border-color:transparent; background:var(--surface-2); }
+[data-theme="nature"] .row { border-bottom:0; border-radius:18px; margin:2px 6px; }
+[data-theme="nature"] .row.sel { background:var(--accent-soft); }
+
+/* Rococo: gilded salon. Playfair italics, pill buttons, double gold frame. */
+[data-theme="rococo"] { --f-display:'Playfair Display','Newsreader',Georgia,serif; --f-body:'Newsreader',Georgia,serif; }
+[data-theme="rococo"] .list, [data-theme="rococo"] .detail, [data-theme="rococo"] .sheet { border-radius:26px; border:1px solid var(--gold); box-shadow:inset 0 0 0 5px var(--surface), inset 0 0 0 6px var(--gold), var(--shadow); }
+[data-theme="rococo"] h2, [data-theme="rococo"] h3 { font-style:italic; }
+
+/* Nautical: ship's signage. Cinzel capitals on square tiles, clean sans body. */
+[data-theme="nautical-tile"] { --f-display:'Cinzel','Playfair Display',Georgia,serif; --f-body:'Instrument Sans',system-ui,sans-serif; }
+[data-theme="nautical-tile"] h1, [data-theme="nautical-tile"] h2, [data-theme="nautical-tile"] h3 { font-family:'Cinzel',serif; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+[data-theme="nautical-tile"] .btn { text-transform:uppercase; letter-spacing:.06em; font-size:12.5px; }
+
+/* Illuminated: manuscript. Blackletter headings, ruled gold square frame. */
+[data-theme="illuminated"] h1 { font-size:30px; }
+
+/* ============================================================
    LAYER 6: MOBILE LAYOUT (must stay last, so it beats the core rules)
    ============================================================ */
 @media (max-width: 959px) {
@@ -1850,6 +1836,7 @@ textarea.in{min-height:88px;resize:vertical;line-height:1.5}
 
 .themegrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
 .themegrid button{display:flex!important;align-items:center;justify-content:flex-start;gap:8px;height:38px!important;min-height:38px!important;padding:0 10px!important;margin:0!important;border:1px solid var(--line)!important;border-radius:8px!important;background:transparent!important;color:var(--fg)!important;box-shadow:none!important;font:500 13px/1 system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif!important;letter-spacing:0!important;text-transform:none!important;text-align:left;white-space:nowrap;overflow:hidden;transform:none!important}
+.themegrid .thcol{font:600 11px var(--f-body);letter-spacing:.1em;text-transform:uppercase;color:var(--fg-3);padding:4px 2px 0}
 .themegrid button .tn{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .themegrid button[aria-pressed="true"]{border-color:var(--accent)!important;outline:2px solid var(--accent);outline-offset:-2px;background:var(--accent-soft)!important}
 .thsw{flex:none;width:16px;height:16px;border-radius:50%;border:1px solid var(--line-strong);display:inline-block}
