@@ -619,7 +619,8 @@ function pvHydrate(){Array.prototype.forEach.call(document.querySelectorAll('det
 document.addEventListener('toggle',function(e){var t=e.target;if(t&&t.tagName==='DETAILS'&&t.open)Array.prototype.forEach.call(t.querySelectorAll('.pvbox[data-pv]'),function(b){pvFill(b)})},true);
 
 /* ---------- chapter index ---------- */
-function ixSt(){return S.ix=S.ix||{from:'',to:'',off:{}}}
+function ixSt(){S.ix=S.ix||{from:'',to:'',off:{},on:{}};S.ix.on=S.ix.on||{};return S.ix}
+function ixOff(shown){var s=ixSt(),o={};shown.forEach(function(x){if(!s.on[x.key])o[x.key]=1});return o}
 function ixItems(){return rdByDate(rdItemsBase()).map(function(x){return {d:x.d,h:x.h,k:x.ek,key:rdKey(x)}})}
 function ixBounds(){
   var s=ixSt(),lo=null,hi=null,bad='';
@@ -642,11 +643,11 @@ function ixFilters(s){
   return '<select class="in" data-change="ix-flt" data-k="arc" aria-label="Only this arc"><option value="">All arcs</option>'+arcs.map(function(t){return '<option value="'+t.a.id+'"'+(s.arc===t.a.id?' selected':'')+'>'+esc(arcPath(t.a))+'</option>'}).join('')+'</select>'+
     (rl.length>1?'<select class="in" data-change="ix-flt" data-k="route" aria-label="Only this route"><option value="">All routes</option>'+rl.map(function(x){return '<option value="'+x.r.id+'"'+(s.route===x.r.id?' selected':'')+'>'+esc(x.r.name||'Route')+'</option>'}).join('')+'</select>':'');
 }
-function ixSelected(){var off=ixSt().off;return ixShown(ixItems(),ixBounds()).filter(function(x){return !off[x.key]})}
+function ixSelected(){var on=ixSt().on;return ixShown(ixItems(),ixBounds()).filter(function(x){return !!on[x.key]})}
 function ixView(){
   var s=ixSt(), mode=s.sort==='read'?'read':'date', b=ixBounds();
   var all=mode==='read'?rdItemsBase().map(function(x){return {d:x.d,h:x.h,k:x.h?itemKey(x.h):(itemKey(x.d)),key:rdKey(x)}}):ixItems();
-  var shown=ixShown(all,b), off=s.off, n=shown.filter(function(x){return !off[x.key]}).length, canDrag=mode==='read'&&!b.on;
+  var shown=ixShown(all,b), off=ixOff(shown), n=shown.filter(function(x){return !off[x.key]}).length, canDrag=mode==='read'&&!b.on;
   var head='<div class="lhead"><div class="ltitle"><h1>Chapters</h1><span class="cnt">'+(b.on?shown.length+' of '+all.length:all.length)+'</span></div><div class="lact"><button class="btn primary" data-act="ix-export"'+(n?'':' disabled')+'>Export '+n+' to Word</button><button class="btn" data-act="ix-md"'+(n?'':' disabled')+'>Export '+n+' as Markdown</button></div></div>'+
     '<div class="ixf"><div class="seg ixsort" role="group" aria-label="Order"><button data-act="ix-sort" data-v="date" aria-pressed="'+(mode==='date')+'">Story date</button><button data-act="ix-sort" data-v="read" aria-pressed="'+(mode==='read')+'">Reading order</button></div><button class="btn sm" data-act="read-canon" aria-pressed="'+rdCanonOnly()+'">Canon only</button></div>'+
     '<div class="ixf"><label class="ixl"><span class="lab">From</span><input class="in" id="ix-from" value="'+esc(s.from)+'" placeholder="e.g. March 1250" data-change="ix-range"></label><label class="ixl"><span class="lab">To</span><input class="in" id="ix-to" value="'+esc(s.to)+'" placeholder="e.g. 9 June 1250" data-change="ix-range"></label>'+
@@ -808,6 +809,10 @@ async function mdRun(){
   var m=S.modal,lay=(document.querySelector('input[name="mdLay"]:checked')||{}).value||'chap',wd=!!(document.getElementById('mdDate')||{}).checked;
   var p=proj(),g=p&&p.gh;if(!g||!ghTok()){ghOpenSetup(function(){S.modal={type:'mdexp',lay:lay,date:wd};renderModal()});return}
   var sel=ixSelected();if(!sel.length){closeModal();return}
+  return mdSave(sel,lay,wd);
+}
+async function mdSave(sel,lay,wd){
+  var p=proj(),g=p&&p.gh;
   var docs=[],seen={};sel.forEach(function(x){if(!seen[x.d.id]){seen[x.d.id]=1;docs.push(x.d)}});
   var bad=docs.filter(function(d){return !xReady(d)});
   if(bad.length){closeModal();toast('Connect these Word files first (Read, then Pick the Word files): '+bad.slice(0,3).map(function(d){return d.title}).join(', ')+(bad.length>3?'…':'')+'.');return}
@@ -2948,7 +2953,8 @@ function extractModal(){
     '<div data-hl style="max-height:34vh;overflow:auto;border-top:1px solid var(--line)">'+rows+'</div>'+
     '<label class="lab" for="extName" style="margin-top:10px">New file name</label><input class="in" id="extName" value="'+esc(m.name||'')+'" placeholder="Name of the new file">'+
     '<p class="hint">'+(auto?'The text is read from OneDrive and the new file is saved in the same folder as this one.':'You will be asked to pick this Word file. The new file goes to your downloads, so move it next to the others.')+' This file is then marked as needing an update.</p>'+
-    '<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn primary" data-act="ext-go"'+(n?'':' disabled')+'>Extract '+n+'</button></div>';
+    '<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn primary" data-act="ext-go"'+(n?'':' disabled')+'>Extract '+n+'</button></div>'+
+    '<p class="hint" style="margin-top:10px">Or save the ticked chapters as Markdown files in your private GitHub repository. This makes a copy and does not change or mark the original.</p><button class="btn" data-act="ext-md"'+(n?'':' disabled')+'>Extract '+n+' to GitHub (Markdown)</button>';
 }
 async function runExtract(d,file,sel,name){
   S.modal={type:'busy',msg:'Extracting.'};renderModal();
@@ -3738,6 +3744,17 @@ clear:function(el){
 'mv-open':function(el){S.modal={type:'mvch',id:el.dataset.id,hid:el.dataset.hid,dest:'',after:'',mode:'copy'};renderModal()},
 'mv-go':function(){mvRun()},
 'ext-open':function(el){var d=byId('documents',el.dataset.id);if(!d)return;var sel={};if(el.dataset.hid)sel[el.dataset.hid]=true;var s=extSug(d,sel);S.modal={type:'extract',id:d.id,sel:sel,name:s,sug:s};renderModal()},
+'ext-md':function(){
+  var m=S.modal;if(!m||m.type!=='extract')return;
+  var d=byId('documents',m.id);if(!d)return;
+  var sel=chapters(d).filter(function(x){return m.sel[x.id]&&!x.moved});if(!sel.length)return;
+  var go=function(){
+    if(!xReady(d)){closeModal();toast('Connect the Word file first: open Read, then Pick the Word files.');return}
+    mdSave(sel.map(function(h){return {d:d,h:h,k:null}}),'chap',false);
+  };
+  if(!ghLinked()){ghOpenSetup(go);return}
+  go();
+},
 'ext-go':function(){
   var m=S.modal;if(!m||m.type!=='extract')return;
   var n=$('#extName');if(n)m.name=n.value;
@@ -3840,7 +3857,7 @@ clear:function(el){
 'sw-go':function(){swRun()},
 'sw-pick':function(el){S.refreshId=el.dataset.id;$('#fileRead').click()},
 'ix-clear':function(){var s=ixSt();s.from='';s.to='';s.arc='';s.route='';render()},
-'ix-all':function(el){var s=ixSt(),on=el.dataset.v==='1';ixShown(ixItems(),ixBounds()).forEach(function(x){if(on)delete s.off[x.key];else s.off[x.key]=1});render()},
+'ix-all':function(el){var s=ixSt(),on=el.dataset.v==='1';ixShown(ixItems(),ixBounds()).forEach(function(x){if(on)s.on[x.key]=1;else delete s.on[x.key]});render()},
 'ix-open':function(el){S.view='documents';S.sel=el.dataset.id;render()},
 'ix-sel':function(el){S.sel=el.dataset.id;render();var dt=$('#detail');if(dt)dt.scrollTop=0},
 'ix-sort':function(el){ixSt().sort=el.dataset.v;render()},
@@ -4379,7 +4396,7 @@ var CH={
 'cal-sch':function(t){try{localStorage.setItem('so-cal-sch',t.checked?'1':'0')}catch(e){}render()},
 'ix-flt':function(el){var s=ixSt();s[el.dataset.k]=el.value;render()},
 'ix-range':function(){var s=ixSt();s.from=document.getElementById('ix-from').value;s.to=document.getElementById('ix-to').value;render()},
-'ix-tick':function(t){var s=ixSt();if(t.checked)delete s.off[t.dataset.k];else s.off[t.dataset.k]=1;var n=ixSelected().length,b=document.querySelector('[data-act="ix-export"]');if(b){b.textContent='Export '+n+' to Word';b.disabled=!n}var b2=document.querySelector('[data-act="ix-md"]');if(b2){b2.textContent='Export '+n+' as Markdown';b2.disabled=!n}var r=t.closest('.ixr');if(r)r.classList.toggle('off',!t.checked)},
+'ix-tick':function(t){var s=ixSt();if(t.checked)s.on[t.dataset.k]=1;else delete s.on[t.dataset.k];var n=ixSelected().length,b=document.querySelector('[data-act="ix-export"]');if(b){b.textContent='Export '+n+' to Word';b.disabled=!n}var b2=document.querySelector('[data-act="ix-md"]');if(b2){b2.textContent='Export '+n+' as Markdown';b2.disabled=!n}var r=t.closest('.ixr');if(r)r.classList.toggle('off',!t.checked)},
 
 'sch-sync':function(el){schCapture();var m=S.modal,pe=document.getElementById('sc-prev');
   if(el&&el.tagName==='INPUT'&&pe){
