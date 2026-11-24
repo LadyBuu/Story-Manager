@@ -647,7 +647,7 @@ function ixView(){
   var s=ixSt(), mode=s.sort==='read'?'read':'date', b=ixBounds();
   var all=mode==='read'?rdItemsBase().map(function(x){return {d:x.d,h:x.h,k:x.h?itemKey(x.h):(itemKey(x.d)),key:rdKey(x)}}):ixItems();
   var shown=ixShown(all,b), off=s.off, n=shown.filter(function(x){return !off[x.key]}).length, canDrag=mode==='read'&&!b.on;
-  var head='<div class="lhead"><div class="ltitle"><h1>Chapters</h1><span class="cnt">'+(b.on?shown.length+' of '+all.length:all.length)+'</span></div><div class="lact"><button class="btn primary" data-act="ix-export"'+(n?'':' disabled')+'>Export '+n+' to Word</button></div></div>'+
+  var head='<div class="lhead"><div class="ltitle"><h1>Chapters</h1><span class="cnt">'+(b.on?shown.length+' of '+all.length:all.length)+'</span></div><div class="lact"><button class="btn primary" data-act="ix-export"'+(n?'':' disabled')+'>Export '+n+' to Word</button><button class="btn" data-act="ix-md"'+(n?'':' disabled')+'>Export '+n+' as Markdown</button></div></div>'+
     '<div class="ixf"><div class="seg ixsort" role="group" aria-label="Order"><button data-act="ix-sort" data-v="date" aria-pressed="'+(mode==='date')+'">Story date</button><button data-act="ix-sort" data-v="read" aria-pressed="'+(mode==='read')+'">Reading order</button></div><button class="btn sm" data-act="read-canon" aria-pressed="'+rdCanonOnly()+'">Canon only</button></div>'+
     '<div class="ixf"><label class="ixl"><span class="lab">From</span><input class="in" id="ix-from" value="'+esc(s.from)+'" placeholder="e.g. March 1250" data-change="ix-range"></label><label class="ixl"><span class="lab">To</span><input class="in" id="ix-to" value="'+esc(s.to)+'" placeholder="e.g. 9 June 1250" data-change="ix-range"></label>'+
     ixFilters(s)+(b.on?'<button class="btn sm" data-act="ix-clear">Clear filters</button>':'')+(shown.length?'<button class="btn sm" data-act="ix-all" data-v="1">Tick all</button><button class="btn sm" data-act="ix-all" data-v="0">Untick all</button>':'')+'</div>'+
@@ -691,6 +691,171 @@ function ixExpModal(){
     '<label class="chk"><input type="checkbox" id="ixPb"'+(m.pb?' checked':'')+'><span>Start each chapter on a new page</span></label>'+
     '<label class="chk"><input type="checkbox" id="ixMark"'+(m.mark?' checked':'')+'><span><b>Mark them as extracted in the originals</b><small>Off: the new file is added but left out of reading order and the timeline, so nothing counts twice. On: the new file takes over from the originals, like Extract.</small></span></label>'+
     '<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn primary" data-act="ix-export-go">Export</button></div>';
+}
+/* ---------- GitHub: one private repository per story, Markdown export ---------- */
+var GH={api:'https://api.github.com'};
+function ghTokKey(pid){return 'so-gh-key-'+pid}
+function ghTok(pid){try{return localStorage.getItem(ghTokKey(pid||S.pid))||''}catch(e){return ''}}
+function ghSetTok(pid,t){try{if(t)localStorage.setItem(ghTokKey(pid),t);else localStorage.removeItem(ghTokKey(pid))}catch(e){}}
+function ghLinked(){var p=proj();return !!(p&&p.gh&&p.gh.repo&&ghTok())}
+async function ghCall(tok,method,path,body){
+  var r;
+  try{r=await fetch(GH.api+path,{method:method,headers:Object.assign({'Authorization':'Bearer '+tok,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'},body?{'Content-Type':'application/json'}:{}),body:body?JSON.stringify(body):undefined})}
+  catch(e){throw {kind:'net'}}
+  var j=null;try{j=await r.json()}catch(e){}
+  if(!r.ok)throw {kind:'http',status:r.status,msg:(j&&j.message)||'',json:j};
+  return j;
+}
+function ghErr(e,repo){
+  if(e&&e.kind==='net')return 'I could not reach GitHub. Check your internet connection and try again.';
+  var s=e&&e.status;
+  if(s===401)return 'GitHub did not accept the key. Either it was copied only in part, or it has expired. Do step 2 again to make a new key.';
+  if(s===403)return 'GitHub said no. The key may be missing the permission “Contents: Read and write”, or you are being slowed down. Check step 2, or wait a minute and try again.';
+  if(s===404)return 'I cannot find “'+(repo||'that repository')+'” with this key. Check the name in step 1. Also check that in step 2 you picked this repository under “Repository access”.';
+  if(s===409||s===422)return 'GitHub refused that change ('+(e.msg||s)+'). If the repository is brand new, open it on GitHub once and try again.';
+  return 'Something went wrong with GitHub'+(s?' (error '+s+')':'')+'. Try again in a minute.';
+}
+async function ghVerify(tok,repoIn){
+  var u=await ghCall(tok,'GET','/user');
+  var repo=String(repoIn||'').trim().replace(/^https?:\/\/github\.com\//i,'').replace(/\.git$/i,'').replace(/\/+$/,'');
+  if(repo.indexOf('/')<0)repo=u.login+'/'+repo;
+  var r=await ghCall(tok,'GET','/repos/'+repo);
+  return {repo:r.full_name,private:!!r.private,push:!!(r.permissions&&r.permissions.push),branch:r.default_branch||'main',login:u.login};
+}
+async function ghCommit(files,message){
+  var p=proj(),g=p&&p.gh,tok=ghTok();if(!g||!tok)throw {kind:'http',status:401};
+  var base='/repos/'+g.repo, br=g.branch||'main', sha0=null;
+  try{var rf=await ghCall(tok,'GET',base+'/git/ref/heads/'+br);sha0=rf.object.sha}
+  catch(e){if(!(e.kind==='http'&&(e.status===404||e.status===409)))throw e}
+  if(!sha0){
+    await ghCall(tok,'PUT',base+'/contents/README.md',{message:'Start the manuscript repository',content:btoa('# '+(p.name||'Story')+'\n\nChapters exported from Story Organiser.\n')});
+    var rf2=await ghCall(tok,'GET',base+'/git/ref/heads/'+br);sha0=rf2.object.sha;
+  }
+  var c0=await ghCall(tok,'GET',base+'/git/commits/'+sha0);
+  var tr=await ghCall(tok,'POST',base+'/git/trees',{base_tree:c0.tree.sha,tree:files.map(function(f){return {path:f.path,mode:'100644',type:'blob',content:f.content}})});
+  var cm=await ghCall(tok,'POST',base+'/git/commits',{message:message,tree:tr.sha,parents:[sha0]});
+  await ghCall(tok,'PATCH',base+'/git/refs/heads/'+br,{sha:cm.sha});
+  return cm;
+}
+function ghOpenSetup(after){
+  var p=proj();if(!p)return;
+  var g=p.gh||{};
+  S.modal={type:'ghsetup',repo:g.repo?g.repo.split('/')[1]:(slugOf(p.name)||'my-story'),tok:'',msg:'',ok:'',busy:false,step1:!!g.repo,after:after||null};
+  renderModal();
+}
+function ghCap(){var m=S.modal;if(!m||m.type!=='ghsetup')return;var a=$('#ghRepo'),b=$('#ghTok');if(a)m.repo=a.value;if(b)m.tok=b.value}
+function ghModal(){
+  var m=S.modal,p=proj()||{},tok=m.tok||'',repo=(m.repo||'').trim();
+  function card(n,title,done,body){return '<div style="border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:10px 0;background:var(--surface-2)"><div style="display:flex;gap:10px;align-items:center;margin-bottom:6px"><span style="flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-weight:700;background:'+(done?'var(--ok)':'var(--accent)')+';color:#fff">'+(done?'✓':n)+'</span><b style="font-size:16px">'+title+'</b></div>'+body+'</div>'}
+  var nm=encodeURIComponent(repo||'my-story');
+  var link1='https://github.com/new?name='+nm+'&visibility=private&description='+encodeURIComponent('Chapters of '+(p.name||'my story'));
+  var link2='https://github.com/settings/personal-access-tokens/new?name='+encodeURIComponent('Story Organiser: '+(p.name||'story'))+'&description='+encodeURIComponent('Lets Story Organiser save chapters to one repository')+'&expires_in=365&contents=write';
+  var other=S.projects.filter(function(x){return x.id!==p.id&&ghTok(x.id)});
+  var h='<h2>Connect this story to GitHub</h2><p class="hint" style="margin-top:0">Your chapters will be saved as plain text files (Markdown) in a <b>private</b> online folder on GitHub. Do the three steps below, in order. You only do this once for each story. Nothing here changes your Word files.</p>';
+  h+=card(1,'Make the private folder',m.step1,'<p style="margin:0 0 8px">GitHub calls it a <i>repository</i>. Press the button. GitHub opens with the name already typed in and <b>Private</b> already chosen. Scroll down, press the green <b>Create repository</b> button, then come back to this window.</p><label class="lab" for="ghRepo">Name of the repository</label><input class="in" id="ghRepo" value="'+esc(m.repo||'')+'" autocomplete="off"><div style="margin-top:8px"><a class="btn" data-act="gh-s1" href="'+esc(link1)+'" target="_blank" rel="noopener noreferrer">Open GitHub: new repository</a></div>');
+  h+=card(2,'Make a key for this app',!!tok,'<p style="margin:0 0 8px">The key lets this app save into <i>that one repository</i> and nothing else. Press the button, then on the GitHub page:</p><ol style="margin:0 0 8px;padding-left:20px"><li>Under <b>Repository access</b>, choose <b>Only select repositories</b>, then pick the repository from step 1.</li><li>Scroll down and press the green <b>Generate token</b> button.</li><li>Copy the long text that starts with <b>github_pat_</b>. GitHub only shows it once.</li><li>Come back here and paste it in the box.</li></ol><div style="margin-bottom:8px"><a class="btn" href="'+esc(link2)+'" target="_blank" rel="noopener noreferrer">Open GitHub: make a key</a></div><label class="lab" for="ghTok">Paste the key here</label><input class="in" id="ghTok" type="password" value="'+esc(tok)+'" autocomplete="off" placeholder="github_pat_…">'+(other.length?'<div style="margin-top:8px"><button class="btn sm" data-act="gh-reuse" data-id="'+other[0].id+'">Use the key from “'+esc(other[0].name||'another story')+'”</button><span class="hint"> Only works if that key also covers this repository.</span></div>':''));
+  h+=card(3,'Connect and test',!!m.ok,'<p style="margin:0 0 8px">'+(m.ok?'':'This checks that the key works and that the repository is private.')+'</p>'+(m.ok?'<p style="margin:0 0 8px;color:var(--ok)"><b>'+esc(m.ok)+'</b></p>':'')+(m.msg?'<p style="margin:0 0 8px;color:var(--bad)">'+esc(m.msg)+'</p>':'')+(m.busy?'<p class="hint">Checking…</p>':'<button class="btn primary" data-act="gh-go">'+(m.ok?'Check again':'Connect')+'</button>'));
+  h+='<p class="hint">The key is kept only in this browser, on this device. It is never saved in your project data or in OneDrive, so on another device you would paste it once more. You can remove it any time in Settings.</p>';
+  h+='<div class="actions"><button class="btn" data-act="close">'+(m.ok&&!m.after?'Done':'Close')+'</button>'+(m.ok&&m.after?'<button class="btn primary" data-act="gh-cont">Continue</button>':'')+'</div>';
+  return h;
+}
+async function ghConnect(){
+  var m=S.modal;ghCap();var p=proj();if(!p)return;
+  var tok=(m.tok||'').trim(),repo=(m.repo||'').trim();
+  if(!repo){m.msg='Type the repository name from step 1.';renderModal();return}
+  if(!tok){m.msg='Paste the key from step 2 first.';renderModal();return}
+  m.busy=true;m.msg='';m.ok='';renderModal();
+  try{
+    var v=await ghVerify(tok,repo);
+    if(!S.modal||S.modal.type!=='ghsetup')return;
+    if(!v.private){m.busy=false;m.msg='This repository is public, so anyone could read your chapters. On GitHub open the repository, go to Settings, scroll to the bottom (Danger Zone), press Change visibility and choose Private. Then press Connect again.';renderModal();return}
+    if(!v.push){m.busy=false;m.msg='The key can look but not save. Do step 2 again and set “Contents” to “Read and write”.';renderModal();return}
+    ghSetTok(p.id,tok);
+    p.gh={repo:v.repo,branch:v.branch,folder:(p.gh&&p.gh.folder)||'manuscript'};save('projects',p);
+    m.busy=false;m.ok='Connected to '+v.repo+' (private). You are all set.';m.step1=true;renderModal();
+  }catch(e){
+    if(!S.modal||S.modal.type!=='ghsetup')return;
+    m.busy=false;m.msg=ghErr(e,repo);renderModal();
+  }
+}
+function mdEscape(t){return String(t).replace(/([\\*_`])/g,'\\$1').replace(/^(#|>|[-+]\s|\d+[.)]\s)/,'\\$1')}
+function mdOf(p){
+  var rs=p.getElementsByTagNameNS(W,'r'),segs=[];
+  function on(rp,n){if(!rp)return false;var e=rp.getElementsByTagNameNS(W,n)[0];if(!e)return false;var v=e.getAttributeNS(W,'val');return !(v==='0'||v==='false'||v==='off')}
+  for(var i=0;i<rs.length;i++){
+    var r=rs[i],rp=null;for(var c=r.firstChild;c;c=c.nextSibling)if(c.localName==='rPr'){rp=c;break}
+    var t='';for(var k=r.firstChild;k;k=k.nextSibling){var n=k.localName;if(n==='t')t+=k.textContent;else if(n==='tab')t+='\t';else if(n==='br'||n==='cr')t+='\n'}
+    if(!t)continue;
+    var b=on(rp,'b'),it=on(rp,'i'),last=segs[segs.length-1];
+    if(last&&last.b===b&&last.i===it)last.t+=t;else segs.push({t:t,b:b,i:it});
+  }
+  return segs.map(function(s){
+    var m=/^(\s*)([\s\S]*?)(\s*)$/.exec(s.t),core=m[2];if(!core)return s.t;
+    var o=mdEscape(core);if(s.i)o='*'+o+'*';if(s.b)o='**'+o+'**';
+    return m[1]+o+m[3];
+  }).join('').replace(/\s*\n\s*/g,'  \n').trim();
+}
+function mdSlug(s,n){var o=slugOf(s).slice(0,60);return o||('chapter-'+n)}
+function mdModal(){
+  var m=S.modal,sel=ixSelected(),g=(proj()||{}).gh||{},docs={};sel.forEach(function(x){docs[x.d.id]=1});
+  return '<h2>Export as Markdown</h2><p class="hint" style="margin-top:0">'+sel.length+' chapter'+(sel.length===1?'':'s')+' from '+Object.keys(docs).length+' file'+(Object.keys(docs).length===1?'':'s')+', saved to your private repository <b>'+esc(g.repo||'')+'</b> in the folder <b>'+esc(g.folder||'manuscript')+'</b> as one single save (a “commit”). Your Word files are not touched.</p>'+
+    '<div role="radiogroup"><label class="chk"><input type="radio" name="mdLay" value="chap"'+(m.lay!=='file'?' checked':'')+'><span><b>One file per chapter</b><small>Best for history. Each chapter gets its own page on GitHub.</small></span></label>'+
+    '<label class="chk"><input type="radio" name="mdLay" value="file"'+(m.lay==='file'?' checked':'')+'><span><b>One file per Word file</b><small>Chapters from the same Word file stay together in one Markdown file.</small></span></label></div>'+
+    '<label class="chk" style="margin-top:8px"><input type="checkbox" id="mdDate"'+(m.date?' checked':'')+'><span>Write the story date under each chapter title</span></label>'+
+    '<div class="actions"><button class="btn" data-act="gh-open">GitHub settings</button><button class="btn" data-act="close">Cancel</button><button class="btn primary" data-act="md-go">Export</button></div>';
+}
+async function mdRun(){
+  var m=S.modal,lay=(document.querySelector('input[name="mdLay"]:checked')||{}).value||'chap',wd=!!(document.getElementById('mdDate')||{}).checked;
+  var p=proj(),g=p&&p.gh;if(!g||!ghTok()){ghOpenSetup(function(){S.modal={type:'mdexp',lay:lay,date:wd};renderModal()});return}
+  var sel=ixSelected();if(!sel.length){closeModal();return}
+  var docs=[],seen={};sel.forEach(function(x){if(!seen[x.d.id]){seen[x.d.id]=1;docs.push(x.d)}});
+  var bad=docs.filter(function(d){return !xReady(d)});
+  if(bad.length){closeModal();toast('Connect these Word files first (Read, then Pick the Word files): '+bad.slice(0,3).map(function(d){return d.title}).join(', ')+(bad.length>3?'…':'')+'.');return}
+  try{
+    var cache={};
+    for(var i=0;i<docs.length;i++){S.modal={type:'busy',msg:'Reading file '+(i+1)+' of '+docs.length+'.'};renderModal();var pa=await rdParas(docs[i],true);if(!pa)throw new Error('No text for '+docs[i].title);cache[docs[i].id]=pa}
+    function chapMd(x){
+      var seg=x.h?rdSlice(x.d,x.h,cache[x.d.id]):cache[x.d.id].slice();if(!seg)return null;
+      seg=seg.slice();var base=x.h?x.h.level:1,lines=[],first=true;
+      seg.forEach(function(q){
+        if(wd&&x.k!=null&&isDateP(q))return;
+        var t=q.lv>0?mdEscape(q.plain||q.text):(q.md!=null?q.md:q.text);
+        if(!String(t).trim())return;
+        if(q.lv>0){lines.push('#'.repeat(Math.max(1,Math.min(6,q.lv-base+1)))+' '+t);if(first&&wd&&x.k!=null){lines.push('*'+keyLong(x.k)+'*')}first=false}
+        else{if(first&&x.h){}lines.push(t)}
+      });
+      if(!lines.length)return null;
+      if(!lines[0].startsWith('#')){var tt=(x.h&&x.h.title)||x.d.title;lines.unshift('# '+tt);if(wd&&x.k!=null)lines.splice(1,0,'*'+keyLong(x.k)+'*')}
+      return lines.join('\n\n')+'\n';
+    }
+    var folder=(g.folder||'manuscript').replace(/^\/+|\/+$/g,''),files=[],used={},skipped=0;
+    if(lay==='chap'){
+      sel.forEach(function(x,j){
+        var c=chapMd(x);if(!c){skipped++;return}
+        var pos=rdPosOf(x.d,x.h),nm=String(pos||(j+1)).padStart(3,'0')+'-'+mdSlug(x.h?x.h.title:x.d.title,j+1),n=nm,k=2;
+        while(used[n])n=nm+'-'+(k++);used[n]=1;
+        files.push({path:folder+'/'+n+'.md',content:c});
+      });
+    }else{
+      docs.forEach(function(d,j){
+        var parts=[];sel.filter(function(x){return x.d.id===d.id}).forEach(function(x){var c=chapMd(x);if(c)parts.push(c);else skipped++});
+        if(!parts.length)return;
+        var nm=mdSlug(d.title,j+1),n=nm,k=2;while(used[n])n=nm+'-'+(k++);used[n]=1;
+        files.push({path:folder+'/'+n+'.md',content:parts.join('\n')});
+      });
+    }
+    if(!files.length){closeModal();toast('I could not find those chapters in the files. Try the reload button in Read.');return}
+    S.modal={type:'busy',msg:'Saving '+files.length+' file'+(files.length===1?'':'s')+' to GitHub.'};renderModal();
+    var cm=await ghCommit(files,'Export '+files.length+' '+(lay==='chap'?'chapter':'file')+(files.length===1?'':'s')+' from Story Organiser');
+    S.modal={type:'mddone',n:files.length,skipped:skipped,url:'https://github.com/'+g.repo+'/tree/'+(g.branch||'main')+'/'+folder};renderModal();
+  }catch(e){
+    S.modal={type:'mddone',err:(e&&e.kind)?ghErr(e,g.repo):'Something went wrong: '+((e&&e.message)||'unknown')+'.'};renderModal();
+  }
+}
+function mdDone(){
+  var m=S.modal;
+  if(m.err)return '<h2>Not saved</h2><p>'+esc(m.err)+'</p><div class="actions"><button class="btn" data-act="gh-open">GitHub settings</button><button class="btn primary" data-act="close">Close</button></div>';
+  return '<h2>Saved to GitHub</h2><p>'+m.n+' file'+(m.n===1?'':'s')+' saved to your private repository.'+(m.skipped?' '+m.skipped+' chapter'+(m.skipped===1?' was':'s were')+' skipped because I could not find the text.':'')+'</p><div class="actions"><a class="btn" href="'+esc(m.url)+'" target="_blank" rel="noopener noreferrer">Look at it on GitHub</a><button class="btn primary" data-act="close">Done</button></div>';
 }
 async function ixRun(){
   var m=S.modal,nm=(document.getElementById('ixName')||{}).value||m.name,wd=!!(document.getElementById('ixDate')||{}).checked,pb=!!(document.getElementById('ixPb')||{}).checked,mark=!!(document.getElementById('ixMark')||{}).checked;
@@ -2479,6 +2644,9 @@ function renderModal(){
   else if(m.type==='mvch')inner=mvModal();
   else if(m.type==='dups')inner=dupModal();
   else if(m.type==='kit')inner=kitModal();
+  else if(m.type==='ghsetup')inner=ghModal();
+  else if(m.type==='mdexp')inner=mdModal();
+  else if(m.type==='mddone')inner=mdDone();
   else if(m.type==='rdorder')inner=rdOrderHtml(rdItems(),-1,true);
   else if(m.type==='xport')inner=xportModal();
   else if(m.type==='checks')inner=checksModal();
@@ -2577,6 +2745,7 @@ function settingsModal(){
       '<label class="lab" for="sp-f" style="margin-top:12px">OneDrive folder link</label><input class="in" id="sp-f" data-bind="projects:'+p.id+':folderUrl" value="'+esc(p.folderUrl||'')+'" placeholder="Optional. Adds an OneDrive button to Documents" inputmode="url">'+
       '<label class="lab" for="sp-dm" style="margin-top:12px">Timeline date sorting</label><select class="in" id="sp-dm" data-bind="projects:'+p.id+':dateMode"><option value="auto"'+(dateMode()==='auto'?' selected':'')+'>Read my dates (real calendar)</option><option value="manual"'+(dateMode()==='manual'?' selected':'')+'>Use sort numbers (made-up calendar)</option></select><p class="hint" style="margin-top:4px">Real calendar: understands dates like 12 August 1248, August 1248, 1248 or 1248-08-12. Made-up calendar: you give each chapter a number, such as the story day.</p>'+
       '<div style="margin-top:12px"><span class="lab">Calendar</span><p class="hint" style="margin:2px 0 6px">'+esc(calName())+'</p><button class="btn" data-act="calset-open">Edit calendar</button></div>'+
+      '<div style="margin-top:12px"><span class="lab">GitHub</span><p class="hint" style="margin:2px 0 6px">'+(ghLinked()?'Connected to <b>'+esc(p.gh.repo)+'</b> (private). Markdown exports are saved there.':'Not connected. Connect a private repository to export chapters as Markdown.')+'</p><button class="btn" data-act="gh-open">'+(ghLinked()?'Change or check connection':'Connect GitHub')+'</button>'+(ghLinked()?' <button class="btn" data-act="gh-off">Disconnect</button>':'')+'</div>'+
       '<label class="lab" for="sp-cl" style="margin-top:12px">Chapter heading level</label><select class="in" id="sp-cl" data-bind="projects:'+p.id+':chapterLevel">'+[1,2,3,4].map(function(l){return '<option value="'+l+'"'+((parseInt(p.chapterLevel,10)||2)===l?' selected':'')+'>Heading '+l+(label(l)?' ('+esc(label(l))+')':'')+'</option>'}).join('')+'</select><p class="hint" style="margin-top:4px">Headings at this level are the chapters inside each file. They carry the date, POV, characters and locations.</p>'+
       '<label class="lab" style="margin-top:12px">Word heading levels</label><p class="hint" style="margin-bottom:8px">Names shown beside each heading level in a document structure.</p><div class="fgrid" style="margin-top:0">'+
       [1,2,3,4].map(function(l){return '<div><label class="lab" for="sp-l'+l+'">Heading '+l+'</label><input class="in" id="sp-l'+l+'" data-bind="projects:'+p.id+':labels.'+l+'" value="'+esc(label(l))+'"></div>'}).join('')+'</div></div>';
@@ -2716,7 +2885,7 @@ async function readParas(file){
       if(ol){var v=parseInt(ol.getAttributeNS(W,'val'),10);lv=v<9?v+1:0}
       else if(ps2)lv=lvlOfStyle(ps2.getAttributeNS(W,'val'),styles);
     }
-    out.push({lv:lv,plain:plain.slice(0,200),text:lv>0?plain:ptext(p),bm:bmOf(p)});
+    out.push({lv:lv,plain:plain.slice(0,200),text:lv>0?plain:ptext(p),md:lv>0?null:mdOf(p),bm:bmOf(p)});
   }
   return out;
 }
@@ -3552,6 +3721,14 @@ clear:function(el){
   S.modal={type:'clear',coll:coll,n:n,word:CLEAR_WORD[coll]};renderModal();
   var i=$('#clearIn');if(i)i.focus();
 },
+'gh-open':function(){ghOpenSetup()},
+'gh-s1':function(el){ghCap();var rn=(S.modal&&S.modal.repo||'my-story').trim();el.href='https://github.com/new?name='+encodeURIComponent(rn)+'&visibility=private&description='+encodeURIComponent('Chapters of '+((proj()||{}).name||'my story'));if(S.modal&&S.modal.type==='ghsetup')S.modal.step1=true;setTimeout(function(){if(S.modal&&S.modal.type==='ghsetup')renderModal()},300)},
+'gh-reuse':function(el){ghCap();var t=ghTok(el.dataset.id);if(t&&S.modal){S.modal.tok=t;renderModal()}},
+'gh-go':function(){ghConnect()},
+'gh-cont':function(){var f=S.modal&&S.modal.after;if(f)f()},
+'gh-off':function(){var p=proj();if(!p)return;askConfirm('Disconnect GitHub','This removes the key from this browser and unlinks the repository from this story. Nothing is deleted on GitHub.','Disconnect',function(){ghSetTok(p.id,'');delete p.gh;save('projects',p);closeModal();render();toast('GitHub disconnected.')})},
+'ix-md':function(){if(!ixSelected().length)return;if(!ghLinked()){ghOpenSetup(function(){S.modal={type:'mdexp',lay:'chap',date:true};renderModal()});return}S.modal={type:'mdexp',lay:'chap',date:true};renderModal()},
+'md-go':function(){mdRun()},
 'kit-open':function(){S.modal={type:'kit',paint:true,loc:false};renderModal()},
 'kit-go':function(){var m=S.modal;closeModal();kitExport({paint:m.paint,loc:m.loc})},
 'ut-add':function(){var i=$('#utIn'),v=(i&&i.value||'').trim(),pr=proj();if(!v||!pr)return;pr.unusedTitles=(pr.unusedTitles||[]).concat([{id:uid(),t:v}]);save('projects',pr);render();var j=$('#utIn');if(j)j.focus()},
@@ -4202,7 +4379,7 @@ var CH={
 'cal-sch':function(t){try{localStorage.setItem('so-cal-sch',t.checked?'1':'0')}catch(e){}render()},
 'ix-flt':function(el){var s=ixSt();s[el.dataset.k]=el.value;render()},
 'ix-range':function(){var s=ixSt();s.from=document.getElementById('ix-from').value;s.to=document.getElementById('ix-to').value;render()},
-'ix-tick':function(t){var s=ixSt();if(t.checked)delete s.off[t.dataset.k];else s.off[t.dataset.k]=1;var n=ixSelected().length,b=document.querySelector('[data-act="ix-export"]');if(b){b.textContent='Export '+n+' to Word';b.disabled=!n}var r=t.closest('.ixr');if(r)r.classList.toggle('off',!t.checked)},
+'ix-tick':function(t){var s=ixSt();if(t.checked)delete s.off[t.dataset.k];else s.off[t.dataset.k]=1;var n=ixSelected().length,b=document.querySelector('[data-act="ix-export"]');if(b){b.textContent='Export '+n+' to Word';b.disabled=!n}var b2=document.querySelector('[data-act="ix-md"]');if(b2){b2.textContent='Export '+n+' as Markdown';b2.disabled=!n}var r=t.closest('.ixr');if(r)r.classList.toggle('off',!t.checked)},
 
 'sch-sync':function(el){schCapture();var m=S.modal,pe=document.getElementById('sc-prev');
   if(el&&el.tagName==='INPUT'&&pe){
