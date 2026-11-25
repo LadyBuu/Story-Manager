@@ -696,7 +696,7 @@ function ixExpModal(){
 /* ---------- GitHub: one private repository per story, Markdown export ---------- */
 var GH={api:'https://api.github.com'};
 function ghTokKey(pid){return 'so-gh-key-'+pid}
-function ghTok(pid){try{return localStorage.getItem(ghTokKey(pid||S.pid))||''}catch(e){return ''}}
+function ghTok(pid){pid=pid||S.pid;var t='';try{t=localStorage.getItem(ghTokKey(pid))||''}catch(e){}if(t)return t;var p=byId('projects',pid);return (p&&p.gh&&p.gh.keep&&p.gh.key)||''}
 function ghSetTok(pid,t){try{if(t)localStorage.setItem(ghTokKey(pid),t);else localStorage.removeItem(ghTokKey(pid))}catch(e){}}
 function ghLinked(){var p=proj();return !!(p&&p.gh&&p.gh.repo&&ghTok())}
 async function ghCall(tok,method,path,body){
@@ -741,10 +741,10 @@ async function ghCommit(files,message){
 function ghOpenSetup(after){
   var p=proj();if(!p)return;
   var g=p.gh||{};
-  S.modal={type:'ghsetup',repo:g.repo?g.repo.split('/')[1]:(slugOf(p.name)||'my-story'),tok:'',msg:'',ok:'',busy:false,step1:!!g.repo,after:after||null};
+  S.modal={type:'ghsetup',repo:g.repo?g.repo.split('/')[1]:(slugOf(p.name)||'my-story'),tok:'',msg:'',ok:'',busy:false,step1:!!g.repo,after:after||null,keep:!!g.keep};
   renderModal();
 }
-function ghCap(){var m=S.modal;if(!m||m.type!=='ghsetup')return;var a=$('#ghRepo'),b=$('#ghTok');if(a)m.repo=a.value;if(b)m.tok=b.value}
+function ghCap(){var m=S.modal;if(!m||m.type!=='ghsetup')return;var a=$('#ghRepo'),b=$('#ghTok'),c=$('#ghKeep');if(a)m.repo=a.value;if(b)m.tok=b.value;if(c)m.keep=c.checked}
 function ghModal(){
   var m=S.modal,p=proj()||{},tok=m.tok||'',repo=(m.repo||'').trim();
   function card(n,title,done,body){return '<div style="border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:10px 0;background:var(--surface-2)"><div style="display:flex;gap:10px;align-items:center;margin-bottom:6px"><span style="flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-weight:700;background:'+(done?'var(--ok)':'var(--accent)')+';color:#fff">'+(done?'✓':n)+'</span><b style="font-size:16px">'+title+'</b></div>'+body+'</div>'}
@@ -754,9 +754,9 @@ function ghModal(){
   var other=S.projects.filter(function(x){return x.id!==p.id&&ghTok(x.id)});
   var h='<h2>Connect this story to GitHub</h2><p class="hint" style="margin-top:0">Your chapters will be saved as plain text files (Markdown) in a <b>private</b> online folder on GitHub. Do the three steps below, in order. You only do this once for each story. Nothing here changes your Word files.</p>';
   h+=card(1,'Make the private folder',m.step1,'<p style="margin:0 0 8px">GitHub calls it a <i>repository</i>. Press the button. GitHub opens with the name already typed in and <b>Private</b> already chosen. Scroll down, press the green <b>Create repository</b> button, then come back to this window.</p><label class="lab" for="ghRepo">Name of the repository</label><input class="in" id="ghRepo" value="'+esc(m.repo||'')+'" autocomplete="off"><div style="margin-top:8px"><a class="btn" data-act="gh-s1" href="'+esc(link1)+'" target="_blank" rel="noopener noreferrer">Open GitHub: new repository</a></div>');
-  h+=card(2,'Make a key for this app',!!tok,'<p style="margin:0 0 8px">The key lets this app save into <i>that one repository</i> and nothing else. Press the button, then on the GitHub page:</p><ol style="margin:0 0 8px;padding-left:20px"><li>Under <b>Repository access</b>, choose <b>Only select repositories</b>, then pick the repository from step 1.</li><li>Scroll down and press the green <b>Generate token</b> button.</li><li>Copy the long text that starts with <b>github_pat_</b>. GitHub only shows it once.</li><li>Come back here and paste it in the box.</li></ol><div style="margin-bottom:8px"><a class="btn" href="'+esc(link2)+'" target="_blank" rel="noopener noreferrer">Open GitHub: make a key</a></div><label class="lab" for="ghTok">Paste the key here</label><input class="in" id="ghTok" type="password" value="'+esc(tok)+'" autocomplete="off" placeholder="github_pat_…">'+(other.length?'<div style="margin-top:8px"><button class="btn sm" data-act="gh-reuse" data-id="'+other[0].id+'">Use the key from “'+esc(other[0].name||'another story')+'”</button><span class="hint"> Only works if that key also covers this repository.</span></div>':''));
+  h+=card(2,'Make a key for this app',!!tok,'<p style="margin:0 0 8px">The key lets this app save into <i>that one repository</i> and nothing else. Press the button, then on the GitHub page:</p><ol style="margin:0 0 8px;padding-left:20px"><li>Under <b>Repository access</b>, choose <b>Only select repositories</b>, then pick the repository from step 1.</li><li>Scroll down and press the green <b>Generate token</b> button.</li><li>Copy the long text that starts with <b>github_pat_</b>. GitHub only shows it once.</li><li>Come back here and paste it in the box.</li></ol><div style="margin-bottom:8px"><a class="btn" href="'+esc(link2)+'" target="_blank" rel="noopener noreferrer">Open GitHub: make a key</a></div><label class="lab" for="ghTok">Paste the key here</label><input class="in" id="ghTok" type="password" value="'+esc(tok)+'" autocomplete="off" placeholder="github_pat_…"><label class="chk" style="margin-top:8px"><input type="checkbox" id="ghKeep"'+(m.keep?' checked':'')+'><span><b>Remember this key in my project data</b><small>Then you only paste it once, and every device you use sees it. The catch: it also travels with OneDrive sync, backups and “Export project” files, so only tick this if you are happy with that.</small></span></label>'+(other.length?'<div style="margin-top:8px"><button class="btn sm" data-act="gh-reuse" data-id="'+other[0].id+'">Use the key from “'+esc(other[0].name||'another story')+'”</button><span class="hint"> Only works if that key also covers this repository.</span></div>':''));
   h+=card(3,'Connect and test',!!m.ok,'<p style="margin:0 0 8px">'+(m.ok?'':'This checks that the key works and that the repository is private.')+'</p>'+(m.ok?'<p style="margin:0 0 8px;color:var(--ok)"><b>'+esc(m.ok)+'</b></p>':'')+(m.msg?'<p style="margin:0 0 8px;color:var(--bad)">'+esc(m.msg)+'</p>':'')+(m.busy?'<p class="hint">Checking…</p>':'<button class="btn primary" data-act="gh-go">'+(m.ok?'Check again':'Connect')+'</button>'));
-  h+='<p class="hint">The key is kept only in this browser, on this device. It is never saved in your project data or in OneDrive, so on another device you would paste it once more. You can remove it any time in Settings.</p>';
+  h+='<p class="hint">Unless you tick “Remember this key in my project data”, the key is kept only in this browser, on this device, and never goes into your project data or OneDrive. On another device you would paste it again. You can remove it any time in Settings.</p>';
   h+='<div class="actions"><button class="btn" data-act="close">'+(m.ok&&!m.after?'Done':'Close')+'</button>'+(m.ok&&m.after?'<button class="btn primary" data-act="gh-cont">Continue</button>':'')+'</div>';
   return h;
 }
@@ -772,7 +772,7 @@ async function ghConnect(){
     if(!v.private){m.busy=false;m.msg='This repository is public, so anyone could read your chapters. On GitHub open the repository, go to Settings, scroll to the bottom (Danger Zone), press Change visibility and choose Private. Then press Connect again.';renderModal();return}
     if(!v.push){m.busy=false;m.msg='The key can look but not save. Do step 2 again and set “Contents” to “Read and write”.';renderModal();return}
     ghSetTok(p.id,tok);
-    p.gh={repo:v.repo,branch:v.branch,folder:(p.gh&&p.gh.folder)||'manuscript'};save('projects',p);
+    p.gh={repo:v.repo,branch:v.branch,folder:(p.gh&&p.gh.folder)||'manuscript'};if(m.keep){p.gh.keep=true;p.gh.key=tok}save('projects',p);
     m.busy=false;m.ok='Connected to '+v.repo+' (private). You are all set.';m.step1=true;renderModal();
   }catch(e){
     if(!S.modal||S.modal.type!=='ghsetup')return;
@@ -5606,7 +5606,7 @@ function odPickModal(){
 function odSettings(){
   var c=odCfg(),p=proj(),h='<div class="sec"><h3>OneDrive</h3>';
   if(OD.acct){
-    h+='<p class="hint">Signed in as '+esc(OD.acct.username||OD.acct.name||'your account')+'. Your library is saved in your OneDrive at Story Organiser/data.json, so every device sees the same thing. Your Word files are only read, never changed.</p>';
+    h+='<p class="hint">Signed in as '+esc(OD.acct.username||OD.acct.name||'your account')+'. Your library is saved in your OneDrive at Story Organiser/data.json, so every device sees the same thing. Your Word files are only changed when you press a button that says so, such as Write anchors, Add a chapter or Move.</p>';
     if(p){
       h+='<p class="hint" style="margin-top:8px">Manuscript folder: <b>'+esc(p.odFolder?p.odFolder.name:'not chosen')+'</b></p><div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn" data-act="od-pick">'+ic('folder')+(p.odFolder?'Change folder':'Choose folder')+'</button>'+(p.odFolder?'<button class="btn" data-act="od-sync">'+ic('refresh')+'Sync now</button><button class="btn" data-act="od-report">What do you see?</button>':'')+'</div>'+
         '<p class="hint" style="margin-top:12px">Portraits folder: <b>'+esc(p.portraitFolder?p.portraitFolder.name:'not chosen')+'</b>. Name each image after the character, for example Danielle Stewart.jpg.</p><div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn" data-act="od-pick-portraits">'+ic('folder')+(p.portraitFolder?'Change folder':'Choose folder')+'</button></div>';
