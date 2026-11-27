@@ -4968,7 +4968,7 @@ function rdStep(v){var items=rdItems(),i=rdPos(items)+v;if(i<0||i>=items.length)
 
 async function arcExportRun(id){
   var a=byId('arcs',id);if(!a)return;
-  var all=rdAttachPages((function(){var o=[];sortBy(P('documents').filter(function(d){return !isTrashed(d)}),'order').forEach(function(d){chapters(d).forEach(function(h){if(chapArc(d,h)===id)o.push({d:d,h:h})})});return o})()).filter(function(x){return x.arcPage||x.h&&chapArc(x.d,x.h)===id});
+  var all=rdAttachPages((function(){var o=[];sortBy(P('documents').filter(function(d){return !isTrashed(d)}),'order').forEach(function(d){chapters(d).forEach(function(h){if(chapArc(d,h)===id)o.push({d:d,h:h})})});return o})()).filter(function(x){return x.arcPage?x.d.arcId===id:!!(x.h&&chapArc(x.d,x.h)===id)});
   if(!all.length){toast('This arc has no chapters or pages to export.');return}
   var docs=[],seen={};all.forEach(function(x){if(!x.arcPage&&!seen[x.d.id]){seen[x.d.id]=1;docs.push(x.d)}});
   var missing=docs.filter(function(d){return !xReady(d)});if(missing.length){toast('Connect the Word files first: '+missing.slice(0,3).map(function(d){return d.title}).join(', ')+(missing.length>3?'…':'')+'.');return}
