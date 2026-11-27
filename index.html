@@ -4935,6 +4935,16 @@ async function renderReader(keepScroll){
   el.innerHTML=head+'<div class="rd-main"><div class="rd-art" tabindex="-1"><div class="rd-pg" style="font-size:'+sz+'px"><p class="hint">Reading…</p></div></div><aside class="rd-meta"'+(RD.meta?'':' hidden')+'>'+rdAside(it)+'</aside></div>'+foot;
   var art=$('#reader .rd-art'), pg=$('#reader .rd-pg');
   if(RD.order){pg.innerHTML=rdOrderHtml(items,i);pg.style.fontSize='';art.scrollTop=top;return}
+  if(it.arcPage){
+    var ap=it.arcPage,ab='';
+    if(ap.kind==='title')ab='<div style="min-height:65vh;display:flex;align-items:center;justify-content:center;text-align:center"><h1>'+esc(ap.title||ap.arcName||'')+'</h1></div>';
+    else if(ap.kind==='image'){
+      if(ap.title)ab='<h2>'+esc(ap.title)+'</h2>';
+      if(ap.image){try{var tr=await gfetch('/me/drive/items/'+ap.image.id+'/thumbnails/0/large');if(tr.ok){var tj=await tr.json();if(tj&&tj.url)ab+='<img src="'+esc(tj.url)+'" alt="'+esc(ap.image.name||'Arc illustration')+'" style="display:block;max-width:100%;max-height:75vh;object-fit:contain;margin:24px auto">';else ab+='<p class="hint">Could not load this illustration.</p>'}else ab+='<p class="hint">Could not load this illustration from OneDrive.</p>'}catch(e){ab+='<p class="hint">Could not load this illustration from OneDrive.</p>'}}
+      else ab+='<p class="hint">No illustration selected yet.</p>';
+    }else{if(ap.title)ab+='<h2>'+esc(ap.title)+'</h2>';(ap.text||'').split(/\\n+/).forEach(function(t){if(t.trim())ab+='<p>'+esc(t)+'</p>'})}
+    if(tok!==RD.tok||!RD.open)return;pg.innerHTML=ab||'<p class="hint">Empty arc page.</p>';art.scrollTop=top;if(!keepScroll)art.focus({preventScroll:true});return;
+  }
   var body, err='';
   try{body=rdBody(it,await rdParas(d,RD.force));RD.force=false}catch(e){body=false;err=(e&&e.message)||''}
   if(tok!==RD.tok||!RD.open)return;
@@ -5023,7 +5033,7 @@ async function runXport(){
     }
     var out=[];
     items.forEach(function(it){
-      if(it.arcPage){var ap=it.arcPage;if(ap.kind==='title'){if(out.length)out.push({pb:true});out.push({lv:1,align:'center',text:ap.title||ap.arcName||''})}else {if(ap.title)out.push({lv:2,text:ap.title});(ap.text||'').split(/\n+/).forEach(function(t){if(t.trim())out.push({lv:0,text:t})})}return;}
+      if(it.arcPage){var ap=it.arcPage;if(ap.kind==='title'){if(out.length)out.push({pb:true});out.push({lv:1,align:'center',text:ap.title||ap.arcName||''})}else if(ap.kind==='image'){if(ap.title)out.push({lv:2,text:ap.title});out.push({lv:0,text:'[Illustration: '+((ap.image&&ap.image.name)||'image not selected')+']'})}else{if(ap.title)out.push({lv:2,text:ap.title});(ap.text||'').split(/\n+/).forEach(function(t){if(t.trim())out.push({lv:0,text:t})})}return;}
       var seg=rdSlice(it.d,it.h,paras[it.d.id]);
       if(!seg){lost.push(it.h?it.h.title:it.d.title);return}
       seg.forEach(function(x){if(x.lv>0||x.text.trim())out.push({lv:x.lv,text:x.text})});
@@ -5074,14 +5084,17 @@ async function runPdfXport(){
     pop.document.open();pop.document.write('<!doctype html><title>Preparing PDF</title><p style="font:16px sans-serif;padding:2rem">Preparing your combined document…</p>');pop.document.close();
     for(var i=0;i<docs.length;i++){S.modal={type:'busy',msg:'Preparing PDF: reading file '+(i+1)+' of '+docs.length+'.'};renderModal();var ps=await rdParas(docs[i],true);if(!ps)throw new Error('No text for '+docs[i].title);paras[docs[i].id]=ps}
     var out=[];
-    items.forEach(function(it){
-      if(it.arcPage){var ap=it.arcPage;if(ap.kind==='title'){if(out.length)out.push({pb:true});out.push({lv:1,align:'center',text:ap.title||ap.arcName||''})}else{if(ap.title)out.push({lv:2,text:ap.title});(ap.text||'').split(/\\n+/).forEach(function(t){if(t.trim())out.push({lv:0,text:t})})}return}
-      var seg=rdSlice(it.d,it.h,paras[it.d.id]);if(!seg)return;seg.forEach(function(x){if(x.lv>0||x.text.trim())out.push({lv:x.lv,text:x.text})})
-    });
+    for(var q=0;q<items.length;q++){
+      var it=items[q];
+      if(it.arcPage){var ap=it.arcPage;if(ap.kind==='title'){if(out.length)out.push({pb:true});out.push({lv:1,align:'center',text:ap.title||ap.arcName||''})}
+        else if(ap.kind==='image'){if(ap.title)out.push({lv:2,text:ap.title});var imgUrl='';if(ap.image){try{var ir=await gfetch('/me/drive/items/'+ap.image.id+'/thumbnails/0/large');if(ir.ok){var ij=await ir.json();imgUrl=ij&&ij.url||''}}catch(e){}}out.push({lv:0,text:'[Illustration: '+((ap.image&&ap.image.name)||'image not selected')+']',imgUrl:imgUrl})}
+        else{if(ap.title)out.push({lv:2,text:ap.title});(ap.text||'').split(/\\n+/).forEach(function(t){if(t.trim())out.push({lv:0,text:t})})}continue}
+      var seg=rdSlice(it.d,it.h,paras[it.d.id]);if(!seg)continue;seg.forEach(function(x){if(x.lv>0||x.text.trim())out.push({lv:x.lv,text:x.text})})
+    }
     if(!out.length)throw new Error('Nothing was found in those files');
-    var body=out.map(function(x){if(x.pb)return '<div class="pagebreak"></div>';var t=esc(x.text||'');if(x.lv>0)return '<h'+Math.min(4,x.lv)+'>'+t+'</h'+Math.min(4,x.lv)+'>';return '<p>'+t+'</p>'}).join('');
+    var body=out.map(function(x){if(x.pb)return '<div class="pagebreak"></div>';if(x.imgUrl)return '<figure><img src="'+esc(x.imgUrl)+'" alt="'+esc(x.text||'Illustration')+'"><figcaption>'+esc(x.text||'')+'</figcaption></figure>';var t=esc(x.text||'');if(x.lv>0)return '<h'+Math.min(4,x.lv)+'>'+t+'</h'+Math.min(4,x.lv)+'>';return '<p>'+t+'</p>'}).join('');
     var title=esc((m.name||'Story export').replace(/\\.docx$/i,''));
-    pop.document.open();pop.document.write('<!doctype html><html><head><meta charset="utf-8"><title>'+title+'</title><style>@page{size:auto;margin:22mm 20mm}body{font:11pt/1.55 Cambria,Georgia,serif;color:#111;max-width:760px;margin:0 auto}h1,h2,h3,h4{font-family:Cambria,Georgia,serif;line-height:1.2;break-after:avoid;margin:1.5em 0 .6em}h1{text-align:center;font-size:25pt;margin-top:35vh}p{margin:0 0 .8em;white-space:pre-wrap}.pagebreak{break-before:page;page-break-before:always}@media screen{body{padding:32px}.pagebreak{border-top:1px dashed #aaa;margin:32px 0}}</style></head><body>'+body+'</body></html>');pop.document.close();closeModal();pop.focus();setTimeout(function(){try{pop.print()}catch(e){}},500);
+    pop.document.open();pop.document.write('<!doctype html><html><head><meta charset="utf-8"><title>'+title+'</title><style>@page{size:auto;margin:22mm 20mm}body{font:11pt/1.55 Cambria,Georgia,serif;color:#111;max-width:760px;margin:0 auto}h1,h2,h3,h4{font-family:Cambria,Georgia,serif;line-height:1.2;break-after:avoid;margin:1.5em 0 .6em}h1{text-align:center;font-size:25pt;margin-top:35vh}p{margin:0 0 .8em;white-space:pre-wrap}figure{margin:24px 0;text-align:center;break-inside:avoid}figure img{max-width:100%;max-height:235mm;object-fit:contain}figcaption{font-size:9pt;color:#555;margin-top:8px}.pagebreak{break-before:page;page-break-before:always}@media screen{body{padding:32px}.pagebreak{border-top:1px dashed #aaa;margin:32px 0}}</style></head><body>'+body+'</body></html>');pop.document.close();closeModal();pop.focus();setTimeout(function(){try{pop.print()}catch(e){}},500);
   }catch(e){try{pop.close()}catch(ignore){}closeModal();toast('PDF preparation failed'+(e&&e.message?': '+e.message:'')+'.')}
 }
 
