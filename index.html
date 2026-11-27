@@ -4790,7 +4790,7 @@ function rdByDate(b){
     return {x:x,k:k,i:i};
   });
   rows.sort(function(a,c){if(a.k==null&&c.k==null)return a.i-c.i;if(a.k==null)return 1;if(c.k==null)return -1;return (a.k-c.k)||(a.i-c.i)});
-  return rows.map(function(r){return {d:r.x.d,h:r.x.h,ek:r.k}});
+  return rows.map(function(r){return {d:r.x.d,h:r.x.h,arcPage:r.x.arcPage,ek:r.k}});
 }
 function keyLong(k){var y=Math.floor(k/10000),mo=Math.floor(k/100)%100,da=k%100;return longDate((da?da+' ':'')+(mo?mname(y,mo)+' ':'')+y)}
 function rdCustom(){var pr=proj();return !!(pr&&pr.readSeq&&pr.readSeq.length)}
