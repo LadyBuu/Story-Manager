@@ -4959,6 +4959,7 @@ function xItems(){
       out.push({d:d,h:x,v:{route:base.route,variant:chapVariant(d,x),kind:base.kind,arc:chapArc(d,x),tag:tg,status:base.status},words:chapWords(d,x)||0});
     });
   });
+  sortBy(P('arcs'),'order').forEach(function(a){(a.pages||[]).forEach(function(p){var d={id:'arcpage:'+p.id,title:p.title||a.name||'Arc page',order:a.order};out.push({d:d,h:null,arcPage:Object.assign({arcName:a.name||''},p),v:{route:'',variant:'canon',kind:'front-matter',arc:a.id,tag:[],status:'Idea'},words:(p.text||'').trim()?p.text.trim().split(/\s+/).length:0})})});
   return out;
 }
 function xName(f,v){
@@ -5011,7 +5012,7 @@ async function runXport(){
   var m=S.modal, nm=$('#xName');if(nm)m.name=nm.value;
   var sel=m.sel, items=xSort(xItems().filter(function(it){return xPass(it,sel)}));if(!items.length)return;
   var name=cleanName(m.name||'Export'), mark=!!m.mark, docs=[], seen={};
-  items.forEach(function(it){if(!seen[it.d.id]){seen[it.d.id]=1;docs.push(it.d)}});
+  items.forEach(function(it){if(!it.arcPage&&!seen[it.d.id]){seen[it.d.id]=1;docs.push(it.d)}});
   var miss=docs.filter(function(d){return !xReady(d)});
   if(miss.length){m.err='Pick the Word files first.';renderModal();return}
   var paras={}, lost=[];
@@ -5023,6 +5024,7 @@ async function runXport(){
     }
     var out=[];
     items.forEach(function(it){
+      if(it.arcPage){var ap=it.arcPage;if(ap.kind==='title')out.push({lv:1,text:ap.title||ap.arcName||''});else {if(ap.title)out.push({lv:2,text:ap.title});(ap.text||'').split(/\n+/).forEach(function(t){if(t.trim())out.push({lv:0,text:t})})}return;}
       var seg=rdSlice(it.d,it.h,paras[it.d.id]);
       if(!seg){lost.push(it.h?it.h.title:it.d.title);return}
       seg.forEach(function(x){if(x.lv>0||x.text.trim())out.push({lv:x.lv,text:x.text})});
