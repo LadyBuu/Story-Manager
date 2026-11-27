@@ -2707,7 +2707,7 @@ function arcCard(a){
   var h=dbar('Arc','arcs',a.id);
   h+='<input class="title-in" data-bind="arcs:'+a.id+':name" value="'+esc(a.name)+'" aria-label="Arc name" placeholder="Arc name">';
   h+=arcCover(a)+arcMeta(a);
-  h+='<div class="actions" style="margin:10px 0"><button class="btn primary" data-act="arc-export" data-id="'+a.id+'">Export whole arc to Word</button></div>';
+  h+='<div class="actions" style="margin:10px 0"><button class="btn primary" data-act="arc-export" data-id="'+a.id+'">Export whole arc to Word</button><button class="btn" data-act="arc-export-md" data-id="'+a.id+'">Export Markdown to GitHub</button></div>';
   if(!a.parentId)h+='<p style="margin:0 0 10px"><button class="btn sm" data-act="new-subarc" data-id="'+a.id+'">'+ic('plus',14)+'Add a sub arc inside this one</button></p>';
   if(aw)h+='<p class="hint">About '+fmtN(aw)+' words in this arc, counted by chapter.</p>';
   if(mine.length)h+='<div class="sbar" role="img" aria-label="Progress by status">'+STATUSES.filter(function(s){return cnt[s]}).map(function(s){return '<i style="flex:'+cnt[s]+';--st:var(--st-'+s.toLowerCase()+')"></i>'}).join('')+'</div><div class="legend">'+STATUSES.filter(function(s){return cnt[s]}).map(function(s){return '<span><i style="--st:var(--st-'+s.toLowerCase()+')"></i>'+cnt[s]+' '+s+'</span>'}).join('')+'</div>';
@@ -4503,7 +4503,7 @@ routes:function(){S.modal={type:'routes',edit:null};renderModal()},
 },
 path:function(){S.modal={type:'path',aux:false};renderModal()},
 
-'arc-export':function(el){arcExportRun(el.dataset.id)},
+'arc-export':function(el){arcExportRun(el.dataset.id)},\n'arc-export-md':function(el){arcExportMarkdownRun(el.dataset.id)},
 'arc-page-add':function(el){var a=byId('arcs',el.dataset.id);if(!a)return;var pages=a.pages||(a.pages=[]);pages.push({id:uid(),kind:el.dataset.kind,title:el.dataset.kind==='title'?(a.name||'Arc'):'',text:''});save('arcs',a);render();},
 'arc-image-open':function(el){arcImagesOpen(el.dataset.id,+el.dataset.i)},
 'arc-image-use':function(el){var m=S.modal,x=m&&m.items&&m.items[+el.dataset.i],a=m&&byId('arcs',m.arcId),pg=a&&a.pages&&a.pages[m.pageIndex];if(!x||!pg)return;pg.image={id:x.id,name:x.name};save('arcs',a);closeModal();render();},
@@ -4966,6 +4966,36 @@ function rdClose(){RD.open=false;RD.tok++;renderReader()}
 function rdStep(v){var items=rdItems(),i=rdPos(items)+v;if(i<0||i>=items.length)return;RD.key=rdKey(items[i]);renderReader()}
 
 
+async function arcExportMarkdownRun(id){
+  var a=byId('arcs',id),pr=proj(),g=pr&&pr.gh;
+  if(!a)return;
+  if(!g||!g.repo||!ghTok()){toast('Connect this story to GitHub first.');ghOpenSetup();return}
+  var all=rdAttachPages((function(){var o=[];sortBy(P('documents').filter(function(d){return !isTrashed(d)}),'order').forEach(function(d){chapters(d).forEach(function(h){if(chapArc(d,h)===id)o.push({d:d,h:h})})});return o})()).filter(function(x){return x.arcPage?x.d.arcId===id:!!(x.h&&chapArc(x.d,x.h)===id)});
+  if(!all.length){toast('This arc has no chapters or pages to export.');return}
+  var docs=[],seen={};all.forEach(function(x){if(!x.arcPage&&!seen[x.d.id]){seen[x.d.id]=1;docs.push(x.d)}});
+  var missing=docs.filter(function(d){return !xReady(d)});if(missing.length){toast('Connect the Word files first: '+missing.slice(0,3).map(function(d){return d.title}).join(', ')+(missing.length>3?'…':'')+'.');return}
+  S.modal={type:'busy',msg:'Preparing Markdown.'};renderModal();
+  try{
+    var cache={},lines=['# '+(a.name||'Arc'),''];
+    for(var i=0;i<docs.length;i++){S.modal={type:'busy',msg:'Reading file '+(i+1)+' of '+docs.length+'.'};renderModal();var pp=await rdParas(docs[i],true);if(!pp)throw new Error('No text for '+docs[i].title);cache[docs[i].id]=pp}
+    for(var j=0;j<all.length;j++){
+      var x=all[j];if(j)lines.push('','---','');
+      if(x.arcPage){
+        var p=x.arcPage;
+        if(p.kind==='title'){lines.push('## '+(p.title||a.name||'Arc'),'');}
+        else if(p.kind==='image'){if(p.title)lines.push('## '+p.title,'');lines.push('> Illustration: '+(p.image&&p.image.name||'image not selected'),'');}
+        else{if(p.title)lines.push('## '+p.title,'');(p.text||'').split(/\\n+/).forEach(function(t){if(t.trim())lines.push(t,'')})}
+      }else{
+        var seg=x.h?rdSlice(x.d,x.h,cache[x.d.id]):cache[x.d.id];if(!seg)throw new Error('Could not find chapter '+x.h.title+' in '+x.d.title);
+        seg.forEach(function(p){var lv=Math.max(0,Math.min(6,p.lv||0));lines.push(lv?'#'.repeat(lv+1)+' '+p.text:p.text,'')});
+      }
+    }
+    var slug=cleanName(a.name||'Arc').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'arc';
+    var path='arcs/'+slug+'.md',content=lines.join('\\n').replace(/\\n{3,}/g,'\\n\\n').trim()+'\\n';
+    await ghCommit([{path:path,content:content}],'Export arc: '+(a.name||'Arc'));
+    closeModal();toast('Arc Markdown saved to GitHub: '+path+'.');
+  }catch(e){closeModal();toast('Markdown export failed: '+ghErr(e,g.repo))}
+}
 async function arcExportRun(id){
   var a=byId('arcs',id);if(!a)return;
   var all=rdAttachPages((function(){var o=[];sortBy(P('documents').filter(function(d){return !isTrashed(d)}),'order').forEach(function(d){chapters(d).forEach(function(h){if(chapArc(d,h)===id)o.push({d:d,h:h})})});return o})()).filter(function(x){return x.arcPage?x.d.arcId===id:!!(x.h&&chapArc(x.d,x.h)===id)});
