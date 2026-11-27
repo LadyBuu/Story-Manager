@@ -4978,13 +4978,8 @@ function xPass(it,sel){
   });
 }
 function xSort(items){
-  var pr=proj(), seq=(pr&&pr.readSeq)||[], idx={};seq.forEach(function(k,i){idx[k]=i});
-  var inSeq=seq.length&&items.every(function(it){return idx[rdKey(it)]!=null});
-  var ord=function(it){return it.h?(it.d.headings||[]).indexOf(it.h):0};
-  return items.slice().sort(function(a,b){
-    if(inSeq)return idx[rdKey(a)]-idx[rdKey(b)];
-    return ((a.d.order||0)-(b.d.order||0))||(a.d.id<b.d.id?-1:a.d.id>b.d.id?1:0)||(ord(a)-ord(b));
-  });
+  var all=rdItemsBase(),idx={};all.forEach(function(x,i){idx[rdKey(x)]=i});
+  return items.slice().sort(function(a,b){var ai=idx[rdKey(a)],bi=idx[rdKey(b)];if(ai!=null&&bi!=null)return ai-bi;return ((a.d.order||0)-(b.d.order||0))||(a.d.id<b.d.id?-1:a.d.id>b.d.id?1:0)||((a.d.headings||[]).indexOf(a.h)-(b.d.headings||[]).indexOf(b.h))});
 }
 function xReady(d){return EXT.auto(d)||!!RDF[d.id]||!!(d.file&&d.file.gh&&ghTok(d.pid))}
 function xportModal(){
