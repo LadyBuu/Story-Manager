@@ -4984,7 +4984,7 @@ function xSort(items){
 function xReady(d){return EXT.auto(d)||!!RDF[d.id]||!!(d.file&&d.file.gh&&ghTok(d.pid))}
 function xportModal(){
   var m=S.modal, all=xItems(), sel=m.sel, items=xSort(all.filter(function(it){return xPass(it,sel)}));
-  var words=items.reduce(function(s,it){return s+it.words},0), docs={};items.forEach(function(it){docs[it.d.id]=it.d});
+  var words=items.reduce(function(s,it){return s+it.words},0), docs={};items.forEach(function(it){if(!it.arcPage)docs[it.d.id]=it.d});
   var groups=XF.map(function(f){
     var cnt={};all.forEach(function(it){var v=it.v[f[0]];(Array.isArray(v)?v:[v]).forEach(function(x){cnt[x]=(cnt[x]||0)+1})});
     var keys=Object.keys(cnt);if(f[0]==='variant'||f[0]==='kind'||f[0]==='status')keys.sort();else keys.sort(function(a,b){return xName(f[0],a).localeCompare(xName(f[0],b))});
