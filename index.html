@@ -3026,7 +3026,7 @@ async function buildDocx(paras){
   var body=paras.map(function(x){
     if(x.pb)return '<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
     var lv=Math.min(x.lv||0,6);
-    return '<w:p>'+(lv?'<w:pPr><w:pStyle w:val="Heading'+lv+'"/></w:pPr>':'')+xruns(x.text)+'</w:p>';
+    return '<w:p>'+(lv||x.align?'<w:pPr>'+(lv?'<w:pStyle w:val="Heading'+lv+'"/>':'')+(x.align?'<w:jc w:val="'+x.align+'"/>':'')+'</w:pPr>':'')+xruns(x.text)+'</w:p>';
   }).join('');
   var sty=hd+'<w:styles '+NS+'><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:sz w:val="24"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="160" w:line="276" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style>';
   for(var i=1;i<=6;i++)sty+='<w:style w:type="paragraph" w:styleId="Heading'+i+'"><w:name w:val="heading '+i+'"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/><w:pPr><w:keepNext/><w:spacing w:before="'+(i<3?360:240)+'" w:after="120"/><w:outlineLvl w:val="'+(i-1)+'"/></w:pPr><w:rPr><w:b/><w:sz w:val="'+Math.max(24,36-i*4)+'"/></w:rPr></w:style>';
@@ -5019,7 +5019,7 @@ async function runXport(){
     }
     var out=[];
     items.forEach(function(it){
-      if(it.arcPage){var ap=it.arcPage;if(ap.kind==='title'){if(out.length)out.push({pb:true});out.push({lv:1,text:ap.title||ap.arcName||''})}else {if(ap.title)out.push({lv:2,text:ap.title});(ap.text||'').split(/\n+/).forEach(function(t){if(t.trim())out.push({lv:0,text:t})})}return;}
+      if(it.arcPage){var ap=it.arcPage;if(ap.kind==='title'){if(out.length)out.push({pb:true});out.push({lv:1,align:'center',text:ap.title||ap.arcName||''})}else {if(ap.title)out.push({lv:2,text:ap.title});(ap.text||'').split(/\n+/).forEach(function(t){if(t.trim())out.push({lv:0,text:t})})}return;}
       var seg=rdSlice(it.d,it.h,paras[it.d.id]);
       if(!seg){lost.push(it.h?it.h.title:it.d.title);return}
       seg.forEach(function(x){if(x.lv>0||x.text.trim())out.push({lv:x.lv,text:x.text})});
