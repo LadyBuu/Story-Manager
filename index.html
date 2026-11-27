@@ -4984,14 +4984,14 @@ async function arcExportMarkdownRun(id){
         var p=x.arcPage;
         if(p.kind==='title'){lines.push('## '+(p.title||a.name||'Arc'),'');}
         else if(p.kind==='image'){if(p.title)lines.push('## '+p.title,'');lines.push('> Illustration: '+(p.image&&p.image.name||'image not selected'),'');}
-        else{if(p.title)lines.push('## '+p.title,'');(p.text||'').split(/\\n+/).forEach(function(t){if(t.trim())lines.push(t,'')})}
+        else{if(p.title)lines.push('## '+p.title,'');(p.text||'').split(/\n+/).forEach(function(t){if(t.trim())lines.push(t,'')})}
       }else{
         var seg=x.h?rdSlice(x.d,x.h,cache[x.d.id]):cache[x.d.id];if(!seg)throw new Error('Could not find chapter '+x.h.title+' in '+x.d.title);
         seg.forEach(function(p){var lv=Math.max(0,Math.min(6,p.lv||0));lines.push(lv?'#'.repeat(lv+1)+' '+p.text:p.text,'')});
       }
     }
     var slug=cleanName(a.name||'Arc').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'arc';
-    var path='arcs/'+slug+'.md',content=lines.join('\\n').replace(/\\n{3,}/g,'\\n\\n').trim()+'\\n';
+    var path='arcs/'+slug+'.md',content=lines.join('\n').replace(/\n{3,}/g,'\n\n').trim()+'\n';
     await ghCommit([{path:path,content:content}],'Export arc: '+(a.name||'Arc'));
     closeModal();toast('Arc Markdown saved to GitHub: '+path+'.');
   }catch(e){closeModal();toast('Markdown export failed: '+ghErr(e,g.repo))}
