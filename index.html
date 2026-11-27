@@ -2724,8 +2724,8 @@ function arcCard(a){
   }).join(''):'<p class="hint">No chapters in this arc yet. Set the arc on a chapter, in Documents, Chapters or here.</p>')+'</div>';
   if(bare.length)h+='<div class="sec"><h3>Files without chapters</h3><div class="links">'+bare.map(function(d){return linkRow('documents','',d.id,rp[d.id],d.title,d.status)}).join('')+'</div></div>';
   var pages=a.pages||[];
-  h+='<div class="sec"><h3>Arc pages</h3><p class="hint">Add front matter or passage pages and arrange them before or after chapters. These are stored with the arc.</p><div class="actions" style="justify-content:flex-start"><button class="btn sm" data-act="arc-page-add" data-id="'+a.id+'" data-kind="title">Add title page</button><button class="btn sm" data-act="arc-page-add" data-id="'+a.id+'" data-kind="passage">Add passage page</button></div>';
-  h+=pages.length?pages.map(function(p,i){return '<div class="sec"><div class="arcdoc-h"><b>'+(i+1)+'. '+(p.kind==='title'?'Title page':'Passage page')+'</b><span><button class="btn sm" data-act="arc-page-move" data-id="'+a.id+'" data-i="'+i+'" data-d="-1"'+(i===0?' disabled':'')+'>↑</button> <button class="btn sm" data-act="arc-page-move" data-id="'+a.id+'" data-i="'+i+'" data-d="1"'+(i===pages.length-1?' disabled':'')+'>↓</button> <button class="btn sm" data-act="arc-page-del" data-id="'+a.id+'" data-i="'+i+'">Remove</button></span></div><label class="lab">'+(p.kind==='title'?'Title':'Heading (optional)')+'</label><input class="in" data-arcpage="'+a.id+':'+i+':title" value="'+esc(p.title||'')+'" placeholder="'+(p.kind==='title'?'Arc title':'Passage heading')+'">'+(p.kind==='passage'?'<label class="lab">Passage</label><textarea class="in" rows="5" data-arcpage="'+a.id+':'+i+':text" placeholder="Write passage text">'+esc(p.text||'')+'</textarea>':'')+'</div>'}).join(''):'<p class="hint">No custom pages yet.</p>';
+  h+='<div class="sec"><h3>Arc pages</h3><p class="hint">Add front matter, passage pages or illustrations and arrange them in the reading order. Illustrations are selected from your OneDrive illustrations folder.</p><div class="actions" style="justify-content:flex-start"><button class="btn sm" data-act="arc-page-add" data-id="'+a.id+'" data-kind="title">Add title page</button><button class="btn sm" data-act="arc-page-add" data-id="'+a.id+'" data-kind="passage">Add passage page</button><button class="btn sm" data-act="arc-page-add" data-id="'+a.id+'" data-kind="image"'+(!(proj()||{}).illustrationFolder?' disabled title="Choose an illustrations folder in OneDrive settings first"':'')+'>Add illustrated page</button></div>';
+  h+=pages.length?pages.map(function(p,i){return '<div class="sec"><div class="arcdoc-h"><b>'+(i+1)+'. '+(p.kind==='title'?'Title page':p.kind==='image'?'Illustrated page':'Passage page')+'</b><span><button class="btn sm" data-act="arc-page-move" data-id="'+a.id+'" data-i="'+i+'" data-d="-1"'+(i===0?' disabled':'')+'>↑</button> <button class="btn sm" data-act="arc-page-move" data-id="'+a.id+'" data-i="'+i+'" data-d="1"'+(i===pages.length-1?' disabled':'')+'>↓</button> <button class="btn sm" data-act="arc-page-del" data-id="'+a.id+'" data-i="'+i+'">Remove</button></span></div><label class="lab">'+(p.kind==='title'?'Title':'Heading (optional)')+'</label><input class="in" data-arcpage="'+a.id+':'+i+':title" value="'+esc(p.title||'')+'" placeholder="'+(p.kind==='title'?'Arc title':'Passage heading')+'">'+(p.kind==='passage'?'<label class="lab">Passage</label><textarea class="in" rows="5" data-arcpage="'+a.id+':'+i+':text" placeholder="Write passage text">'+esc(p.text||'')+'</textarea>':p.kind==='image'?'<p class="hint">'+esc(p.image?p.image.name:'No image selected')+'</p><button class="btn sm" data-act="arc-image-open" data-id="'+a.id+'" data-i="'+i+'">'+(p.image?'Change image':'Choose image from OneDrive')+'</button>':'')+'</div>'}).join(''):'<p class="hint">No custom pages yet.</p>';
   h+='</div>';
   return h;
 }
@@ -2745,6 +2745,7 @@ function renderModal(){
   else if(m.type==='picker')inner='<h2>'+esc(pickerSpec.title)+'</h2><input class="in" id="pickIn" data-input="pick" data-enter="pick-create" placeholder="'+(pickerSpec.create?'Filter, or type a new name and press Enter':'Filter')+'" aria-label="Filter"><div id="pickList" style="margin-top:8px">'+pickRows('')+'</div><div class="actions"><button class="btn primary" data-act="close">Done</button></div>';
   else if(m.type==='routes')inner=routesModal();
   else if(m.type==='odpick')inner=odPickModal();
+  else if(m.type==='arcimages')inner=arcImagesModal();
   else if(m.type==='odfiles')inner=odFilesModal();
   else if(m.type==='odrep')inner=odReportModal();
   else if(m.type==='odbk')inner=odBkModal();
@@ -4499,7 +4500,9 @@ routes:function(){S.modal={type:'routes',edit:null};renderModal()},
 },
 path:function(){S.modal={type:'path',aux:false};renderModal()},
 
-'arc-page-add':function(el){var a=byId('arcs',el.dataset.id);if(!a)return;var pages=a.pages||(a.pages=[]);pages.push({id:uid(),kind:el.dataset.kind,title:el.dataset.kind==='title'?(a.name||'Arc'):'' ,text:''});save('arcs',a);render();},
+'arc-page-add':function(el){var a=byId('arcs',el.dataset.id);if(!a)return;var pages=a.pages||(a.pages=[]);pages.push({id:uid(),kind:el.dataset.kind,title:el.dataset.kind==='title'?(a.name||'Arc'):'',text:''});save('arcs',a);render();},
+'arc-image-open':function(el){arcImagesOpen(el.dataset.id,+el.dataset.i)},
+'arc-image-use':function(el){var m=S.modal,x=m&&m.items&&m.items[+el.dataset.i],a=m&&byId('arcs',m.arcId),pg=a&&a.pages&&a.pages[m.pageIndex];if(!x||!pg)return;pg.image={id:x.id,name:x.name};save('arcs',a);closeModal();render();},
 'arc-page-del':function(el){var a=byId('arcs',el.dataset.id);if(!a||!a.pages)return;a.pages.splice(+el.dataset.i,1);save('arcs',a);render();},
 'arc-page-move':function(el){var a=byId('arcs',el.dataset.id);if(!a||!a.pages)return;var i=+el.dataset.i,j=i+(+el.dataset.d);if(j<0||j>=a.pages.length)return;var p=a.pages.splice(i,1)[0];a.pages.splice(j,0,p);save('arcs',a);render();},
 };
@@ -5738,9 +5741,20 @@ async function odList(){
   if(S.modal!==m||m.tok!==tok)return;
   m.items=items;m.loading=false;renderModal();
 }
+async function arcImagesOpen(arcId,pageIndex){
+  var p=proj(),folder=p&&p.illustrationFolder;if(!folder){toast('Choose an illustrations folder in OneDrive settings first.');return}
+  S.modal={type:'arcimages',arcId:arcId,pageIndex:pageIndex,items:[],loading:true,err:''};renderModal();
+  try{var url='/me/drive/items/'+folder.id+'/children?$select=id,name,file&$top=200',items=[];while(url){var r=await gfetch(url);if(!r.ok)throw new Error(r.status);var j=await r.json();(j.value||[]).forEach(function(x){if(x.file&&/\.(png|jpe?g|gif|webp|avif|bmp)$/i.test(x.name))items.push({id:x.id,name:x.name})});url=j['@odata.nextLink']||null}items.sort(function(a,b){return a.name.localeCompare(b.name,undefined,{numeric:true})});if(S.modal&&S.modal.type==='arcimages'){S.modal.items=items;S.modal.loading=false;renderModal()}}
+  catch(e){if(S.modal&&S.modal.type==='arcimages'){S.modal.loading=false;S.modal.err='Could not list images in this OneDrive folder.';renderModal()}}
+}
+function arcImagesModal(){
+  var m=S.modal,h='<h2>Choose an illustration</h2><p class="hint">Images in '+esc((proj()||{}).illustrationFolder&&proj().illustrationFolder.name||'your OneDrive folder')+'</p>';
+  if(m.loading)h+='<p class="hint">Loading images…</p>';else if(m.err)h+='<p class="hint">'+esc(m.err)+'</p>';else if(!m.items.length)h+='<p class="hint">No supported image files found.</p>';
+  h+='<div style="max-height:45vh;overflow:auto">'+(m.items||[]).map(function(x,i){return '<button class="btn ghost" style="display:flex;width:100%;justify-content:flex-start;margin:4px 0" data-act="arc-image-use" data-i="'+i+'">'+ic('image')+esc(x.name)+'</button>'}).join('')+'</div><div class="actions"><button class="btn" data-act="close">Cancel</button></div>';return h;
+}
 function odPickModal(){
   var m=S.modal;
-  var h='<h2>Choose your '+(m.target==='portraits'?'portraits':'manuscript')+' folder</h2><p class="hint">'+esc(m.stack.map(function(x){return x.name}).join(' / '))+'</p>';
+  var h='<h2>Choose your '+(m.target==='portraits'?'portraits':m.target==='illustrations'?'illustrations':'manuscript')+' folder</h2><p class="hint">'+esc(m.stack.map(function(x){return x.name}).join(' / '))+'</p>';
   if(m.err)h+='<p class="hint">'+esc(m.err)+'</p>';
   h+='<div class="fpick">';
   if(m.stack.length>1)h+='<button class="btn ghost" data-act="od-up">'+ic('folder')+'Up one level</button>';
@@ -5755,7 +5769,7 @@ function odSettings(){
     h+='<p class="hint">Signed in as '+esc(OD.acct.username||OD.acct.name||'your account')+'. Your library is saved in your OneDrive at Story Organiser/data.json, so every device sees the same thing. Your Word files are only changed when you press a button that says so, such as Write anchors, Add a chapter or Move.</p>';
     if(p){
       h+='<p class="hint" style="margin-top:8px">Manuscript folder: <b>'+esc(p.odFolder?p.odFolder.name:'not chosen')+'</b></p><div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn" data-act="od-pick">'+ic('folder')+(p.odFolder?'Change folder':'Choose folder')+'</button>'+(p.odFolder?'<button class="btn" data-act="od-sync">'+ic('refresh')+'Sync now</button><button class="btn" data-act="od-report">What do you see?</button>':'')+'</div>'+
-        '<p class="hint" style="margin-top:12px">Portraits folder: <b>'+esc(p.portraitFolder?p.portraitFolder.name:'not chosen')+'</b>. Name each image after the character, for example Danielle Stewart.jpg.</p><div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn" data-act="od-pick-portraits">'+ic('folder')+(p.portraitFolder?'Change folder':'Choose folder')+'</button></div>';
+        '<p class="hint" style="margin-top:12px">Portraits folder: <b>'+esc(p.portraitFolder?p.portraitFolder.name:'not chosen')+'</b>. Name each image after the character, for example Danielle Stewart.jpg.</p><div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn" data-act="od-pick-portraits">'+ic('folder')+(p.portraitFolder?'Change folder':'Choose folder')+'</button></div><p class="hint" style="margin-top:12px">Illustrations folder: <b>'+esc(p.illustrationFolder?p.illustrationFolder.name:'not chosen')+'</b>. Arc illustrated pages select individual image files from this folder.</p><div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn" data-act="od-pick-illustrations">'+ic('folder')+(p.illustrationFolder?'Change folder':'Choose folder')+'</button></div>';
     }
     h+='<p class="hint" style="margin-top:12px"><b>Deleted documents.</b> A trashed document stays out of the list and sync will not bring it back. A Word file inside any folder whose name contains “Deleted” or “Trash” (anywhere inside your manuscript folder) counts as deleted; move it back out and the document returns.</p><label class="chk" style="margin-top:6px"><input type="checkbox" data-act="od-delmove"'+(delMoveOn()?' checked':'')+'><span>When I trash a document, move its Word file into the Deleted folder</span></label>';
     if(p&&(p.ignored||[]).length)h+='<p class="hint" style="margin-top:8px">Permanently deleted, so sync skips these files:</p>'+p.ignored.map(function(x,i){return '<div style="display:flex;align-items:center;gap:8px;padding:4px 0"><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(x.name||x.id)+'</span><button class="btn sm" data-act="od-unignore" data-i="'+i+'">Allow again</button></div>'}).join('');
@@ -5845,6 +5859,7 @@ Object.assign(A,{
   },
   'od-pick':function(){S.modal={type:'odpick',stack:[{id:'root',name:'OneDrive'}],items:[],loading:true,err:''};renderModal();odList()},
   'od-pick-portraits':function(){S.modal={type:'odpick',target:'portraits',stack:[{id:'root',name:'OneDrive'}],items:[],loading:true,err:''};renderModal();odList()},
+  'od-pick-illustrations':function(){S.modal={type:'odpick',target:'illustrations',stack:[{id:'root',name:'OneDrive'}],items:[],loading:true,err:''};renderModal();odList()},
   'od-open':function(el){var m=S.modal,f=m.items[+el.dataset.i];if(!f)return;m.stack.push({id:f.id,name:f.name,webUrl:f.webUrl});odList()},
   'od-up':function(){var m=S.modal;if(m.stack.length>1){m.stack.pop();odList()}},
   'od-use':function(){
@@ -5854,6 +5869,7 @@ Object.assign(A,{
       odPortraits(p).then(function(n){render();toast(n?n+' portrait'+(n>1?'s':'')+' matched.':'No images matched your character names. Name each file like the character, for example Danielle Stewart.jpg.')}).catch(function(){toast('Could not read the portraits folder.')});
       return;
     }
+    if(m.target==='illustrations'){p.illustrationFolder={id:cur.id,name:cur.name};save('projects',p,true);closeModal();render();toast('Illustrations folder saved.');return}
     p.odFolder={id:cur.id,name:cur.name,webUrl:cur.webUrl||'',drive:cur.drive||''};
     if(cur.webUrl)p.folderUrl=cur.webUrl;
     save('projects',p,true);closeModal();odSyncNow();
