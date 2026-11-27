@@ -4496,7 +4496,7 @@ routes:function(){S.modal={type:'routes',edit:null};renderModal()},
   dropDoc('routes',id);if(S.rid===id){S.rid=par;S.rids=[par]}
   pushUndo('Deleted route',u);closeModal();render();toast('Route deleted',true);
 },
-path:function(){S.modal={type:'path',aux:false};renderModal()}
+path:function(){S.modal={type:'path',aux:false};renderModal()},
 
 'arc-page-add':function(el){var a=byId('arcs',el.dataset.id);if(!a)return;var pages=a.pages||(a.pages=[]);pages.push({id:uid(),kind:el.dataset.kind,title:el.dataset.kind==='title'?(a.name||'Arc'):'' ,text:''});save('arcs',a);render();},
 'arc-page-del':function(el){var a=byId('arcs',el.dataset.id);if(!a||!a.pages)return;a.pages.splice(+el.dataset.i,1);save('arcs',a);render();},
