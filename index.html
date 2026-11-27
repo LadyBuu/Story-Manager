@@ -4266,6 +4266,7 @@ clear:function(el){
 },
 'x-open':function(){var s={};XF.forEach(function(f){s[f[0]]={}});S.modal={type:'xport',sel:s,name:'',mark:false,err:''};renderModal()},
 'x-go':function(){runXport()},
+'x-pdf':function(){runPdfXport()},
 'read-chron':function(){var pr=proj();if(!pr)return;pr.readChron=!pr.readChron;save('projects',pr);rdRefresh()},
 'chap-sort':function(){var pr=proj();if(!pr)return;pr.chapSort=pr.chapSort==='file'?'date':'file';save('projects',pr);render()},
 'read-canon':function(){var pr=proj();if(!pr)return;pr.readCanon=!pr.readCanon;save('projects',pr);rdRefresh()},
@@ -5001,7 +5002,7 @@ function xportModal(){
     '<label class="chk"><input type="checkbox" data-change="x-mark"'+(m.mark?' checked':'')+'><span><b>Mark the originals as extracted</b><small>Adds the new file to this project and flags the chapters in their files so you know what is safe to delete. Leave off to just copy.</small></span></label>'+
     (need.length&&!EXT.auto(need[0])?'<p class="hint">I need these Word files to read the text: '+need.map(function(d){return esc((d.file&&d.file.name)||d.title)}).join(', ')+'.</p><p><button class="btn" data-act="read-pick">Pick the Word files</button></p>':'')+
     (m.err?'<p class="hint" style="color:var(--danger,#e66)">'+esc(m.err)+'</p>':'')+
-    '<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn primary" data-act="x-go"'+(items.length?'':' disabled')+'>Build the file</button></div>';
+    '<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn" data-act="x-pdf"'+(items.length?'':' disabled')+'>Print / Save as PDF</button><button class="btn primary" data-act="x-go"'+(items.length?'':' disabled')+'>Build the Word file</button></div>';
 }
 async function runXport(){
   var m=S.modal, nm=$('#xName');if(nm)m.name=nm.value;
@@ -5054,6 +5055,31 @@ async function runXport(){
     if(err&&err.code==='declined')toast('Nothing was exported.');
     else toast('Export failed'+(err&&err.message?': '+err.message:'')+'.');
   }
+}
+
+
+async function runPdfXport(){
+  var pop=window.open('','_blank');
+  if(!pop){toast('Allow pop-ups for this site to create the PDF.');return}
+  var m=S.modal,nm=$('#xName');if(nm)m.name=nm.value;
+  var items=xSort(xItems().filter(function(it){return xPass(it,m.sel)}));if(!items.length){pop.close();return}
+  var docs=[],seen={};items.forEach(function(it){if(!it.arcPage&&!seen[it.d.id]){seen[it.d.id]=1;docs.push(it.d)}});
+  var miss=docs.filter(function(d){return !xReady(d)});
+  if(miss.length){pop.close();m.err='Pick the Word files first.';renderModal();return}
+  var paras={};
+  try{
+    pop.document.open();pop.document.write('<!doctype html><title>Preparing PDF</title><p style="font:16px sans-serif;padding:2rem">Preparing your combined document…</p>');pop.document.close();
+    for(var i=0;i<docs.length;i++){S.modal={type:'busy',msg:'Preparing PDF: reading file '+(i+1)+' of '+docs.length+'.'};renderModal();var ps=await rdParas(docs[i],true);if(!ps)throw new Error('No text for '+docs[i].title);paras[docs[i].id]=ps}
+    var out=[];
+    items.forEach(function(it){
+      if(it.arcPage){var ap=it.arcPage;if(ap.kind==='title'){if(out.length)out.push({pb:true});out.push({lv:1,align:'center',text:ap.title||ap.arcName||''})}else{if(ap.title)out.push({lv:2,text:ap.title});(ap.text||'').split(/\\n+/).forEach(function(t){if(t.trim())out.push({lv:0,text:t})})}return}
+      var seg=rdSlice(it.d,it.h,paras[it.d.id]);if(!seg)return;seg.forEach(function(x){if(x.lv>0||x.text.trim())out.push({lv:x.lv,text:x.text})})
+    });
+    if(!out.length)throw new Error('Nothing was found in those files');
+    var body=out.map(function(x){if(x.pb)return '<div class="pagebreak"></div>';var t=esc(x.text||'');if(x.lv>0)return '<h'+Math.min(4,x.lv)+'>'+t+'</h'+Math.min(4,x.lv)+'>';return '<p>'+t+'</p>'}).join('');
+    var title=esc((m.name||'Story export').replace(/\\.docx$/i,''));
+    pop.document.open();pop.document.write('<!doctype html><html><head><meta charset="utf-8"><title>'+title+'</title><style>@page{size:auto;margin:22mm 20mm}body{font:11pt/1.55 Cambria,Georgia,serif;color:#111;max-width:760px;margin:0 auto}h1,h2,h3,h4{font-family:Cambria,Georgia,serif;line-height:1.2;break-after:avoid;margin:1.5em 0 .6em}h1{text-align:center;font-size:25pt;margin-top:35vh}p{margin:0 0 .8em;white-space:pre-wrap}.pagebreak{break-before:page;page-break-before:always}@media screen{body{padding:32px}.pagebreak{border-top:1px dashed #aaa;margin:32px 0}}</style></head><body>'+body+'</body></html>');pop.document.close();closeModal();pop.focus();setTimeout(function(){try{pop.print()}catch(e){}},500);
+  }catch(e){try{pop.close()}catch(ignore){}closeModal();toast('PDF preparation failed'+(e&&e.message?': '+e.message:'')+'.')}
 }
 
 
