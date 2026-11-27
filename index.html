@@ -2723,6 +2723,10 @@ function arcCard(a){
     }).join('')+'</div>';
   }).join(''):'<p class="hint">No chapters in this arc yet. Set the arc on a chapter, in Documents, Chapters or here.</p>')+'</div>';
   if(bare.length)h+='<div class="sec"><h3>Files without chapters</h3><div class="links">'+bare.map(function(d){return linkRow('documents','',d.id,rp[d.id],d.title,d.status)}).join('')+'</div></div>';
+  var pages=a.pages||[];
+  h+='<div class="sec"><h3>Arc pages</h3><p class="hint">Add front matter or passage pages and arrange them before or after chapters. These are stored with the arc.</p><div class="actions" style="justify-content:flex-start"><button class="btn sm" data-act="arc-page-add" data-id="'+a.id+'" data-kind="title">Add title page</button><button class="btn sm" data-act="arc-page-add" data-id="'+a.id+'" data-kind="passage">Add passage page</button></div>';
+  h+=pages.length?pages.map(function(p,i){return '<div class="sec"><div class="arcdoc-h"><b>'+(i+1)+'. '+(p.kind==='title'?'Title page':'Passage page')+'</b><span><button class="btn sm" data-act="arc-page-move" data-id="'+a.id+'" data-i="'+i+'" data-d="-1"'+(i===0?' disabled':'')+'>↑</button> <button class="btn sm" data-act="arc-page-move" data-id="'+a.id+'" data-i="'+i+'" data-d="1"'+(i===pages.length-1?' disabled':'')+'>↓</button> <button class="btn sm" data-act="arc-page-del" data-id="'+a.id+'" data-i="'+i+'">Remove</button></span></div><label class="lab">'+(p.kind==='title'?'Title':'Heading (optional)')+'</label><input class="in" data-arcpage="'+a.id+':'+i+':title" value="'+esc(p.title||'')+'" placeholder="'+(p.kind==='title'?'Arc title':'Passage heading')+'">'+(p.kind==='passage'?'<label class="lab">Passage</label><textarea class="in" rows="5" data-arcpage="'+a.id+':'+i+':text" placeholder="Write passage text">'+esc(p.text||'')+'</textarea>':'')+'</div>'}).join(''):'<p class="hint">No custom pages yet.</p>';
+  h+='</div>';
   return h;
 }
 
@@ -4493,6 +4497,10 @@ routes:function(){S.modal={type:'routes',edit:null};renderModal()},
   pushUndo('Deleted route',u);closeModal();render();toast('Route deleted',true);
 },
 path:function(){S.modal={type:'path',aux:false};renderModal()}
+
+'arc-page-add':function(el){var a=byId('arcs',el.dataset.id);if(!a)return;var pages=a.pages||(a.pages=[]);pages.push({id:uid(),kind:el.dataset.kind,title:el.dataset.kind==='title'?(a.name||'Arc'):'' ,text:''});save('arcs',a);render();},
+'arc-page-del':function(el){var a=byId('arcs',el.dataset.id);if(!a||!a.pages)return;a.pages.splice(+el.dataset.i,1);save('arcs',a);render();},
+'arc-page-move':function(el){var a=byId('arcs',el.dataset.id);if(!a||!a.pages)return;var i=+el.dataset.i,j=i+(+el.dataset.d);if(j<0||j>=a.pages.length)return;var p=a.pages.splice(i,1)[0];a.pages.splice(j,0,p);save('arcs',a);render();},
 };
 function selectLink(d){
   toast('Copy failed. Select the link field and copy it by hand.');
@@ -4584,6 +4592,7 @@ function setPath(o,path,val){
 }
 document.addEventListener('input',function(e){
   var t=e.target, d=t.dataset||{};
+  if(d.arcpage){var ap=d.arcpage.split(':'),aa=byId('arcs',ap[0]),pp=aa&&aa.pages&&aa.pages[+ap[1]];if(pp){pp[ap[2]]=t.value;save('arcs',aa);return}}
   if(d.note){
     var np=d.note.split(':'), nd=byId('documents',np[0]);if(!nd)return;
     var nn=(nd.notes||[]).find(function(x){return x.id===np[1]});if(!nn)return;
