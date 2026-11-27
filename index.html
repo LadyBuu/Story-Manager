@@ -4994,7 +4994,7 @@ function xPass(it,sel){
   });
 }
 function xSort(items){
-  var all=rdItemsBase(),idx={};all.forEach(function(x,i){idx[rdKey(x)]=i});
+  var all=rdItems(),idx={};all.forEach(function(x,i){idx[rdKey(x)]=i});
   return items.slice().sort(function(a,b){var ai=idx[rdKey(a)],bi=idx[rdKey(b)];if(ai!=null&&bi!=null)return ai-bi;return ((a.d.order||0)-(b.d.order||0))||(a.d.id<b.d.id?-1:a.d.id>b.d.id?1:0)||((a.d.headings||[]).indexOf(a.h)-(b.d.headings||[]).indexOf(b.h))});
 }
 function xReady(d){return EXT.auto(d)||!!RDF[d.id]||!!(d.file&&d.file.gh&&ghTok(d.pid))}
