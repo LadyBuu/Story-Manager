@@ -5019,7 +5019,7 @@ async function runXport(){
     }
     var out=[];
     items.forEach(function(it){
-      if(it.arcPage){var ap=it.arcPage;if(ap.kind==='title')out.push({lv:1,text:ap.title||ap.arcName||''});else {if(ap.title)out.push({lv:2,text:ap.title});(ap.text||'').split(/\n+/).forEach(function(t){if(t.trim())out.push({lv:0,text:t})})}return;}
+      if(it.arcPage){var ap=it.arcPage;if(ap.kind==='title'){if(out.length)out.push({pb:true});out.push({lv:1,text:ap.title||ap.arcName||''})}else {if(ap.title)out.push({lv:2,text:ap.title});(ap.text||'').split(/\n+/).forEach(function(t){if(t.trim())out.push({lv:0,text:t})})}return;}
       var seg=rdSlice(it.d,it.h,paras[it.d.id]);
       if(!seg){lost.push(it.h?it.h.title:it.d.title);return}
       seg.forEach(function(x){if(x.lv>0||x.text.trim())out.push({lv:x.lv,text:x.text})});
