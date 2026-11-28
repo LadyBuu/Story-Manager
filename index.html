@@ -4969,32 +4969,51 @@ function rdClose(){RD.open=false;RD.tok++;renderReader()}
 function rdStep(v){var items=rdItems(),i=rdPos(items)+v;if(i<0||i>=items.length)return;RD.key=rdKey(items[i]);renderReader()}
 
 
+function arcSourceChapter(d,h){
+  if(!d||!h)return null;
+  var docs=P('documents'),found=null;
+  docs.some(function(src){
+    if(src.id===d.id)return false;
+    var hs=src.headings||[];
+    return hs.some(function(sh){
+      if(sh.moved&&sh.moved.to===d.id&&sh.level===h.level&&ftitle(sh).toLowerCase()===ftitle(h).toLowerCase()){found={d:src,h:sh};return true}
+      return false;
+    });
+  });
+  return found;
+}
 async function arcExportMarkdownRun(id){
   var a=byId('arcs',id),pr=proj(),g=pr&&pr.gh;
   if(!a)return;
   if(!g||!g.repo||!ghTok()){toast('Connect this story to GitHub first.');ghOpenSetup();return}
   var all=rdAttachPages((function(){var o=[];sortBy(P('documents').filter(function(d){return !isTrashed(d)}),'order').forEach(function(d){chapters(d).forEach(function(h){if(chapArc(d,h)===id)o.push({d:d,h:h})})});return o})()).filter(function(x){return x.arcPage?x.d.arcId===id:!!(x.h&&chapArc(x.d,x.h)===id)});
   if(!all.length){toast('This arc has no chapters or pages to export.');return}
-  var m=S.modal,name=cleanName((document.getElementById('arcExpName')||{}).value||m.name||a.name||'Arc'),mark=!!((document.getElementById('arcExpMark')||{}).checked),docs=[],seen={};all.forEach(function(x){if(!x.arcPage&&!seen[x.d.id]){seen[x.d.id]=1;docs.push(x.d)}});
-  var missing=docs.filter(function(d){return !xReady(d)});if(missing.length){toast('Connect the Word files first: '+missing.slice(0,3).map(function(d){return d.title}).join(', ')+(missing.length>3?'…':'')+'.');return}
+  var docs=[],seen={},sources={};all.forEach(function(x){if(!x.arcPage&&!seen[x.d.id]){seen[x.d.id]=1;docs.push(x.d);sources[x.d.id]=arcSourceChapter(x.d,x.h)}});
+  var missing=docs.filter(function(d){return !xReady(d)&&!(sources[d.id]&&xReady(sources[d.id].d))});
+  if(missing.length){toast('Cannot read the source text for: '+missing.slice(0,3).map(function(d){return d.title}).join(', ')+(missing.length>3?'…':'')+'. Open Read and pick the original Word file.');return}
   S.modal={type:'busy',msg:'Preparing Markdown.'};renderModal();
   try{
     var cache={},lines=['# '+(a.name||'Arc'),''];
-    for(var i=0;i<docs.length;i++){S.modal={type:'busy',msg:'Reading file '+(i+1)+' of '+docs.length+'.'};renderModal();var pp=await rdParas(docs[i],true);if(!pp)throw new Error('No text for '+docs[i].title);cache[docs[i].id]=pp}
+    for(var i=0;i<docs.length;i++){
+      var d=docs[i],src=sources[d.id]&&sources[d.id].d,readDoc=xReady(d)?d:src;
+      S.modal={type:'busy',msg:'Reading file '+(i+1)+' of '+docs.length+'.'};renderModal();
+      var pp=cache[readDoc.id]||await rdParas(readDoc,true);if(!pp)throw new Error('No text for '+readDoc.title);cache[readDoc.id]=pp;
+    }
     for(var j=0;j<all.length;j++){
       var x=all[j];if(j)lines.push('','---','');
       if(x.arcPage){
         var p=x.arcPage;
         if(p.kind==='title'){lines.push('## '+(p.title||a.name||'Arc'),'');}
         else if(p.kind==='image'){if(p.title)lines.push('## '+p.title,'');lines.push('> Illustration: '+(p.image&&p.image.name||'image not selected'),'');}
-        else{if(p.title)lines.push('## '+p.title,'');(p.text||'').split(/\n+/).forEach(function(t){if(t.trim())lines.push(t,'')})}
+        else{if(p.title)lines.push('## '+p.title,'');(p.text||'').split(/\\n+/).forEach(function(t){if(t.trim())lines.push(t,'')})}
       }else{
-        var seg=x.h?rdSlice(x.d,x.h,cache[x.d.id]):cache[x.d.id];if(!seg)throw new Error('Could not find chapter '+x.h.title+' in '+x.d.title);
+        var src=sources[x.d.id],rd=src&&!xReady(x.d)?src:{d:x.d,h:x.h},seg=rdSlice(rd.d,rd.h,cache[rd.d.id]);
+        if(!seg)throw new Error('Could not find chapter '+x.h.title+' in '+rd.d.title);
         seg.forEach(function(p){var lv=Math.max(0,Math.min(6,p.lv||0));lines.push(lv?'#'.repeat(lv+1)+' '+p.text:p.text,'')});
       }
     }
     var slug=cleanName(a.name||'Arc').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'arc';
-    var path='arcs/'+slug+'.md',content=lines.join('\n').replace(/\n{3,}/g,'\n\n').trim()+'\n';
+    var path='arcs/'+slug+'.md',content=lines.join('\\n').replace(/\\n{3,}/g,'\\n\\n').trim()+'\\n';
     await ghCommit([{path:path,content:content}],'Export arc: '+(a.name||'Arc'));
     closeModal();toast('Arc Markdown saved to GitHub: '+path+'.');
   }catch(e){closeModal();toast('Markdown export failed: '+ghErr(e,g.repo))}
