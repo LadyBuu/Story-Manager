@@ -813,14 +813,16 @@ async function mdRun(){
 }
 async function mdSave(sel,lay,wd){
   var p=proj(),g=p&&p.gh;
-  var docs=[],seen={};sel.forEach(function(x){if(!seen[x.d.id]){seen[x.d.id]=1;docs.push(x.d)}});
-  var bad=docs.filter(function(d){return !xReady(d)});
-  if(bad.length){closeModal();toast('Connect these Word files first (Read, then Pick the Word files): '+bad.slice(0,3).map(function(d){return d.title}).join(', ')+(bad.length>3?'…':'')+'.');return}
+  var docs=[],seen={},resolved={};sel.forEach(function(x){if(!seen[x.d.id]){seen[x.d.id]=1;docs.push(x.d)}});
+  docs.forEach(function(d){sel.filter(function(x){return x.d.id===d.id}).forEach(function(x){resolved[x.h&&x.h.id]=x.h?(!xReady(d)?arcSourceChapter(d,x.h):null):null})});
+  var readDocs=[],readSeen={};docs.forEach(function(d){var src=sel.filter(function(x){return x.d.id===d.id}).map(function(x){return x.h&&resolved[x.h.id]&&resolved[x.h.id].d}).filter(Boolean)[0],rd=xReady(d)?d:src;if(rd&&!readSeen[rd.id]){readSeen[rd.id]=1;readDocs.push(rd)}});
+  var bad=docs.filter(function(d){return !xReady(d)&&!sel.some(function(x){return x.d.id===d.id&&x.h&&resolved[x.h.id]&&xReady(resolved[x.h.id].d)})});
+  if(bad.length){closeModal();toast('Cannot read the source text for: '+bad.slice(0,3).map(function(d){return d.title}).join(', ')+(bad.length>3?'…':'')+'. Open Read and pick the original Word file.');return}
   try{
     var cache={};
-    for(var i=0;i<docs.length;i++){S.modal={type:'busy',msg:'Reading file '+(i+1)+' of '+docs.length+'.'};renderModal();var pa=await rdParas(docs[i],false);if(!pa)throw new Error('No text for '+docs[i].title);cache[docs[i].id]=pa}
+    for(var i=0;i<readDocs.length;i++){S.modal={type:'busy',msg:'Reading file '+(i+1)+' of '+readDocs.length+'.'};renderModal();var pa=await rdParas(readDocs[i],false);if(!pa)throw new Error('No text for '+readDocs[i].title);cache[readDocs[i].id]=pa}
     function chapMd(x){
-      var seg=x.h?rdSlice(x.d,x.h,cache[x.d.id]):cache[x.d.id].slice();if(!seg)return null;
+      var src=x.h&&resolved[x.h.id],rd=src&&!xReady(x.d)?src:{d:x.d,h:x.h},seg=x.h?rdSlice(rd.d,rd.h,cache[rd.d.id]):cache[rd.d.id].slice();if(!seg)return null;
       seg=seg.slice();var base=x.h?x.h.level:1,lines=[],first=true;
       seg.forEach(function(q){
         if(wd&&x.k!=null&&isDateP(q))return;
