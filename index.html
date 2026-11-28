@@ -3978,7 +3978,7 @@ clear:function(el){
 'sw-go':function(){swRun()},
 'sw-pick':function(el){S.refreshId=el.dataset.id;$('#fileRead').click()},
 'ix-clear':function(){var s=ixSt();s.from='';s.to='';s.arc='';s.route='';render()},
-'ix-all':function(el){var s=ixSt(),on=el.dataset.v==='1';ixShown(ixItems(),ixBounds()).forEach(function(x){if(on)s.on[x.key]=1;else delete s.on[x.key]});render()},
+'ix-all':function(el){var s=ixSt(),on=el.dataset.v==='1',items=s.sort==='read'?rdItemsBase().map(function(x){return {d:x.d,h:x.h,k:x.h?itemKey(x.h):itemKey(x.d),key:rdKey(x)}}):ixItems();ixShown(items,ixBounds()).forEach(function(x){if(on)s.on[x.key]=1;else delete s.on[x.key]});render()},
 'ix-open':function(el){S.view='documents';S.sel=el.dataset.id;render()},
 'ix-sel':function(el){S.sel=el.dataset.id;render();var dt=$('#detail');if(dt)dt.scrollTop=0},
 'ix-sort':function(el){ixSt().sort=el.dataset.v;render()},
