@@ -818,7 +818,7 @@ async function mdSave(sel,lay,wd){
   if(bad.length){closeModal();toast('Connect these Word files first (Read, then Pick the Word files): '+bad.slice(0,3).map(function(d){return d.title}).join(', ')+(bad.length>3?'…':'')+'.');return}
   try{
     var cache={};
-    for(var i=0;i<docs.length;i++){S.modal={type:'busy',msg:'Reading file '+(i+1)+' of '+docs.length+'.'};renderModal();var pa=await rdParas(docs[i],true);if(!pa)throw new Error('No text for '+docs[i].title);cache[docs[i].id]=pa}
+    for(var i=0;i<docs.length;i++){S.modal={type:'busy',msg:'Reading file '+(i+1)+' of '+docs.length+'.'};renderModal();var pa=await rdParas(docs[i],false);if(!pa)throw new Error('No text for '+docs[i].title);cache[docs[i].id]=pa}
     function chapMd(x){
       var seg=x.h?rdSlice(x.d,x.h,cache[x.d.id]):cache[x.d.id].slice();if(!seg)return null;
       seg=seg.slice();var base=x.h?x.h.level:1,lines=[],first=true;
@@ -5069,7 +5069,7 @@ function xSort(items){
   var all=rdItems(),idx={};all.forEach(function(x,i){idx[rdKey(x)]=i});
   return items.slice().sort(function(a,b){var ai=idx[rdKey(a)],bi=idx[rdKey(b)];if(ai!=null&&bi!=null)return ai-bi;return ((a.d.order||0)-(b.d.order||0))||(a.d.id<b.d.id?-1:a.d.id>b.d.id?1:0)||((a.d.headings||[]).indexOf(a.h)-(b.d.headings||[]).indexOf(b.h))});
 }
-function xReady(d){return EXT.auto(d)||!!RDF[d.id]||!!(d.file&&d.file.gh&&ghTok(d.pid))}
+function xReady(d){return EXT.auto(d)||!!RDF[d.id]||!!RDP[d.id]||!!(d.file&&d.file.gh&&ghTok(d.pid))}
 function xportModal(){
   var m=S.modal, all=xItems(), sel=m.sel, items=xSort(all.filter(function(it){return xPass(it,sel)}));
   var words=items.reduce(function(s,it){return s+it.words},0), docs={};items.forEach(function(it){if(!it.arcPage)docs[it.d.id]=it.d});
