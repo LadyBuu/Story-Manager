@@ -643,7 +643,7 @@ function ixFilters(s){
   return '<select class="in" data-change="ix-flt" data-k="arc" aria-label="Only this arc"><option value="">All arcs</option>'+arcs.map(function(t){return '<option value="'+t.a.id+'"'+(s.arc===t.a.id?' selected':'')+'>'+esc(arcPath(t.a))+'</option>'}).join('')+'</select>'+
     (rl.length>1?'<select class="in" data-change="ix-flt" data-k="route" aria-label="Only this route"><option value="">All routes</option>'+rl.map(function(x){return '<option value="'+x.r.id+'"'+(s.route===x.r.id?' selected':'')+'>'+esc(x.r.name||'Route')+'</option>'}).join('')+'</select>':'');
 }
-function ixSelected(){var on=ixSt().on;return ixShown(ixItems(),ixBounds()).filter(function(x){return !!on[x.key]})}
+function ixSelected(){var on=ixSt().on,mode=ixSt().sort==='read'?'read':'date',items=mode==='read'?rdItemsBase().map(function(x){return {d:x.d,h:x.h,k:x.h?itemKey(x.h):itemKey(x.d),key:rdKey(x)}}):ixItems();return ixShown(items,ixBounds()).filter(function(x){return !!on[x.key]})}
 function ixView(){
   var s=ixSt(), mode=s.sort==='read'?'read':'date', b=ixBounds();
   var all=mode==='read'?rdItemsBase().map(function(x){return {d:x.d,h:x.h,k:x.h?itemKey(x.h):(itemKey(x.d)),key:rdKey(x)}}):ixItems();
